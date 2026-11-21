@@ -1,6 +1,5 @@
 import { getApiContext } from "@/lib/session";
 import { db } from "@/lib/db";
-import { isDemoUser } from "@/lib/demo";
 
 /**
  * Member chrome data: name, plan and unread count. The app shell fetches this
@@ -17,7 +16,6 @@ export async function GET() {
       user: { name: ctx.user.name, email: ctx.user.email, role: ctx.user.role ?? "user" },
       tier: ctx.entitlements.tier,
       unread,
-      demo: isDemoUser(ctx.user),
     },
     { headers },
   );

@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { getApiContext } from "@/lib/session";
-import { DEMO_READ_ONLY_MESSAGE, isDemoUser } from "@/lib/demo";
 import { rateLimit } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
 import { streamAnalyst, saveTurn, countQueriesToday, type AnalystEvent } from "@/lib/ai/analyst";
@@ -24,7 +23,6 @@ const Body = z.object({
 export async function POST(req: Request) {
   const ctx = await getApiContext();
   if (!ctx) return apiError("Sign in required.", 401);
-  if (isDemoUser(ctx.user)) return apiError(DEMO_READ_ONLY_MESSAGE, 403, { demo: true });
   const rl = rateLimit(`ai.chat:${ctx.user.id}`, 10, 60_000);
   if (!rl.ok) return apiError("You are sending messages too quickly. Please wait a moment.", 429);
   const parsed = Body.safeParse(await req.json().catch(() => null));

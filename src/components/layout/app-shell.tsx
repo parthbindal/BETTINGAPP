@@ -4,7 +4,7 @@ import { Suspense, useState, type ReactNode } from "react";
 import { Menu, Search } from "lucide-react";
 import { Logo } from "@/components/marketing/logo";
 import { SidebarNav, SidebarNavFallback, PageTitle } from "./sidebar-nav";
-import { AccountFooter, AccountProvider, DemoBanner, MobileAccount, NotificationsBell } from "./account-chrome";
+import { AccountFooter, AccountProvider, MobileAccount, NotificationsBell } from "./account-chrome";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { LinkButton } from "@/components/ui/link-button";
@@ -74,7 +74,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               <MobileAccount />
             </div>
           </header>
-          <DemoBanner />
           <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
           <footer className="mx-auto w-full max-w-7xl px-4 pb-6 sm:px-6 lg:px-8">
             <Disclaimer />

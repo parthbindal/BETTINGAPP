@@ -15,7 +15,6 @@ export interface Me {
   user?: { name: string; email: string; role: string };
   tier?: Tier;
   unread?: number;
-  demo?: boolean;
 }
 
 const AccountContext = createContext<Me | null>(null);
@@ -101,20 +100,4 @@ export function MobileAccount() {
   const me = useAccount();
   if (!me?.signedIn || !me.user) return null;
   return <UserMenu name={me.user.name} email={me.user.email} tier={me.tier ?? "free"} compact />;
-}
-
-/** Shown on every app page while the visitor is in the shared read-only demo. */
-export function DemoBanner() {
-  const me = useAccount();
-  if (!me?.demo) return null;
-  return (
-    <div role="status" className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-primary/25 bg-primary/10 px-4 py-2 text-center text-xs sm:text-sm">
-      <span>
-        <strong className="font-semibold">Public demo</strong>, read-only. You are viewing every Pro page with live public market data; saving, following and AI chat are turned off.
-      </span>
-      <Link href="/sign-up" className="font-medium text-primary underline-offset-4 hover:underline">
-        Create a free account
-      </Link>
-    </div>
-  );
 }

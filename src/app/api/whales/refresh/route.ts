@@ -1,5 +1,4 @@
 import { getApiContext } from "@/lib/session";
-import { DEMO_READ_ONLY_MESSAGE, isDemoUser } from "@/lib/demo";
 import { rateLimit } from "@/lib/rate-limit";
 import { apiError, json } from "@/lib/api";
 import { syncWhaleWatch, getWhaleWatch } from "@/lib/whales";
@@ -12,7 +11,6 @@ export const maxDuration = 300;
 export async function POST() {
   const ctx = await getApiContext();
   if (!ctx) return apiError("Sign in required.", 401);
-  if (isDemoUser(ctx.user)) return apiError(DEMO_READ_ONLY_MESSAGE, 403, { demo: true });
   if (!ctx.entitlements.limits.scanner) return apiError("Whale Watch is a Pro feature.", 402, { upgrade: true });
   // At most a few manual refreshes per minute per user; concurrent syncs coalesce server-side anyway.
   if (!rateLimit(`whales.refresh:${ctx.user.id}`, 3, 60_000).ok) return apiError("A refresh was just run. Please wait a moment.", 429);
