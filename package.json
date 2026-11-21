@@ -20,7 +20,8 @@
     "sync:markets": "tsx scripts/sync-markets.ts",
     "sync:sports": "tsx scripts/sync-sports.ts",
     "test": "tsx --test tests/*.test.ts",
-    "stripe:setup": "tsx scripts/setup-stripe.ts"
+    "stripe:setup": "tsx scripts/setup-stripe.ts",
+    "sync:whales": "tsx scripts/sync-whales.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",
