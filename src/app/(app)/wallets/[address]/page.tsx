@@ -63,7 +63,7 @@ export default async function WalletPage({ params }: { params: Promise<{ address
   return (
     <div className="space-y-6">
       <div className="text-xs text-muted-foreground">
-        <Link href="/wallets" className="hover:text-foreground">Wallet Explorer</Link> / <span className="text-foreground/80">{name}</span>
+        <Link href="/wallets" className="hover:text-foreground">Wallet Lookup</Link> / <span className="text-foreground/80">{name}</span>
       </div>
 
       <section className="card-surface relative overflow-hidden p-5 sm:p-6">
@@ -120,7 +120,7 @@ export default async function WalletPage({ params }: { params: Promise<{ address
               {categories.length ? <RankedBars data={categories} valueLabel="Open value" valueFormat="compact" /> : <EmptyState title="No open positions" description="This wallet holds no positions of $100 or more right now." />}
             </Section>
             <Section title="Trading activity" description={limitHit ? `Dollar volume per day (UTC), latest ${WALLET_TRADES_LIMIT} trades` : "Dollar volume per day (UTC), recent trades"} className="lg:col-span-3">
-              <ActivityChart data={flow} height={220} emptyText="No recent trades." />
+              <ActivityChart data={flow} height={220} emptyText="No recent trades." ranges={[7, 30, 90]} />
               <p className="mt-2 text-[11px] text-muted-foreground">Polymarket&apos;s public API does not publish a wallet&apos;s profit-and-loss history, so EDGEWISE shows the open book and recent trades rather than a P&amp;L curve.</p>
             </Section>
           </div>

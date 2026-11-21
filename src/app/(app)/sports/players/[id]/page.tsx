@@ -4,8 +4,9 @@ import { requireUser, getEntitlements } from "@/lib/session";
 import { analyzePlayerProjection, getPlayerProfile, statLabel } from "@/lib/data/sports";
 import { PageHeader, Section } from "@/components/shared/page-header";
 import { DataBadge } from "@/components/shared/data-badge";
-import { ConfidenceBadge, DemoTag, UpgradeGate } from "@/components/shared/badges";
+import { ConfidenceBadge, UpgradeGate } from "@/components/shared/badges";
 import { DistributionChart } from "@/components/charts/distribution-chart";
+import { ConfidenceInterval } from "@/components/charts/confidence-interval";
 import { Sparkline } from "@/components/charts/sparkline";
 import { WatchButton } from "@/components/shared/watch-button";
 import { PredictionDialog } from "@/components/shared/prediction-dialog";
@@ -31,7 +32,9 @@ export default async function PlayerPage({ params, searchParams }: { params: Pro
   const watched = await db.watchlistItem.findUnique({ where: { userId_kind_refId: { userId: session.user.id, kind: "player", refId: id } } });
   trackUsage("sports.player", session.user.id, { playerId: id, stat });
   const a = result?.analysis;
-  const series = [...logs].reverse().map((l) => l.stats[stat] ?? 0);
+  const chrono = [...logs].reverse();
+  const series = chrono.map((l) => l.stats[stat] ?? 0);
+  const gameLabels = chrono.map((l) => `${dateShort(l.date)} ${l.isHome ? "vs" : "@"} ${l.opponent.abbreviation}`);
   const statusColor: Record<string, string> = { healthy: "text-status-good", questionable: "text-status-warning", doubtful: "text-status-serious", out: "text-status-critical" };
   const linkFor = (patch: Record<string, string>) => `/sports/players/${id}?${new URLSearchParams({ stat, line: String(line), window: String(window), ...patch }).toString()}`;
 
@@ -39,7 +42,7 @@ export default async function PlayerPage({ params, searchParams }: { params: Pro
     <div className="space-y-5">
       <div className="text-xs text-muted-foreground"><Link href="/sports" className="hover:text-foreground">Sports</Link> / <Link href={`/sports/${player.sport}`} className="hover:text-foreground capitalize">{player.sport}</Link> / {player.name}</div>
       <PageHeader
-        title={<span className="flex items-center gap-2">{player.name} {player.isDemo && <DemoTag />}</span>}
+        title={<span className="flex items-center gap-2">{player.name}</span>}
         description={<span className="flex flex-wrap items-center gap-2"><span>{player.team.name} · {player.position}{player.jersey ? ` · #${player.jersey}` : ""}</span><span className={cn("capitalize", statusColor[player.injuryStatus ?? ""] ?? "")}>● {player.injuryStatus ?? "unknown"}</span>{player.injuryNote && <span className="text-xs">({player.injuryNote})</span>}<DataBadge provenance={profile.provenance} /></span>}
         actions={
           <>
@@ -55,13 +58,13 @@ export default async function PlayerPage({ params, searchParams }: { params: Pro
           <table className="w-full text-sm">
             <thead><tr className="text-left text-[11px] uppercase tracking-wide text-muted-foreground"><th className="py-1 font-medium">Stat</th><th className="tabular py-1 text-right font-medium">Season</th><th className="tabular py-1 text-right font-medium">Last 5</th><th className="py-1 pl-3 font-medium">Trend</th></tr></thead>
             <tbody>
-              <tr className="border-t border-border/50"><td className="py-1.5 text-muted-foreground">Minutes</td><td className="tabular py-1.5 text-right">{num(seasonAverages.minutes)}</td><td className="tabular py-1.5 text-right">{num(last5Averages.minutes)}</td><td className="py-1.5 pl-3"><Sparkline data={[...logs].reverse().map((l) => l.minutes)} height={20} /></td></tr>
+              <tr className="border-t border-border/50"><td className="py-1.5 text-muted-foreground">Minutes</td><td className="tabular py-1.5 text-right">{num(seasonAverages.minutes)}</td><td className="tabular py-1.5 text-right">{num(last5Averages.minutes)}</td><td className="py-1.5 pl-3"><Sparkline data={chrono.map((l) => l.minutes)} height={20} interactive valueLabel="Minutes" valueFormat="decimal" pointLabels={gameLabels} /></td></tr>
               {statKeys.map((k) => (
                 <tr key={k} className={cn("border-t border-border/50", k === stat && "bg-primary/5")}>
                   <td className="py-1.5"><Link href={linkFor({ stat: k, line: String(projections.find((p) => p.stat === k)?.line ?? Math.round((seasonAverages[k] ?? 0) * 2) / 2 + 0.5) })} className={cn("hover:text-primary", k === stat && "font-medium text-primary")}>{statLabel(player.sport, k)}</Link></td>
                   <td className="tabular py-1.5 text-right">{num(seasonAverages[k])}</td>
                   <td className="tabular py-1.5 text-right">{num(last5Averages[k])}</td>
-                  <td className="py-1.5 pl-3"><Sparkline data={[...logs].reverse().map((l) => l.stats[k] ?? 0)} height={20} /></td>
+                  <td className="py-1.5 pl-3"><Sparkline data={chrono.map((l) => l.stats[k] ?? 0)} height={20} interactive valueLabel={statLabel(player.sport, k)} valueFormat="decimal" pointLabels={gameLabels} /></td>
                 </tr>
               ))}
             </tbody>
@@ -84,18 +87,29 @@ export default async function PlayerPage({ params, searchParams }: { params: Pro
               </select>
             </label>
             <button className="h-8 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground">Analyze</button>
-            {projections.length > 0 && <span className="ml-auto text-[11px] text-muted-foreground">Available lines: {projections.map((p) => `${statLabel(player.sport, p.stat)} ${p.line}`).join(" · ")} {projections[0]?.isDemo && <DemoTag className="ml-1" />}</span>}
+            {projections.length > 0 && <span className="ml-auto text-[11px] text-muted-foreground">Available lines: {projections.map((p) => `${statLabel(player.sport, p.stat)} ${p.line}`).join(" · ")}</span>}
           </form>
           {a ? (
             <div className="grid gap-5 md:grid-cols-2">
               <div>
                 <DistributionChart bins={a.distribution} line={line} />
                 <p className="mt-1 text-[11px] text-muted-foreground">Distribution of {statLabel(player.sport, stat)} over {a.sampleSize} games; darker bars are above the line.</p>
-                <table className="mt-3 w-full text-xs">
+                <ConfidenceInterval
+                  className="mt-5"
+                  title={`How often over ${line}`}
+                  subtitle="Share of games above the line, with the range the true rate plausibly sits in."
+                  rows={[
+                    { label: "Last 5", hits: a.windows.last5.overHits, n: a.windows.last5.n },
+                    { label: "Last 10", hits: a.windows.last10.overHits, n: a.windows.last10.n },
+                    { label: `Last ${a.windows.season.n}`, hits: a.windows.season.overHits, n: a.windows.season.n },
+                  ].filter((r, i, all) => all.findIndex((x) => x.n === r.n) === i)}
+                  reference={{ value: a.estimate.probOver, label: "Model" }}
+                />
+                <table className="mt-4 w-full text-xs">
                   <thead><tr className="text-left text-muted-foreground"><th className="py-1 font-medium">Window</th><th className="tabular py-1 text-right font-medium">n</th><th className="tabular py-1 text-right font-medium">Mean</th><th className="tabular py-1 text-right font-medium">Median</th><th className="tabular py-1 text-right font-medium">σ</th><th className="tabular py-1 text-right font-medium">Over</th></tr></thead>
                   <tbody>
                     {(["season", "last10", "last5"] as const).map((k) => (
-                      <tr key={k} className="border-t border-border/40"><td className="py-1 capitalize">{k === "season" ? "Window" : k.replace("last", "Last ")}</td><td className="tabular py-1 text-right">{a.windows[k].n}</td><td className="tabular py-1 text-right">{num(a.windows[k].mean)}</td><td className="tabular py-1 text-right">{num(a.windows[k].median)}</td><td className="tabular py-1 text-right">{num(a.windows[k].stdev)}</td><td className="tabular py-1 text-right">{pct(a.windows[k].overRate, 0)} ({a.windows[k].overHits}/{a.windows[k].n})</td></tr>
+                      <tr key={k} className="border-t border-border/40"><td className="py-1 capitalize">{k === "season" ? `Last ${a.windows.season.n}` : k.replace("last", "Last ")}</td><td className="tabular py-1 text-right">{a.windows[k].n}</td><td className="tabular py-1 text-right">{num(a.windows[k].mean)}</td><td className="tabular py-1 text-right">{num(a.windows[k].median)}</td><td className="tabular py-1 text-right">{num(a.windows[k].stdev)}</td><td className="tabular py-1 text-right">{pct(a.windows[k].overRate, 0)} ({a.windows[k].overHits}/{a.windows[k].n})</td></tr>
                     ))}
                   </tbody>
                 </table>
@@ -103,7 +117,7 @@ export default async function PlayerPage({ params, searchParams }: { params: Pro
               <div className="space-y-3">
                 <div className="rounded-lg bg-surface-2/50 p-3">
                   <div className="text-[11px] text-muted-foreground">Blended estimate</div>
-                  <div className="mt-1 flex items-baseline gap-3"><span className="tabular text-2xl font-semibold">P(over) {pct(a.estimate.probOver, 0)}</span><span className="tabular text-xs text-muted-foreground">interval {pct(a.estimate.interval.low, 0)}–{pct(a.estimate.interval.high, 0)}</span></div>
+                  <div className="mt-1 flex items-baseline gap-3"><span className="tabular text-2xl font-semibold">P(over) {pct(a.estimate.probOver, 0)}</span><span className="tabular text-xs text-muted-foreground">95% range {pct(a.estimate.interval.low, 0)}–{pct(a.estimate.interval.high, 0)} (n={a.sampleSize})</span></div>
                   <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground"><span>Parametric (normal): {pct(a.estimate.parametricProbOver, 0)}</span><span>Empirical (shrunk): {pct(a.estimate.empiricalProbOver, 0)}</span><span>Weighted mean: {num(a.estimate.weightedMean)}</span><span>σ: {num(a.estimate.sd)}</span></div>
                 </div>
                 <UpgradeGate locked={!ent.limits.matchupIntelligence} feature="Splits and matchup context" requiredTier="pro" compact>

@@ -108,9 +108,6 @@ export function LeaderboardTable({ rows }: { rows: LeaderRow[] }) {
               {p.label}
             </button>
           ))}
-          <span title="Polymarket's public API does not publish closed-trade outcomes, so win rate cannot be computed honestly." className="cursor-not-allowed rounded-full border border-dashed border-border px-3 py-1 text-xs text-muted-foreground/60">
-            Best win rate · not published
-          </span>
         </div>
         <label className="relative block w-full sm:w-64">
           <span className="sr-only">Search traders by name or wallet</span>
@@ -136,7 +133,6 @@ export function LeaderboardTable({ rows }: { rows: LeaderRow[] }) {
               <th scope="col" className="px-2 py-2 font-medium uppercase tracking-[0.12em]">Trader</th>
               <SortHeader label="Total profit" k="pnl" sort={sort} dir={dir} onSort={onSort} />
               <SortHeader label="Open ROI" k="openRoi" sort={sort} dir={dir} onSort={onSort} />
-              <th scope="col" className="px-2 py-2 text-right font-medium uppercase tracking-[0.12em]">Win rate</th>
               <SortHeader label="Positions" k="positions" sort={sort} dir={dir} onSort={onSort} />
               <SortHeader label="Avg position" k="avgPosition" sort={sort} dir={dir} onSort={onSort} />
               <SortHeader label="Exposure" k="openValue" sort={sort} dir={dir} onSort={onSort} />
@@ -155,7 +151,6 @@ export function LeaderboardTable({ rows }: { rows: LeaderRow[] }) {
                 <td className={cn("tabular px-2 py-2.5 text-right", r.openRoi === null ? "text-muted-foreground" : r.openRoi < 0 ? "text-chart-2" : "")}>
                   {r.openRoi === null ? "—" : `${r.openRoi >= 0 ? "+" : ""}${pct(r.openRoi, 1)}`}
                 </td>
-                <td className="tabular px-2 py-2.5 text-right text-muted-foreground" aria-label="Not published">—</td>
                 <td className="tabular px-2 py-2.5 text-right">{r.positions}</td>
                 <td className="tabular px-2 py-2.5 text-right">{r.positions ? `$${compact(r.avgPosition)}` : "—"}</td>
                 <td className="tabular px-2 py-2.5 text-right">{r.openValue ? `$${compact(r.openValue)}` : "—"}</td>

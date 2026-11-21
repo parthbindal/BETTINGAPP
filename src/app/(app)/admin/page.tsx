@@ -90,7 +90,7 @@ export default async function AdminOverviewPage() {
             <Status ok label="Kalshi market data" detail="Public API, no key required" />
             <Status ok={m.integrations.ai} label="AI provider" detail={m.integrations.ai ? m.ai.model : "Not configured: rule-based analyst"} />
             <Status ok={m.integrations.stripe} label="Stripe billing" detail={m.integrations.stripe ? (m.integrations.stripeWebhook ? "Configured with webhook" : "Keys set; webhook secret missing") : "Not configured: checkout disabled"} />
-            <Status ok={m.integrations.sportsLive} label="Sports data" detail={m.integrations.sportsLive ? "Provider key set" : "Demo data (fictional)"} />
+            <Status ok={m.integrations.sportsLive} label="Sports data" detail={m.integrations.sportsLive ? "Provider key set" : "Not configured"} />
             <Status ok={m.integrations.email} label="Email delivery" detail={m.integrations.email ? "Resend configured" : "Not configured: emails are logged, not sent"} />
           </ul>
         </Section>

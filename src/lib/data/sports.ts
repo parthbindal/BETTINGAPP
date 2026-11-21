@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
-import { SPORTS, type Sport } from "@/lib/data/providers/sports-demo";
+import { SPORTS, type Sport } from "@/lib/data/sports-catalog";
 import { analyzeProjection, type LogPoint } from "@/lib/analytics/projection";
 import { config } from "@/lib/env";
 import type { Provenance } from "@/lib/data/types";
@@ -177,4 +177,14 @@ export async function getMatchupIntel(gameId: string) {
     }),
   );
   return { game, leagueDef, leaguePace, rosters, provenance: sportsProvenance(game.isDemo, new Date()) };
+}
+
+/** Most recent finished games, newest first. */
+export async function listRecentResults(sport?: Sport, limit = 12) {
+  return db.game.findMany({
+    where: { ...(sport ? { sport } : {}), status: "final", homeScore: { not: null } },
+    orderBy: { startsAt: "desc" },
+    take: limit,
+    include: { homeTeam: true, awayTeam: true },
+  });
 }

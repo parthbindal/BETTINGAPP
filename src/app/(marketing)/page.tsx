@@ -241,7 +241,7 @@ export default function LandingPage() {
               An 8-point gap is a research prompt, not a profit. EDGEWISE shows the spread, the liquidity, the approximate fees, the model&apos;s inputs and its confidence, then helps you ask the right questions. We never label anything a guaranteed opportunity.
             </p>
             <ul className="mt-5 space-y-2 text-sm">
-              {["Market price, implied probability and model estimate kept distinct", "Historical frequency and model confidence shown side by side", "Data freshness labeled: live, delayed, historical, demo, estimate", "Fees, spreads and calibration error accounted for"].map((t) => (
+              {["Market price, implied probability and model estimate kept distinct", "Historical frequency and model confidence shown side by side", "Data freshness labeled: live, delayed, historical, estimate", "Fees, spreads and calibration error accounted for"].map((t) => (
                 <li key={t} className="flex gap-2">
                   <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" /> {t}
                 </li>

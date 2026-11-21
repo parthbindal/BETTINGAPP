@@ -7,33 +7,30 @@ export interface NavItem {
   group: "intelligence" | "research" | "account";
 }
 
-/**
- * Smart-money intelligence first (the product's core), then the research
- * toolkit, then the account. Every existing page keeps a place here.
- */
+/** Consumer core first (plain names), then the analyst tools, then the account. */
 export const NAV_ITEMS: NavItem[] = [
-  { href: "/overview", label: "Overview", icon: LayoutDashboard, group: "intelligence" },
-  { href: "/whales", label: "Smart Money", icon: Waves, group: "intelligence" },
-  { href: "/leaderboard", label: "Leaderboard", icon: Trophy, group: "intelligence" },
-  { href: "/wallets", label: "Wallet Explorer", icon: Wallet, group: "intelligence" },
-  { href: "/consensus", label: "Consensus Trades", icon: GitMerge, group: "intelligence" },
-  { href: "/scanner", label: "Market Scanner", icon: Radar, group: "intelligence" },
-  { href: "/activity", label: "Activity Feed", icon: Activity, group: "intelligence" },
-  { href: "/watchlist", label: "Watchlists", icon: Star, group: "intelligence" },
-  { href: "/markets", label: "Market Intelligence", icon: LineChart, group: "research" },
+  { href: "/overview", label: "Home", icon: LayoutDashboard, group: "intelligence" },
+  { href: "/consensus", label: "Signals", icon: GitMerge, group: "intelligence" },
+  { href: "/activity", label: "Live Trades", icon: Activity, group: "intelligence" },
+  { href: "/leaderboard", label: "Top Traders", icon: Trophy, group: "intelligence" },
+  { href: "/wallets", label: "Wallet Lookup", icon: Wallet, group: "intelligence" },
+  { href: "/markets", label: "Markets", icon: LineChart, group: "intelligence" },
+  { href: "/watchlist", label: "Watchlist", icon: Star, group: "intelligence" },
+  { href: "/whales", label: "Smart Money Deep Dive", icon: Waves, group: "research" },
+  { href: "/scanner", label: "Opportunity Scanner", icon: Radar, group: "research" },
   { href: "/compare", label: "Price Lab", icon: Scale, group: "research" },
   { href: "/analyst", label: "AI Analyst", icon: Bot, group: "research" },
-  { href: "/sports", label: "Sports Analytics", icon: Volleyball, group: "research" },
-  { href: "/research", label: "Research Center", icon: FileText, group: "research" },
-  { href: "/academy", label: "Learning Academy", icon: GraduationCap, group: "research" },
-  { href: "/tracker", label: "Performance Tracker", icon: Target, group: "research" },
+  { href: "/sports", label: "NBA", icon: Volleyball, group: "research" },
+  { href: "/research", label: "Reports", icon: FileText, group: "research" },
+  { href: "/tracker", label: "My Predictions", icon: Target, group: "research" },
+  { href: "/academy", label: "Learn", icon: GraduationCap, group: "research" },
   { href: "/community", label: "Community", icon: Users, group: "research" },
-  { href: "/settings/subscription", label: "Subscription & Settings", icon: Settings, group: "account" },
+  { href: "/settings/subscription", label: "Plan & Settings", icon: Settings, group: "account" },
 ];
 
 export const NAV_GROUPS: Array<{ key: NavItem["group"]; label: string }> = [
-  { key: "intelligence", label: "Intelligence" },
-  { key: "research", label: "Research" },
+  { key: "intelligence", label: "Follow the money" },
+  { key: "research", label: "Tools" },
   { key: "account", label: "Account" },
 ];
 

@@ -14,7 +14,7 @@ You must be at least 18 years old (or the age of majority where you live, if hig
 Nothing on EDGEWISE is investment, financial, legal or tax advice, or a recommendation to buy or sell any contract or place any wager. Probabilities, model estimates and AI outputs are uncertain and may be wrong. Historical performance does not guarantee future results.
 
 ### 4. Data and third parties
-Market data is sourced from third-party providers, including Kalshi's public API, and may be delayed, incomplete or inaccurate. Where no licensed sports data provider is connected, sports data is clearly labeled as fictional demo data. Trademarks belong to their owners; EDGEWISE is not affiliated with Kalshi, PrizePicks, DraftKings, FanDuel or Polymarket.
+Market data is sourced from third-party providers, including Kalshi's public API, and may be delayed, incomplete or inaccurate. Trademarks belong to their owners; EDGEWISE is not affiliated with Kalshi, PrizePicks, DraftKings, FanDuel or Polymarket.
 
 ### 5. Subscriptions
 Paid plans renew monthly until canceled. You may cancel at any time from Settings; access continues through the end of the current period. Fees are non-refundable except where required by law. Prices may change with notice.

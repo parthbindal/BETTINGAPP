@@ -47,7 +47,7 @@ export function MetricCard({
       <div className="mt-1.5 text-xs text-muted-foreground">{hint}</div>
       <div className="mt-3 h-8">
         {spark && spark.length >= 2 ? (
-          <Sparkline data={spark} color="var(--primary)" height={32} />
+          <Sparkline data={spark} color="var(--primary)" height={32} interactive valueLabel={label} valueFormat="compact" />
         ) : (
           <div className="flex h-full items-end text-[11px] text-muted-foreground/70">Trend appears after the next scan</div>
         )}

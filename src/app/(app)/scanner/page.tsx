@@ -6,7 +6,7 @@ import { getCategoryCounts } from "@/lib/data/markets";
 import { ensureMarketsFresh } from "@/lib/data/market-freshness";
 import { SPORTS } from "@/lib/data/sports";
 import { PageHeader, Section, EmptyState } from "@/components/shared/page-header";
-import { ConfidenceBadge, DemoTag, UpgradeGate } from "@/components/shared/badges";
+import { ConfidenceBadge, UpgradeGate } from "@/components/shared/badges";
 import { pct, pts, relative, titleCase } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { trackUsage } from "@/lib/ops";
@@ -47,7 +47,6 @@ export default async function ScannerPage({ searchParams }: { searchParams: Prom
     category: sp.category || undefined,
     signal,
     minConfidence,
-    includeDemo: sp.demo === "1",
     sport: advanced ? sp.sport || undefined : undefined,
     maxDays: advanced && sp.days ? Number(sp.days) || undefined : undefined,
     minDiffPts: advanced && sp.minDiff ? Number(sp.minDiff) || undefined : undefined,
@@ -123,9 +122,6 @@ export default async function ScannerPage({ searchParams }: { searchParams: Prom
             Sport, date and difference filters with Pro →
           </Link>
         )}
-        <label className="flex items-center gap-2 pb-1.5 text-xs text-muted-foreground">
-          <input type="checkbox" name="demo" value="1" defaultChecked={sp.demo === "1"} className="accent-primary" /> Include demo data
-        </label>
         <button className="h-8 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/85">Scan</button>
       </form>
 
@@ -158,7 +154,7 @@ export default async function ScannerPage({ searchParams }: { searchParams: Prom
                       {r.subtitle && <span>{r.subtitle}</span>}
                       <span>{r.category}</span>
                       <span className="rounded-full border border-border px-1.5 py-0.5 text-[10px]">{SIGNAL_LABELS[r.signal]}</span>
-                      {r.isDemo && <DemoTag />}
+                      
                     </div>
                     <details className="mt-2 text-xs">
                       <summary className="cursor-pointer text-primary">Explanation and key risks</summary>
@@ -189,7 +185,7 @@ export default async function ScannerPage({ searchParams }: { searchParams: Prom
           </table>
         </div>
       ) : (
-        <EmptyState icon={<Radar />} title="Nothing notable right now" description="No situations passed your filters. That is the honest result for efficient markets; try lowering the confidence filter or including demo data to see how results look." />
+        <EmptyState icon={<Radar />} title="Nothing notable right now" description="No situations passed your filters. Efficient markets often look like this. Try lowering the confidence filter or widening the categories." />
       )}
       <p className="text-[11px] text-muted-foreground">Estimates are heuristic and can be wrong. Account for fees, spreads, liquidity and model error. Past patterns do not guarantee future results.</p>
     </div>

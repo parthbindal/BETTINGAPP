@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { countReportsThisMonth } from "@/lib/ai/reports";
 import { ensureDailyBrief } from "@/lib/briefs";
 import { PageHeader, Section, EmptyState } from "@/components/shared/page-header";
-import { ConfidenceBadge, DemoTag } from "@/components/shared/badges";
+import { ConfidenceBadge } from "@/components/shared/badges";
 import { relative, pct, pts } from "@/lib/format";
 import { Plus } from "lucide-react";
 import { LinkButton } from "@/components/ui/link-button";
@@ -37,7 +37,7 @@ export default async function ResearchPage() {
             {reports.map((r) => (
               <li key={r.id}>
                 <Link href={`/research/${r.id}`} className="block rounded-lg border border-border/60 p-4 hover:border-primary/40">
-                  <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground"><span className="capitalize">{r.subjectKind} · {r.modelVersion}</span>{r.isDemoData && <DemoTag />}</div>
+                  <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground"><span className="capitalize">{r.subjectKind} · {r.modelVersion}</span></div>
                   <div className="mt-1 line-clamp-2 text-sm font-medium">{r.title}</div>
                   <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground"><ConfidenceBadge level={r.confidence as "low" | "medium" | "high"} /><span>{relative(r.createdAt)}</span></div>
                 </Link>

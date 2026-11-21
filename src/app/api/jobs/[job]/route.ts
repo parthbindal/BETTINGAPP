@@ -7,7 +7,6 @@ import { syncMarkets, refreshHotMarkets } from "@/lib/data/markets";
 import { checkWatchlistAlerts } from "@/lib/watchlist";
 import { runOnboardingSequence, sendDigestEmails } from "@/lib/email";
 import { resolveMarketPredictions, resolveSportsPredictions } from "@/lib/tracker";
-import { finalizeDueDemoGames } from "@/lib/demo-sim";
 import { generateBrief } from "@/lib/briefs";
 import { syncWhaleWatch } from "@/lib/whales";
 
@@ -22,7 +21,6 @@ const JOBS: Record<string, () => Promise<unknown>> = {
   "onboarding-emails": () => runOnboardingSequence(),
   "resolve-predictions": async () => ({
     markets: await resolveMarketPredictions({ maxFetches: 60 }),
-    demoGames: await finalizeDueDemoGames(50),
     sports: await resolveSportsPredictions(),
   }),
   "daily-brief": async () => {

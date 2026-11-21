@@ -163,7 +163,7 @@ export function AnalystChat({ conversationId, initialMessages, conversations, qu
             <Textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }} placeholder="Ask about a market, a player projection, or a concept…" rows={2} className="min-h-[44px] flex-1 resize-none" disabled={streaming} />
             <Button type="submit" disabled={streaming || !input.trim()} aria-label="Send">{streaming ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}</Button>
           </div>
-          <p className="mt-1.5 text-[11px] text-muted-foreground">Educational analysis, not financial advice. The analyst only reports data it retrieved; demo sports data is fictional.</p>
+          <p className="mt-1.5 text-[11px] text-muted-foreground">Educational analysis, not financial advice. The analyst only reports data it retrieved.</p>
         </form>
       </div>
     </div>

@@ -2,7 +2,6 @@ import { db } from "@/lib/db";
 import { brierScore, logLoss, calibrationBins, skillScore } from "@/lib/analytics/stats";
 import * as kalshi from "@/lib/data/providers/kalshi";
 import { withProvider, logError } from "@/lib/ops";
-import { finalizeDueDemoGames } from "@/lib/demo-sim";
 import { awardAchievement } from "@/lib/academy";
 import type { Prediction } from "@/generated/prisma/client";
 
@@ -171,7 +170,7 @@ export async function resolveSportsPredictions(opts: { userId?: string } = {}) {
     const over = value > ref.line;
     await db.prediction.update({
       where: { id: p.id },
-      data: { outcome: (p.side ?? "over") === "over" ? over : !over, resolvedAt: new Date(), resolutionSource: game.isDemo ? "demo" : "provider" },
+      data: { outcome: (p.side ?? "over") === "over" ? over : !over, resolvedAt: new Date(), resolutionSource: "provider" },
     });
     resolved++;
   }
@@ -184,7 +183,6 @@ export async function resolveDueForUser(userId: string) {
   if (!pending.length) return;
   try {
     if (pending.some((p) => p.domain === "sports")) {
-      await finalizeDueDemoGames(15);
       await resolveSportsPredictions({ userId });
     }
     if (pending.some((p) => p.domain === "market")) await resolveMarketPredictions({ userId, maxFetches: 8 });

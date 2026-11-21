@@ -3,6 +3,7 @@
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { compact } from "@/lib/format";
 import { ChartTooltipFrame } from "./chart-tooltip";
+import { ChartFrame } from "./chart-frame";
 
 /**
  * How values are printed. A string key rather than a formatter function:
@@ -15,11 +16,27 @@ function formatValue(kind: ValueFormat, v: number): string {
 }
 
 /** Ranked horizontal bars, one hue. */
-export function RankedBars({ data, height, valueLabel = "Value", valueFormat = "number" }: { data: Array<{ name: string; value: number; highlight?: boolean }>; height?: number; valueLabel?: string; valueFormat?: ValueFormat }) {
+export function RankedBars({
+  data,
+  height,
+  valueLabel = "Value",
+  valueFormat = "number",
+  isLoading = false,
+  error = null,
+  emptyText = "Nothing to rank yet.",
+}: {
+  data: Array<{ name: string; value: number; highlight?: boolean }>;
+  height?: number;
+  valueLabel?: string;
+  valueFormat?: ValueFormat;
+  isLoading?: boolean;
+  error?: string | null;
+  emptyText?: string;
+}) {
   const rows = [...data].sort((a, b) => b.value - a.value);
   const h = height ?? Math.max(120, rows.length * 28 + 16);
   return (
-    <div style={{ height: h }}>
+    <ChartFrame height={h} isLoading={isLoading} isEmpty={!rows.length} error={error} emptyText={emptyText} skeletonVariant="bars" ariaLabel={`${valueLabel} by category, ranked`}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 48, left: 8, bottom: 0 }} barCategoryGap={4}>
           <XAxis type="number" hide />
@@ -39,6 +56,6 @@ export function RankedBars({ data, height, valueLabel = "Value", valueFormat = "
           </Bar>
         </BarChart>
       </ResponsiveContainer>
-    </div>
+    </ChartFrame>
   );
 }

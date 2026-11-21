@@ -49,7 +49,7 @@ export default async function MarketsPage({ searchParams }: { searchParams: Prom
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Market Intelligence" description="Open Kalshi prediction markets with implied probability, liquidity and resolution rules. Prices are public exchange data cached by EDGEWISE; each row shows its freshness." actions={items[0] && <DataBadge provenance={items[0].provenance} />} />
+      <PageHeader title="Markets" description="Open Kalshi prediction markets with implied probability, liquidity and resolution rules. Prices are public exchange data cached by EDGEWISE; each row shows its freshness." actions={items[0] && <DataBadge provenance={items[0].provenance} />} />
 
       <form className="flex flex-col gap-2 sm:flex-row sm:items-center" action="/markets" method="get">
         {category && <input type="hidden" name="category" value={category} />}

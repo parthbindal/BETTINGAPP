@@ -12,7 +12,7 @@ const JOBS = [
   { id: "refresh-hot", label: "Refresh hot markets", hint: "Re-quote the most liquid and all watched markets in a few batched requests. Suggested: every 5 minutes." },
   { id: "whale-watch", label: "Whale Watch sync", hint: "Pull the top 1000 Polymarket traders and aggregate their current positions (~60-90s). Suggested: every 30 minutes." },
   { id: "watchlist-alerts", label: "Watchlist alerts", hint: "Create notifications for watched-market moves and upcoming events. Suggested: every 15 minutes." },
-  { id: "resolve-predictions", label: "Resolve predictions", hint: "Score forecasts from exchange results; finalize demo games. Suggested: hourly." },
+  { id: "resolve-predictions", label: "Resolve predictions", hint: "Score forecasts from exchange and NBA results. Suggested: hourly." },
   { id: "daily-brief", label: "Daily brief", hint: "Generate the daily research summary and send opted-in digests. Suggested: daily." },
   { id: "weekly-brief", label: "Weekly brief", hint: "Generate the weekly summary and send opted-in digests. Suggested: weekly." },
   { id: "onboarding-emails", label: "Onboarding emails", hint: "Advance the six-step onboarding sequence. Suggested: hourly." },
@@ -73,7 +73,7 @@ export default async function AdminSystemPage() {
             <div className="rounded-lg bg-surface-2/50 p-2.5"><dt className="text-muted-foreground">Price snapshots</dt><dd className="tabular text-sm font-semibold">{compact(snapshotCount)}</dd></div>
             <div className="rounded-lg bg-surface-2/50 p-2.5"><dt className="text-muted-foreground">Last sync</dt><dd className="text-sm font-semibold">{relative(lastMarket?.fetchedAt)}</dd></div>
           </dl>
-          <p className="mt-3 text-[11px] text-muted-foreground">Sports data: {config.isSportsLiveConfigured ? "provider key set" : "fictional demo dataset (no licensed provider configured)"}.</p>
+          <p className="mt-3 text-[11px] text-muted-foreground">Sports data: {config.isSportsLiveConfigured ? "provider key set" : "no NBA provider key set"}.</p>
         </Section>
 
         <Section title="Jobs" description={config.cronSecret ? "Schedulers call /api/jobs/<name> with the CRON_SECRET bearer token" : "Set CRON_SECRET to let a scheduler call these endpoints"}>

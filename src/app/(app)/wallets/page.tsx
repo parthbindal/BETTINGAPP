@@ -46,7 +46,7 @@ export default async function WalletExplorerIndex({ searchParams }: { searchPara
 
   return (
     <div className="space-y-6">
-      <PageHeader eyebrow="Smart money" title="Wallet Explorer" description="Open any Polymarket wallet to see its live positions, its recent trades and where it overlaps with the other top traders." />
+      <PageHeader title="Wallet Lookup" description="Open any Polymarket wallet to see its live positions, its recent trades and where it overlaps with the other top traders." />
 
       <Section>
         <form action="/wallets" method="get" role="search" className="flex flex-col gap-2 sm:flex-row">

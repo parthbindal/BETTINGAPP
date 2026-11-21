@@ -33,7 +33,7 @@ export const toolSchemas = {
   get_market_movers: z.object({ limit: z.number().int().min(1).max(15).default(8) }),
   search_players: z.object({
     query: z.string().default(""),
-    sport: z.enum(["basketball", "football", "soccer", "hockey"]).optional(),
+    sport: z.enum(["basketball"]).optional(),
     limit: z.number().int().min(1).max(20).default(10),
   }),
   get_player: z.object({ playerId: z.string() }),
@@ -43,7 +43,7 @@ export const toolSchemas = {
     line: z.number().describe("The projection line, e.g. 24.5"),
   }),
   get_matchup: z.object({ gameId: z.string() }),
-  list_upcoming_games: z.object({ sport: z.enum(["basketball", "football", "soccer", "hockey"]).optional(), limit: z.number().int().min(1).max(20).default(10) }),
+  list_upcoming_games: z.object({ sport: z.enum(["basketball"]).optional(), limit: z.number().int().min(1).max(20).default(10) }),
   get_watchlist: z.object({}),
   get_lesson: z.object({ topic: z.string().describe("Concept to look up in the Academy, e.g. 'expected value', 'brier score', 'implied probability'") }),
   compute_contract_ev: z.object({

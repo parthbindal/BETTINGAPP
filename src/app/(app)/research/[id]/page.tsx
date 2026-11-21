@@ -20,7 +20,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
     <div className="space-y-5">
       <div className="text-xs text-muted-foreground"><Link href="/research" className="hover:text-foreground">Research Center</Link> / Report</div>
       <PageHeader title={report.title} description={`${dateTime(r.createdAt)} · subject: ${r.subjectKind} · `} actions={<><Link href={subjectHref} className="text-xs text-primary hover:underline">Open subject →</Link><ActionButton href={`/api/ai/report?id=${r.id}`} method="DELETE" variant="ghost" confirm="Delete this report?" successMessage="Report deleted"><Trash2 className="size-4" /></ActionButton></>} />
-      <ReportView report={report} mode={r.model} isDemo={r.isDemoData} />
+      <ReportView report={report} mode={r.model} />
     </div>
   );
 }

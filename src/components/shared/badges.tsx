@@ -21,9 +21,6 @@ export function TierBadge({ tier, className }: { tier: Tier; className?: string 
   return <Badge className={cn("border capitalize", map[tier], className)}>{tier}</Badge>;
 }
 
-export function DemoTag({ className }: { className?: string }) {
-  return <span className={cn("inline-flex items-center rounded border border-status-serious/40 bg-status-serious/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-status-serious", className)}>Demo</span>;
-}
 
 /** Inline gate: shows an upgrade card instead of children when the feature is locked. */
 export function UpgradeGate({ locked, feature, requiredTier, children, compact = false }: { locked: boolean; feature: string; requiredTier: Tier; children: React.ReactNode; compact?: boolean }) {

@@ -2,10 +2,13 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { shortAddress, walletHref } from "@/lib/intel";
 
-function hashHue(seed: string): number {
+/** Avatar tints come from the chart palette (never orange, which reads as "loss"). */
+const AVATAR_TOKENS = ["--chart-1", "--chart-3", "--chart-4", "--chart-5", "--chart-6", "--chart-8", "--brand-cyan", "--brand-violet"];
+
+function tokenFor(seed: string): string {
   let h = 0;
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  return 195 + (h % 80); // stays in the brand's blue-to-violet band
+  return AVATAR_TOKENS[h % AVATAR_TOKENS.length]!;
 }
 
 function initials(name: string, wallet: string): string {
@@ -18,12 +21,12 @@ function initials(name: string, wallet: string): string {
 
 /** Deterministic monogram for a wallet: the same wallet always gets the same tint. */
 export function TraderAvatar({ wallet, name, size = 28, className }: { wallet: string; name: string; size?: number; className?: string }) {
-  const h = hashHue(wallet.toLowerCase());
+  const t = `var(${tokenFor(wallet.toLowerCase())})`;
   return (
     <span
       aria-hidden="true"
       className={cn("inline-flex shrink-0 select-none items-center justify-center rounded-full font-semibold", className)}
-      style={{ width: size, height: size, fontSize: Math.round(size * 0.38), background: `hsl(${h} 75% 55% / 0.16)`, color: `hsl(${h} 90% 78%)`, boxShadow: `inset 0 0 0 1px hsl(${h} 80% 62% / 0.35)` }}
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.38), background: `color-mix(in oklch, ${t} 18%, transparent)`, color: `color-mix(in oklch, ${t} 70%, white)`, boxShadow: `inset 0 0 0 1px color-mix(in oklch, ${t} 40%, transparent)` }}
     >
       {initials(name, wallet)}
     </span>

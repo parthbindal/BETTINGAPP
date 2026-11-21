@@ -85,3 +85,11 @@ export function dailyActivity(payload: WhalePayload, days: number): Array<{ day:
   }
   return [...buckets.entries()].map(([day, v]) => ({ day, ...v }));
 }
+
+/**
+ * A signal is still "in play" when its price has not effectively settled
+ * (between 3¢ and 97¢). Decided markets stay listed but never headline.
+ */
+export function isInPlay(h: { currentPrice: number }): boolean {
+  return h.currentPrice > 0.03 && h.currentPrice < 0.97;
+}

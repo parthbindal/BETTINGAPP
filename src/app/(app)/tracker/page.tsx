@@ -5,7 +5,7 @@ import { getTrackerStats, resolveDueForUser, isLocked } from "@/lib/tracker";
 import { PageHeader, Section, EmptyState } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { CalibrationChart, LineChartSimple } from "@/components/charts/calibration-chart";
-import { UpgradeGate, DemoTag } from "@/components/shared/badges";
+import { UpgradeGate } from "@/components/shared/badges";
 import { ActionButton } from "@/components/shared/action-button";
 import { LinkButton } from "@/components/ui/link-button";
 import { pct, relative, dateShort, titleCase } from "@/lib/format";
@@ -39,7 +39,6 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
   const s = stats[tab];
   const preds = stats.predictions.filter((p) => tab === "all" || p.domain === tab);
   const depth = ent.limits.performanceTracker;
-  const hasDemoResolved = preds.some((p) => p.resolutionSource === "demo");
 
   return (
     <div className="space-y-5">
@@ -59,11 +58,6 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
           </Link>
         ))}
       </nav>
-      {hasDemoResolved && (
-        <p className="rounded-lg border border-status-serious/40 bg-status-serious/10 px-3 py-2 text-xs text-status-serious">
-          <strong>Demo results.</strong> Sports forecasts marked DEMO were resolved against simulated box scores for fictional games. They exercise the scoring pipeline and say nothing about real forecasting skill.
-        </p>
-      )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="Predictions made" value={s.total} hint={`${s.pending} open · ${s.voided} void`} />
@@ -172,7 +166,7 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
                         <td className="tabular hidden py-2 text-right text-muted-foreground sm:table-cell">{p.modelProb !== null ? pct(p.modelProb, 0) : "n/a"}</td>
                         <td className={cn("py-2 pl-4 text-xs", st.tone)}>
                           {st.label}
-                          {p.resolutionSource === "demo" && <DemoTag className="ml-1" />}
+                          
                           {p.outcome !== null && <div className="tabular text-[11px] text-muted-foreground">Brier {((p.predictedProb - (p.outcome ? 1 : 0)) ** 2).toFixed(3)} · via {p.resolutionSource}</div>}
                         </td>
                         <td className="hidden py-2 text-xs text-muted-foreground md:table-cell">{dateShort(p.createdAt)}</td>
