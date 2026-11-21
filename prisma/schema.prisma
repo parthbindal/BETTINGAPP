@@ -1,0 +1,627 @@
+// EDGEWISE data model.
+// Provider-portable: no enums (string unions enforced in TypeScript), Json for
+// flexible payloads. Local dev runs on SQLite; production on PostgreSQL by
+// changing the `provider` below (npm run db:use-postgres) and re-creating
+// migrations.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ───────────────────────── Auth (Better Auth) ─────────────────────────
+
+model User {
+  id            String    @id
+  name          String
+  email         String
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  // admin plugin
+  role          String?   @default("user")
+  banned        Boolean?  @default(false)
+  banReason     String?
+  banExpires    DateTime?
+  // EDGEWISE compliance + profile fields
+  dateOfBirth         DateTime?
+  region              String?
+  acceptedTermsAt     DateTime?
+  responsibleUseAckAt DateTime?
+  referralCode        String?   @unique
+  referredById        String?
+  onboardingStep      Int       @default(0)
+  experienceLevel     String?   // beginner | intermediate | advanced
+
+  sessions          Session[]
+  accounts          Account[]
+  subscription      Subscription?
+  watchlist         WatchlistItem[]
+  predictions       Prediction[]
+  conversations     AiConversation[]
+  aiUsage           AiUsage[]
+  reports           ResearchReport[]
+  lessonProgress    LessonProgress[]
+  quizAttempts      QuizAttempt[]
+  achievements      Achievement[]
+  notifications     Notification[]
+  notificationPrefs NotificationPreference?
+  threads           CommunityThread[]
+  posts             CommunityPost[]
+  votes             CommunityVote[]
+  referralsMade     Referral[]       @relation("Referrer")
+  referralReceived  Referral?        @relation("Referred")
+  emailSequence     EmailSequenceState?
+  usageEvents       UsageEvent[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id             String   @id
+  expiresAt      DateTime
+  token          String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  ipAddress      String?
+  userAgent      String?
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  impersonatedBy String?
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ───────────────────────── Billing ─────────────────────────
+
+model Subscription {
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier                 String    @default("free") // free | pro
+  status               String    @default("active") // active | trialing | past_due | canceled | incomplete
+  source               String    @default("none") // none | stripe | complimentary
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?   @unique
+  stripePriceId        String?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
+  grantedById          String?
+  grantNote            String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+}
+
+model BillingEvent {
+  id            String   @id @default(cuid())
+  stripeEventId String   @unique
+  type          String
+  userId        String?
+  payload       Json?
+  processedAt   DateTime @default(now())
+}
+
+// ───────────────────────── Prediction markets (cached provider data) ─────────────────────────
+
+model MarketEvent {
+  eventTicker       String   @id
+  seriesTicker      String
+  title             String
+  subTitle          String?
+  category          String
+  mutuallyExclusive Boolean  @default(false)
+  settlementSources Json?
+  source            String   @default("kalshi")
+  fetchedAt         DateTime @default(now())
+  markets           Market[]
+
+  @@index([category])
+}
+
+model Market {
+  ticker          String      @id
+  eventTicker     String
+  event           MarketEvent @relation(fields: [eventTicker], references: [eventTicker], onDelete: Cascade)
+  seriesTicker    String
+  title           String
+  subtitle        String?
+  yesSubTitle     String?
+  category        String
+  status          String
+  yesBid          Float?
+  yesAsk          Float?
+  lastPrice       Float?
+  previousPrice   Float?
+  volume          Float       @default(0)
+  volume24h       Float       @default(0)
+  openInterest    Float       @default(0)
+  openTime        DateTime?
+  closeTime       DateTime?
+  expirationTime  DateTime?
+  rulesPrimary    String?
+  rulesSecondary  String?
+  result          String?
+  source          String      @default("kalshi")
+  freshness       String      @default("live") // live | delayed | historical | demo
+  fetchedAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  snapshots       MarketSnapshot[]
+  estimates       ModelEstimate[]
+
+  @@index([category, status])
+  @@index([status, volume24h])
+  @@index([volume])
+  @@index([closeTime])
+  @@index([eventTicker])
+}
+
+model MarketSnapshot {
+  id           String   @id @default(cuid())
+  ticker       String
+  market       Market   @relation(fields: [ticker], references: [ticker], onDelete: Cascade)
+  ts           DateTime @default(now())
+  yesBid       Float?
+  yesAsk       Float?
+  lastPrice    Float?
+  volume       Float?
+  openInterest Float?
+
+  @@index([ticker, ts])
+}
+
+model ModelEstimate {
+  id           String   @id @default(cuid())
+  ticker       String
+  market       Market   @relation(fields: [ticker], references: [ticker], onDelete: Cascade)
+  modelVersion String
+  estimate     Float
+  marketProb   Float
+  confidence   String // low | medium | high
+  inputs       Json
+  createdAt    DateTime @default(now())
+
+  @@index([ticker, createdAt])
+}
+
+// ───────────────────────── Sports (provider cache; demo-labeled when seeded) ─────────────────────────
+
+model Team {
+  id           String   @id
+  sport        String
+  name         String
+  abbreviation String
+  city         String
+  conference   String?
+  division     String?
+  pace         Float?
+  defRating    Float?
+  offRating    Float?
+  isDemo       Boolean  @default(true)
+  source       String   @default("demo")
+  players      Player[]
+  homeGames    Game[]   @relation("HomeTeam")
+  awayGames    Game[]   @relation("AwayTeam")
+  updatedAt    DateTime @updatedAt
+}
+
+model Player {
+  id           String   @id
+  sport        String
+  teamId       String
+  team         Team     @relation(fields: [teamId], references: [id])
+  name         String
+  position     String
+  jersey       String?
+  injuryStatus String? // healthy | questionable | doubtful | out | unknown
+  injuryNote   String?
+  isDemo       Boolean  @default(true)
+  source       String   @default("demo")
+  gameLogs     PlayerGameLog[]
+  projections  Projection[]
+  updatedAt    DateTime @updatedAt
+
+  @@index([sport, teamId])
+}
+
+model Game {
+  id         String   @id
+  sport      String
+  homeTeamId String
+  awayTeamId String
+  homeTeam   Team     @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam   Team     @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  startsAt   DateTime
+  status     String // scheduled | live | final
+  homeScore  Int?
+  awayScore  Int?
+  venue      String?
+  isDemo     Boolean  @default(true)
+  source     String   @default("demo")
+  logs       PlayerGameLog[]
+  projections Projection[]
+
+  @@index([sport, startsAt])
+}
+
+model PlayerGameLog {
+  id         String   @id @default(cuid())
+  playerId   String
+  player     Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  gameId     String
+  game       Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  date       DateTime
+  isHome     Boolean
+  opponentId String
+  minutes    Float
+  stats      Json
+
+  @@unique([playerId, gameId])
+  @@index([playerId, date])
+}
+
+model Projection {
+  id        String   @id @default(cuid())
+  playerId  String
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  gameId    String
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  stat      String
+  line      Float
+  source    String   @default("demo")
+  isDemo    Boolean  @default(true)
+  fetchedAt DateTime @default(now())
+
+  @@index([gameId])
+  @@index([playerId, stat])
+}
+
+// ───────────────────────── User features ─────────────────────────
+
+model WatchlistItem {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind        String // market | event | player | team | stat | topic
+  refId       String
+  label       String
+  meta        Json?
+  alertConfig Json?
+  lastValue   Float?
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, kind, refId])
+  @@index([kind, refId])
+}
+
+model Prediction {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  domain           String // market | sports
+  category         String?
+  refId            String
+  question         String
+  side             String? // yes | no | over | under
+  predictedProb    Float
+  marketProb       Float?
+  modelProb        Float?
+  modelVersion     String?
+  confidence       String?
+  notes            String?
+  createdAt        DateTime  @default(now())
+  resolvesAt       DateTime?
+  outcome          Boolean?
+  resolvedAt       DateTime?
+  resolutionSource String? // user | kalshi | demo
+  lockedAt         DateTime?
+
+  @@index([userId, domain])
+  @@index([refId])
+}
+
+model AiConversation {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  context   Json?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  messages  AiMessage[]
+
+  @@index([userId, updatedAt])
+}
+
+model AiMessage {
+  id             String         @id @default(cuid())
+  conversationId String
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String // user | assistant
+  content        String
+  toolCalls      Json?
+  sources        Json?
+  mode           String? // llm | rules
+  createdAt      DateTime       @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+model AiUsage {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind            String // chat | report | brief
+  model           String
+  inputTokens     Int      @default(0)
+  outputTokens    Int      @default(0)
+  cacheReadTokens Int      @default(0)
+  costUsd         Float    @default(0)
+  createdAt       DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model ResearchReport {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String
+  subjectKind  String // market | player | matchup | topic
+  subjectRef   String
+  content      Json
+  model        String
+  modelVersion String
+  dataQuality  String
+  confidence   String
+  sources      Json
+  isDemoData   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model LessonProgress {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseSlug  String
+  lessonSlug  String
+  completedAt DateTime @default(now())
+
+  @@unique([userId, courseSlug, lessonSlug])
+}
+
+model QuizAttempt {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseSlug String
+  lessonSlug String
+  score      Int
+  total      Int
+  answers    Json
+  createdAt  DateTime @default(now())
+
+  @@index([userId, courseSlug])
+}
+
+model Achievement {
+  id       String   @id @default(cuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key      String
+  earnedAt DateTime @default(now())
+
+  @@unique([userId, key])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // market_move | projection_update | news | upcoming_event | data_availability | system
+  title     String
+  body      String
+  href      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model NotificationPreference {
+  userId            String  @id
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  marketMoves       Boolean @default(true)
+  moveThresholdPts  Int     @default(5)
+  projectionUpdates Boolean @default(true)
+  news              Boolean @default(false)
+  upcomingEvents    Boolean @default(true)
+  dataAvailability  Boolean @default(true)
+  emailDigest       String  @default("weekly") // none | daily | weekly
+}
+
+model CommunityThread {
+  id        String          @id @default(cuid())
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  kind      String // market | sports | learning | general
+  refId     String?
+  score     Int             @default(0)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  posts     CommunityPost[]
+  votes     CommunityVote[]
+
+  @@index([kind, createdAt])
+}
+
+model CommunityPost {
+  id        String          @id @default(cuid())
+  threadId  String
+  thread    CommunityThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime        @default(now())
+
+  @@index([threadId, createdAt])
+}
+
+model CommunityVote {
+  id       String          @id @default(cuid())
+  threadId String
+  thread   CommunityThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  value    Int
+
+  @@unique([threadId, userId])
+}
+
+model Referral {
+  id             String    @id @default(cuid())
+  referrerId     String
+  referrer       User      @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referredUserId String    @unique
+  referredUser   User      @relation("Referred", fields: [referredUserId], references: [id], onDelete: Cascade)
+  status         String    @default("signed_up") // signed_up | converted | rewarded
+  rewardedAt     DateTime?
+  createdAt      DateTime  @default(now())
+}
+
+model EmailSequenceState {
+  userId     String    @id
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  step       Int       @default(0)
+  nextSendAt DateTime?
+  lastSentAt DateTime?
+  completed  Boolean   @default(false)
+}
+
+model EmailLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  to        String
+  template  String
+  subject   String
+  status    String // sent | skipped_no_provider | failed
+  error     String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// ───────────────────────── Ops / admin ─────────────────────────
+
+model UsageEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  feature   String
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([feature, createdAt])
+  @@index([userId, createdAt])
+}
+
+model ErrorLog {
+  id        String   @id @default(cuid())
+  scope     String
+  message   String
+  stack     String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([scope, createdAt])
+}
+
+model ProviderHealth {
+  provider      String    @id
+  status        String    @default("unknown") // ok | degraded | down | unconfigured | unknown
+  lastSuccessAt DateTime?
+  lastErrorAt   DateTime?
+  lastError     String?
+  latencyMs     Int?
+  callsToday    Int       @default(0)
+  updatedAt     DateTime  @updatedAt
+}
+
+model FeatureLimitOverride {
+  key       String   @id // e.g. "pro.aiQueriesPerDay"
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model Brief {
+  id        String   @id @default(cuid())
+  kind      String // daily | weekly
+  dateKey   String
+  content   Json
+  createdAt DateTime @default(now())
+
+  @@unique([kind, dateKey])
+}
+
+model PlatformUpdate {
+  id          String   @id @default(cuid())
+  title       String
+  body        String
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([publishedAt])
+}
+
+model WhaleSnapshot {
+  id             String   @id @default(cuid())
+  tradersScanned Int      @default(0)
+  positionsScanned Int    @default(0)
+  payload        Json
+  generatedAt    DateTime @default(now())
+
+  @@index([generatedAt])
+}

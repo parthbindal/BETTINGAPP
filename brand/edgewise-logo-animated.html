@@ -1,0 +1,199 @@
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500&display=swap">
+<title>EDGEWISE Logo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* Animated brand reveal: a line mark whose signals stream inward to an igniting core, on deep black. Single dark world. */
+  :root {
+    --void: #030407;
+    --ink: #F8FAFC;
+    --muted: #8A94A6;
+    --faint: #4A5265;
+    --blue: #3B82F6;
+    --cyan: #38BDF8;
+    --violet: #A78BFA;
+    --line: rgba(96, 165, 250, 0.34);
+    --display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+    --body: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    color-scheme: dark;
+  }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--void);
+    color: var(--ink);
+    font-family: var(--display);
+    overflow: hidden;
+  }
+  .stage {
+    position: relative;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(26px, 4vh, 40px);
+    padding: 48px max(16px, env(safe-area-inset-left, 0px)) 48px max(16px, env(safe-area-inset-right, 0px));
+    box-sizing: border-box;
+  }
+  #particles { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; }
+  .glow-a { position: fixed; top: -14%; left: 50%; transform: translateX(-50%); width: min(620px, 90vw); height: 420px; background: radial-gradient(circle, rgba(56,189,248,0.16), transparent 62%); filter: blur(36px); z-index: 0; pointer-events: none; }
+  .glow-b { position: fixed; bottom: -16%; right: 8%; width: min(520px, 80vw); height: 480px; background: radial-gradient(circle, rgba(139,92,246,0.14), transparent 62%); filter: blur(40px); z-index: 0; pointer-events: none; }
+
+  .mark { position: relative; z-index: 2; filter: drop-shadow(0 0 26px rgba(96,165,250,0.4)); width: clamp(128px, 22vw, 168px); height: clamp(128px, 22vw, 168px); }
+
+  .ring { opacity: 0.6; }
+  .vec-base { stroke: var(--line); stroke-width: 2; stroke-linecap: round; }
+  .vec-pulse { stroke: var(--cyan); stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 5 62; stroke-dashoffset: 67; filter: drop-shadow(0 0 3px rgba(56,189,248,0.9)); animation: flow 2.6s linear infinite; }
+  .dot { fill: var(--cyan); animation: twinkle 2.6s ease-in-out infinite; }
+  .core { transform: rotate(45deg); transform-box: view-box; transform-origin: 60px 60px; animation: breathe 3.4s ease-in-out infinite; }
+  .core-wrap { filter: drop-shadow(0 0 7px rgba(96,165,250,0.65)); }
+
+  @keyframes flow { to { stroke-dashoffset: 0; } }
+  @keyframes breathe { 0%, 100% { transform: rotate(45deg) scale(1); opacity: 0.94; } 50% { transform: rotate(45deg) scale(1.08); opacity: 1; } }
+  @keyframes twinkle { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+
+  .wordmark {
+    position: relative; z-index: 2;
+    font-weight: 600;
+    font-size: clamp(34px, 7.4vw, 58px);
+    letter-spacing: 0.22em;
+    padding-left: 0.22em;
+    color: var(--ink);
+    text-wrap: balance;
+    text-align: center;
+  }
+  .tagline {
+    position: relative; z-index: 2;
+    font-family: var(--body);
+    font-size: clamp(12.5px, 2.6vw, 15px);
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    display: flex; align-items: center; gap: 0.5ch;
+    min-height: 1.4em;
+  }
+  .tagline .lead { color: var(--faint); letter-spacing: 0.26em; text-transform: uppercase; font-size: 0.82em; }
+  .rotor { color: var(--ink); font-weight: 500; }
+  .caret { display: inline-block; width: 2px; height: 1.05em; background: var(--cyan); transform: translateY(2px); animation: blink 1s steps(1) infinite; box-shadow: 0 0 6px rgba(56,189,248,0.8); }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .footer { position: fixed; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); left: 0; right: 0; z-index: 2; text-align: center; font-family: var(--body); font-size: 10.5px; letter-spacing: 0.32em; color: #2f3744; text-transform: uppercase; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .vec-pulse, .dot, .core, .caret { animation: none; }
+    .vec-pulse { stroke-dashoffset: 0; stroke-dasharray: none; opacity: 0.8; }
+    #particles { display: none; }
+  }
+</style>
+
+<canvas id="particles" aria-hidden="true"></canvas>
+<div class="glow-a" aria-hidden="true"></div>
+<div class="glow-b" aria-hidden="true"></div>
+
+<div class="stage">
+  <svg class="mark" viewBox="0 0 120 120" fill="none" role="img" aria-label="EDGEWISE mark: six market signals converging on one opportunity">
+    <defs>
+      <radialGradient id="coreGrad" cx="50%" cy="44%" r="62%">
+        <stop offset="0%" stop-color="#EAF6FF"/>
+        <stop offset="38%" stop-color="#60A5FA"/>
+        <stop offset="100%" stop-color="#6D28D9"/>
+      </radialGradient>
+    </defs>
+    <circle class="ring" cx="60" cy="60" r="48" stroke="rgba(96,165,250,0.12)" stroke-width="1"/>
+    <g class="vec-base">
+      <line x1="106" y1="60" x2="75" y2="60"/><line x1="83" y1="20.2" x2="68.5" y2="44.5"/><line x1="37" y1="20.2" x2="51.5" y2="44.5"/>
+      <line x1="14" y1="60" x2="45" y2="60"/><line x1="37" y1="99.8" x2="51.5" y2="75.5"/><line x1="83" y1="99.8" x2="68.5" y2="75.5"/>
+    </g>
+    <g fill="none">
+      <line class="vec-pulse" x1="106" y1="60" x2="75" y2="60" style="animation-delay: 0s"/>
+      <line class="vec-pulse" x1="83" y1="20.2" x2="68.5" y2="44.5" style="animation-delay: -0.43s"/>
+      <line class="vec-pulse" x1="37" y1="20.2" x2="51.5" y2="44.5" style="animation-delay: -0.86s"/>
+      <line class="vec-pulse" x1="14" y1="60" x2="45" y2="60" style="animation-delay: -1.3s"/>
+      <line class="vec-pulse" x1="37" y1="99.8" x2="51.5" y2="75.5" style="animation-delay: -1.73s"/>
+      <line class="vec-pulse" x1="83" y1="99.8" x2="68.5" y2="75.5" style="animation-delay: -2.16s"/>
+    </g>
+    <g>
+      <circle class="dot" cx="106" cy="60" r="2.6" style="animation-delay: 0s"/><circle class="dot" cx="83" cy="20.2" r="2.6" style="animation-delay: -0.43s"/><circle class="dot" cx="37" cy="20.2" r="2.6" style="animation-delay: -0.86s"/>
+      <circle class="dot" cx="14" cy="60" r="2.6" style="animation-delay: -1.3s"/><circle class="dot" cx="37" cy="99.8" r="2.6" style="animation-delay: -1.73s"/><circle class="dot" cx="83" cy="99.8" r="2.6" style="animation-delay: -2.16s"/>
+    </g>
+    <g class="core-wrap">
+      <rect class="core" x="47.5" y="47.5" width="25" height="25" rx="5" fill="url(#coreGrad)"/>
+    </g>
+    <circle cx="60" cy="60" r="2.8" fill="#EAF6FF"/>
+  </svg>
+
+  <div class="wordmark">EDGEWISE</div>
+
+  <div class="tagline">
+    <span class="lead">Built&nbsp;for</span>
+    <span class="rotor" id="rotor">prediction markets</span><span class="caret" aria-hidden="true"></span>
+  </div>
+</div>
+
+<div class="footer">Prediction-market intelligence</div>
+
+<script>
+(function () {
+  var reduce = false;
+  try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+
+  // Rotating tagline (balldontlie-style typewriter), betting-themed.
+  var words = ['prediction markets', 'smart money', 'sharp bettors', 'the whale watch', 'finding +EV', 'the edge'];
+  var rotor = document.getElementById('rotor');
+  if (rotor && !reduce) {
+    var wi = 0, ci = words[0].length, deleting = true, hold = 1200;
+    // start by holding the first (already-rendered) word, then delete it
+    function tick() {
+      var w = words[wi];
+      if (deleting) {
+        ci--;
+        rotor.textContent = w.slice(0, ci);
+        if (ci <= 0) { deleting = false; wi = (wi + 1) % words.length; }
+        setTimeout(tick, 45);
+      } else {
+        ci++;
+        rotor.textContent = words[wi].slice(0, ci);
+        if (ci >= words[wi].length) { deleting = true; setTimeout(tick, hold); }
+        else setTimeout(tick, 70);
+      }
+    }
+    setTimeout(tick, hold);
+  }
+
+  // Ambient particle field with faint links — subtle, behind the mark.
+  if (reduce) return;
+  var cv = document.getElementById('particles');
+  if (!cv || !cv.getContext) return;
+  var ctx = cv.getContext('2d'), dpr = Math.min(window.devicePixelRatio || 1, 2), W = 0, H = 0, pts = [];
+  function resize() {
+    W = cv.clientWidth; H = cv.clientHeight;
+    cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var n = Math.max(26, Math.min(64, Math.round(W * H / 26000)));
+    pts = [];
+    for (var i = 0; i < n; i++) pts.push({ x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - 0.5) * 0.16, vy: (Math.random() - 0.5) * 0.16, r: Math.random() * 1.4 + 0.5 });
+  }
+  function frame() {
+    ctx.clearRect(0, 0, W, H);
+    for (var i = 0; i < pts.length; i++) {
+      var p = pts[i];
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0) p.x = W; if (p.x > W) p.x = 0; if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+      for (var j = i + 1; j < pts.length; j++) {
+        var q = pts[j], dx = p.x - q.x, dy = p.y - q.y, d = Math.sqrt(dx * dx + dy * dy);
+        if (d < 118) {
+          ctx.globalAlpha = (1 - d / 118) * 0.14;
+          ctx.strokeStyle = '#60A5FA'; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 0.5; ctx.fillStyle = '#7dd3fc';
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(frame);
+  }
+  resize();
+  var rt;
+  window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(resize, 200); });
+  requestAnimationFrame(frame);
+})();
+</script>

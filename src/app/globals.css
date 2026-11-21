@@ -1,26 +1,208 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
+
+/*
+  EDGEWISE design system.
+  Near-black terminal surface (#030407) with a faint navy cast, electric-blue
+  primary (#168BFF), cyan and violet brand accents used sparingly. Chart colors
+  are the validated dark-mode categorical palette (slot order is the
+  colorblind-safety mechanism; never cycle hues).
+*/
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface-1: var(--surface-1);
+  --color-brand-cyan: var(--brand-cyan);
+  --color-brand-violet: var(--brand-violet);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-geist-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-chart-8: var(--chart-8);
+  --color-status-good: var(--status-good);
+  --color-status-warning: var(--status-warning);
+  --color-status-serious: var(--status-serious);
+  --color-status-critical: var(--status-critical);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root,
+.dark {
+  color-scheme: dark;
+  /* surfaces: near-black terminal, stepping up toward elevated panels */
+  --background: #030407;
+  --surface-1: #080b12;
+  --foreground: #ffffff;
+  --card: #0b0f19;
+  --card-foreground: #ffffff;
+  --surface-2: #101522;
+  --surface-3: #161c2b;
+  --popover: #101522;
+  --popover-foreground: #ffffff;
+  /* electric blue primary, cyan + violet brand accents (use sparingly) */
+  --primary: #168bff;
+  --primary-foreground: #ffffff;
+  --brand-cyan: #42e8ff;
+  --brand-violet: #815bff;
+  --secondary: #101522;
+  --secondary-foreground: #e6eaf2;
+  --muted: #0f1420;
+  --muted-foreground: #8993a7;
+  --accent: #121a2b;
+  --accent-foreground: #ffffff;
+  --destructive: oklch(0.63 0.2 25);
+  --border: rgb(255 255 255 / 8%);
+  --input: rgb(255 255 255 / 12%);
+  --ring: rgb(22 139 255 / 60%);
+  /* validated dark categorical palette, fixed slot order */
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --chart-3: #199e70;
+  --chart-4: #c98500;
+  --chart-5: #d55181;
+  --chart-6: #0ca30c;
+  --chart-7: #9085e9;
+  --chart-8: #e66767;
+  /* status, reserved */
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+  --radius: 0.625rem;
+  --sidebar: #080b12;
+  --sidebar-foreground: #e6eaf2;
+  --sidebar-primary: #168bff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #101522;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgb(255 255 255 / 8%);
+  --sidebar-ring: rgb(22 139 255 / 60%);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-background text-foreground;
+    background-image:
+      radial-gradient(1200px 600px at 10% -10%, rgb(22 139 255 / 6%), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgb(129 91 255 / 4%), transparent 60%);
+    background-attachment: fixed;
+  }
+  ::selection {
+    background: rgb(22 139 255 / 35%);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .card-surface {
+    @apply bg-card border border-border rounded-xl;
+    box-shadow:
+      0 1px 0 0 oklch(1 0 0 / 3%) inset,
+      0 8px 24px -16px oklch(0 0 0 / 60%);
+  }
+  .glow-primary {
+    box-shadow: 0 0 0 1px rgb(22 139 255 / 32%), 0 8px 30px -12px rgb(22 139 255 / 40%);
+  }
+  /* Hero entrance: content starts visible-but-low and rises in on load. */
+  .rise-in {
+    animation: rise-in 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .rise-in {
+      animation: none;
+    }
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: oklch(1 0 0 / 12%);
+    border-radius: 999px;
+  }
+  .grid-fade {
+    mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0.35;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Recharts: recessive hairline grid and axes */
+.recharts-cartesian-grid line {
+  stroke: oklch(1 0 0 / 7%);
+}
+.recharts-cartesian-axis-line,
+.recharts-cartesian-axis-tick-line {
+  stroke: oklch(1 0 0 / 12%);
+}
+.recharts-text {
+  fill: var(--muted-foreground);
+  font-size: 11px;
+}
+.recharts-tooltip-cursor {
+  stroke: oklch(1 0 0 / 25%);
 }
