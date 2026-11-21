@@ -3,6 +3,7 @@ import { ZodError, type ZodType } from "zod";
 import { getApiContext } from "@/lib/session";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { logError } from "@/lib/ops";
+import { DEMO_READ_ONLY_MESSAGE, isDemoUser } from "@/lib/demo";
 
 export type ApiContext = NonNullable<Awaited<ReturnType<typeof getApiContext>>>;
 
@@ -27,6 +28,7 @@ export function guarded<TBody>(
       const ctx = await getApiContext();
       if (!ctx) return apiError("Sign in required.", 401);
       if (opts.admin && ctx.user.role !== "admin") return apiError("Admin access required.", 403);
+      if (isDemoUser(ctx.user) && (opts.admin || req.method !== "GET")) return apiError(DEMO_READ_ONLY_MESSAGE, 403, { demo: true });
       const rl = rateLimit(`${opts.scope}:${ctx.user.id}`, opts.limit ?? 60, opts.windowMs ?? 60_000);
       if (!rl.ok) return apiError("Too many requests. Please slow down.", 429, { retryAfterMs: rl.resetMs });
       let body = undefined as TBody;
