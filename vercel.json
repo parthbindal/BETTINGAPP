@@ -5,6 +5,7 @@
     { "path": "/api/jobs/whale-watch", "schedule": "2-59/15 * * * *" },
     { "path": "/api/jobs/watchlist-alerts", "schedule": "9-59/15 * * * *" },
     { "path": "/api/jobs/sync-markets", "schedule": "4,34 * * * *" },
+    { "path": "/api/jobs/score-signals", "schedule": "26 * * * *" },
     { "path": "/api/jobs/resolve-predictions", "schedule": "11 * * * *" },
     { "path": "/api/jobs/onboarding-emails", "schedule": "19 * * * *" },
     { "path": "/api/jobs/daily-brief", "schedule": "0 13 * * *" },

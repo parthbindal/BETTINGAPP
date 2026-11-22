@@ -172,6 +172,59 @@ export async function fetchMarketMeta(conditionIds: string[]): Promise<Map<strin
   return out;
 }
 
+export interface MarketResolution {
+  closed: boolean;
+  /** token_id -> settlement price. A settled binary market pays 1 on one side and 0 on the other. */
+  priceByToken: Record<string, number>;
+}
+
+/**
+ * Settlement prices for a set of condition ids, for scoring the signal ledger.
+ *
+ * `closed=true` is required and is load-bearing: Gamma's /markets filters to
+ * open markets by default and silently returns an EMPTY array for a settled
+ * condition id, which reads identically to "not resolved yet". Querying only
+ * closed markets inverts that into something safe -- a condition id missing
+ * from the response simply has not settled.
+ *
+ * Note that closed is still not proof of a payout: cancelled markets (and some
+ * pre-CLOB ones from 2020-21) come back closed with BOTH sides at 0. This
+ * returns the raw prices and lets the caller decide; scoreSignals() treats an
+ * all-zero market as void rather than as a loss.
+ */
+export async function fetchMarketResolutions(conditionIds: string[]): Promise<Map<string, MarketResolution>> {
+  const out = new Map<string, MarketResolution>();
+  const unique = [...new Set(conditionIds)];
+  const chunk = 20;
+  for (let i = 0; i < unique.length; i += chunk) {
+    const slice = unique.slice(i, i + chunk);
+    const qs = slice.map((c) => `condition_ids=${encodeURIComponent(c)}`).join("&");
+    let markets: Array<Record<string, unknown>> = [];
+    try {
+      markets = await getJson<Array<Record<string, unknown>>>(`${GAMMA}/markets?${qs}&closed=true&limit=${chunk}`);
+    } catch {
+      continue; // a chunk that fails is retried on the next run, not guessed at
+    }
+    for (const m of Array.isArray(markets) ? markets : []) {
+      let tokens: string[] = [];
+      let prices: string[] = [];
+      try {
+        tokens = JSON.parse(String(m.clobTokenIds ?? "[]"));
+        prices = JSON.parse(String(m.outcomePrices ?? "[]"));
+      } catch {
+        continue;
+      }
+      const priceByToken: Record<string, number> = {};
+      tokens.forEach((t, idx) => {
+        const p = Number(prices[idx]);
+        if (Number.isFinite(p)) priceByToken[t] = p;
+      });
+      out.set(String(m.conditionId), { closed: Boolean(m.closed), priceByToken });
+    }
+  }
+  return out;
+}
+
 export interface RawTrade {
   wallet: string;
   ts: number; // unix seconds

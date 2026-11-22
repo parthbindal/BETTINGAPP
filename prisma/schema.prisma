@@ -625,3 +625,60 @@ model WhaleSnapshot {
 
   @@index([generatedAt])
 }
+
+/// The permanent record of every consensus the scan has ever called.
+///
+/// WhaleSnapshot is a render cache: one JSON blob per scan, pruned to the last
+/// few. This table is the opposite -- one row per signal, kept forever -- so
+/// the product can answer the only question that decides whether a stranger
+/// trusts it ("has this ever worked?") with a measured number instead of a
+/// claim.
+///
+/// A signal is an EPISODE, not a scan row: one row per tokenId for all time. If
+/// the same consensus is seen across 200 scans it stays one row, otherwise the
+/// hit-rate denominator would just be counting how often the cron ran.
+model Signal {
+  id          String    @id @default(cuid())
+  /// Market + side. A Polymarket token is exactly one outcome of one market, so
+  /// this is the natural key, and it makes re-entry impossible to game.
+  tokenId     String    @unique
+  conditionId String
+  title       String
+  outcome     String
+  category    String
+  eventSlug   String?
+  marketSlug  String?
+  endDate     DateTime?
+
+  /// Written once, at first detection, and never touched again. This is the
+  /// price that was actually available when the signal fired; updating it later
+  /// would be backfitting the record to a better entry.
+  firstSeenAt  DateTime @default(now())
+  entryPrice   Float
+  entryHolders Int
+  entryValue   Float
+  /// readConsensus() label at detection: Whale-led | Converging now | Long-held
+  /// | Broad. Stored so the record can be broken down by signal type instead of
+  /// pooling four different claims into one misleading average.
+  entryKind    String
+
+  /// Refreshed while the consensus persists. Peaks show how far conviction got
+  /// without being allowed to rewrite the entry.
+  lastSeenAt  DateTime @default(now())
+  lastPrice   Float
+  peakHolders Int
+  peakValue   Float
+  scans       Int      @default(1)
+
+  /// `void` is its own state, not a loss. Cancelled and some legacy markets
+  /// settle BOTH sides to 0; scoring those as losses would understate the
+  /// record exactly as dishonestly as dropping them silently would flatter it.
+  status      String    @default("open") /// open | won | lost | void
+  settlePrice Float?
+  resolvedAt  DateTime?
+
+  @@index([status])
+  @@index([firstSeenAt])
+  @@index([conditionId])
+  @@index([entryKind, status])
+}

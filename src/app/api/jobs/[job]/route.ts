@@ -9,6 +9,7 @@ import { runOnboardingSequence, sendDigestEmails } from "@/lib/email";
 import { resolveMarketPredictions, resolveSportsPredictions } from "@/lib/tracker";
 import { generateBrief } from "@/lib/briefs";
 import { syncWhaleWatch } from "@/lib/whales";
+import { scoreSignals } from "@/lib/signals";
 
 export const maxDuration = 300;
 
@@ -17,6 +18,9 @@ const JOBS: Record<string, () => Promise<unknown>> = {
   "sync-markets": () => syncMarkets(),
   "refresh-hot": () => refreshHotMarkets(),
   "whale-watch": () => syncWhaleWatch({ topN: 1000 }),
+  // Settles ledger rows whose markets have closed. Signals are recorded by
+  // whale-watch itself; this only grades them.
+  "score-signals": () => scoreSignals(),
   "watchlist-alerts": () => checkWatchlistAlerts(),
   "onboarding-emails": () => runOnboardingSequence(),
   "resolve-predictions": async () => ({

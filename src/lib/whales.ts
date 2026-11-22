@@ -17,6 +17,9 @@ import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import { fetchLeaderboard, fetchPositions, fetchRecentTrades, type LeaderEntry, type RawPosition } from "@/lib/data/providers/polymarket-whales";
 import { logError } from "@/lib/ops";
+// Safe despite signals.ts referencing ConsensusHolding: that direction is
+// `import type`, so it is erased and there is no runtime cycle.
+import { recordSignals } from "@/lib/signals";
 
 /** Bump when the aggregation changes, so history never compares different methods. */
 export const WHALE_METHOD = 2;
@@ -506,6 +509,19 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
   await db.whaleSnapshot.create({ data: { tradersScanned: leaders.length, positionsScanned, payload: payload as unknown as Prisma.InputJsonValue } });
   const old = await db.whaleSnapshot.findMany({ orderBy: { generatedAt: "desc" }, skip: KEEP_SNAPSHOTS, select: { id: true } });
   if (old.length) await db.whaleSnapshot.deleteMany({ where: { id: { in: old.map((o) => o.id) } } });
+
+  /*
+   * Commit this scan's consensus to the permanent ledger. The snapshot above is
+   * pruned to the last KEEP_SNAPSHOTS, so without this step every call we make
+   * is deleted long before its market resolves and the product can never show
+   * whether any of it worked. Recorded after the snapshot and swallowed on
+   * failure: the ledger must never be the reason a scan is lost.
+   */
+  try {
+    await recordSignals(holdings);
+  } catch (e) {
+    await logError("whales.recordSignals", e);
+  }
 
   return { tradersScanned: leaders.length, positionsScanned, holdings: holdings.length };
 }
