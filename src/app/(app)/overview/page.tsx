@@ -76,10 +76,14 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
 
   const header = (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <p className="text-sm text-muted-foreground">{firstName ? `Welcome back, ${firstName}` : "Welcome back"}</p>
-        <h1 className="mt-1 text-balance text-3xl font-semibold tracking-tight sm:text-4xl">What the smartest money is betting on</h1>
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">We watch Polymarket&apos;s 1,000 most profitable traders and show you where they agree, what they just bought, and how it&apos;s going.</p>
+      {/*
+        A daily dashboard, so the header stays one line: the marketing sentence
+        that used to sit here repeated the hero below it, and two competing
+        headlines meant the first real data sat far down the page.
+      */}
+      <div className="min-w-0">
+        <h1 className="text-balance text-2xl font-semibold tracking-tight sm:text-3xl">{firstName ? `Welcome back, ${firstName}` : "Welcome back"}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Here is where Polymarket&apos;s most profitable traders are putting their money.</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <RangeSelector active={range.key} />

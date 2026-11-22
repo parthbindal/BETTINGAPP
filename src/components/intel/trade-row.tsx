@@ -84,9 +84,16 @@ export function TradeRow({ m, fresh = false, showTx = false, action = false, tie
   );
 }
 
-/** Top traders as horizontal profit bars, longest first, each linking to its wallet page. */
-export function TraderProfitList({ traders, className }: { traders: WalletStat[]; className?: string }) {
-  const max = Math.max(...traders.map((t) => t.pnl), 1);
+/**
+ * Top traders as horizontal profit bars, longest first, each linking to its
+ * wallet page.
+ *
+ * Pass `max` when the list is a slice that excludes the leader (say ranks 4
+ * to 12): scaling to the slice's own top would make every bar nearly full and
+ * show nothing. Scaling to the overall leader shows the real drop-off.
+ */
+export function TraderProfitList({ traders, max: scaleMax, className }: { traders: WalletStat[]; max?: number; className?: string }) {
+  const max = Math.max(scaleMax ?? 0, ...traders.map((t) => t.pnl), 1);
   return (
     <ol className={cn("space-y-2.5", className)}>
       {traders.map((t) => (

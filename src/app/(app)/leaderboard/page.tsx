@@ -19,42 +19,74 @@ import { cn } from "@/lib/utils";
 const PLACE = ["text-status-warning", "text-foreground/80", "text-chart-2"] as const;
 const PLACE_NAME = ["1st", "2nd", "3rd"] as const;
 
-/** The top three as large cards: avatar, profit, and how their open bets are doing. */
+/**
+ * The top three. Rank 1 takes the full width of the row on desktop and prints
+ * its profit at hero size; 2nd and 3rd sit beneath it, smaller. A podium where
+ * every step is the same height is not a podium.
+ *
+ * A trader with no open positions of $100+ gets one plain line, never a "0"
+ * and an em dash filling a two-column grid.
+ */
 function Podium({ top }: { top: WalletStat[] }) {
+  const [first, ...rest] = top;
+  if (!first) return null;
   return (
-    <ol className="grid gap-4 md:grid-cols-3">
-      {top.map((t, i) => (
-        <li key={t.wallet}>
-          <Link
-            href={walletHref(t.wallet)}
-            className={cn(
-              "card-surface group flex h-full flex-col items-center p-6 text-center transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              i === 0 && "border-status-warning/30",
-            )}
-          >
-            <span className={cn("inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.14em]", PLACE[i])}>
-              <Medal className="size-4" aria-hidden="true" /> {PLACE_NAME[i]}
-            </span>
-            <TraderAvatar wallet={t.wallet} name={t.name} size={64} className="mt-4" />
-            <span className="mt-3 max-w-full truncate text-base font-semibold group-hover:text-primary">{t.name}</span>
-            <span className="tabular mt-3 text-3xl font-semibold tracking-tight">${compact(t.pnl)}</span>
-            <span className="text-xs text-muted-foreground">total profit</span>
-            <span className="mt-4 grid w-full grid-cols-2 gap-2 border-t border-border/70 pt-3 text-xs">
-              <span>
-                <span className="tabular block font-medium">{t.positions}</span>
-                <span className="text-muted-foreground">open bets</span>
-              </span>
-              <span>
-                <span className={cn("tabular block font-medium", t.openRoi === null ? "" : t.openRoi >= 0 ? "text-status-good" : "text-chart-2")}>
-                  {t.openRoi === null ? "—" : `${t.openRoi >= 0 ? "▲ +" : "▼ "}${pct(Math.abs(t.openRoi), Math.abs(t.openRoi) < 0.1 ? 1 : 0)}`}
-                </span>
-                <span className="text-muted-foreground">on open bets</span>
-              </span>
-            </span>
-          </Link>
-        </li>
-      ))}
-    </ol>
+    <div className="space-y-4">
+      <PodiumCard t={first} place={0} lead />
+      {rest.length > 0 && (
+        <ol className="grid gap-4 sm:grid-cols-2">
+          {rest.map((t, i) => (
+            <li key={t.wallet}>
+              <PodiumCard t={t} place={i + 1} />
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+function PodiumCard({ t, place, lead = false }: { t: WalletStat; place: number; lead?: boolean }) {
+  return (
+    <Link
+      href={walletHref(t.wallet)}
+      className={cn(
+        // Wraps rather than squeezing: on a narrow screen the profit drops to
+        // its own line instead of truncating the trader's name.
+        "card-surface lift group flex h-full flex-wrap items-center gap-x-4 gap-y-3 p-5 hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        lead && "gap-x-6 p-6 ring-1 ring-status-warning/25",
+      )}
+    >
+      <TraderAvatar wallet={t.wallet} name={t.name} size={lead ? 72 : 48} className="shrink-0" />
+      <div className="min-w-0 flex-1 basis-32">
+        <span className={cn("inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.14em]", PLACE[place])}>
+          <Medal className="size-3.5" aria-hidden="true" /> {PLACE_NAME[place]}
+        </span>
+        <span className={cn("mt-1 block truncate font-semibold group-hover:text-primary", lead ? "text-lg" : "text-base")}>{t.name}</span>
+        <span className="mt-0.5 block text-xs text-muted-foreground">
+          {t.positions > 0 ? (
+            <>
+              {t.positions} open {t.positions === 1 ? "bet" : "bets"}
+              {t.openRoi !== null && (
+                <>
+                  {" · "}
+                  <span className={cn("tabular whitespace-nowrap font-medium", t.openRoi >= 0 ? "text-status-good" : "text-chart-2")} title="Return on open bets">
+                    {t.openRoi >= 0 ? "▲ +" : "▼ "}
+                    {pct(Math.abs(t.openRoi), Math.abs(t.openRoi) < 0.1 ? 1 : 0)}
+                  </span>
+                </>
+              )}
+            </>
+          ) : (
+            "No open bets right now"
+          )}
+        </span>
+      </div>
+      <div className="ml-auto shrink-0 text-right">
+        <span className={cn("tabular block font-semibold tracking-tight", lead ? "text-3xl sm:text-4xl" : "text-2xl")}>${compact(t.pnl)}</span>
+        <span className="text-xs text-muted-foreground">total profit</span>
+      </div>
+    </Link>
   );
 }
 
@@ -112,8 +144,8 @@ export default async function LeaderboardPage() {
 
       <Podium top={ranked.slice(0, 3)} />
 
-      <Section title="Ranks 4 to 12" description="Total profit on Polymarket">
-        <TraderProfitList traders={ranked.slice(3, 12)} />
+      <Section title="Ranks 4 to 12" description="Total profit on Polymarket, next to the leader's">
+        <TraderProfitList traders={ranked.slice(3, 12)} max={ranked[0]?.pnl} />
       </Section>
 
       <Section title="Every tracked trader" description="Search, sort and compare">
