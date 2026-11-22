@@ -6,6 +6,7 @@ import { Disclaimer } from "@/components/shared/page-header";
 import { getSession } from "@/lib/session";
 
 const NAV = [
+  { href: "/track-record", label: "Track record" },
   { href: "/whales", label: "Leaderboard" },
   { href: "/#how-it-works", label: "How it works" },
   { href: "/pricing", label: "Pricing" },
@@ -68,6 +69,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           <div className="text-sm">
             <div className="mb-2 font-medium">Product</div>
             <ul className="space-y-1.5 text-muted-foreground">
+              <li><Link href="/track-record" className="hover:text-foreground">Track record</Link></li>
               <li><Link href="/pricing" className="hover:text-foreground">Pricing</Link></li>
               <li><Link href="/tools" className="hover:text-foreground">Free tools</Link></li>
               <li><Link href="/learn" className="hover:text-foreground">Articles</Link></li>

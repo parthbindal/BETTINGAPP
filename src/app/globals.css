@@ -274,6 +274,81 @@
   .glow-primary {
     box-shadow: 0 0 0 1px rgb(22 139 255 / 32%), 0 8px 30px -12px rgb(22 139 255 / 40%);
   }
+  /*
+   * A hero number: 56-112px, fluid. Weight stays at 600 rather than 800 -- at
+   * this size extra weight reads as a banner ad, and the whole point of these
+   * pages is to look like evidence. Slashed zero because these are figures, not
+   * words.
+   */
+  .figure-hero {
+    font-family: var(--font-inter-tight), var(--font-geist-sans), sans-serif;
+    font-size: clamp(3.25rem, 8vw, 6.5rem);
+    line-height: 0.92;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums slashed-zero;
+    letter-spacing: -0.04em;
+    font-feature-settings: "ss01";
+  }
+  /* The unit or qualifier riding beside a hero number, optically subordinate. */
+  .figure-unit {
+    font-size: 0.32em;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    color: var(--muted-foreground);
+  }
+  /*
+   * Light cast down from the top of a section. One per page, behind the hero.
+   * Pointer-events none and aria-hidden at the call site: it is pure atmosphere.
+   */
+  .hero-glow::before {
+    content: "";
+    position: absolute;
+    inset: -40% 0 auto 0;
+    height: 70%;
+    pointer-events: none;
+    background: radial-gradient(55% 50% at 50% 0%, color-mix(in oklch, var(--primary) 22%, transparent) 0%, transparent 72%);
+  }
+  /*
+   * Hairline graph paper, masked out as it falls. Reads as instrumentation
+   * rather than decoration, which is the difference between this and a gradient.
+   */
+  .grid-rule {
+    background-image:
+      linear-gradient(to right, oklch(1 0 0 / 4%) 1px, transparent 1px),
+      linear-gradient(to bottom, oklch(1 0 0 / 4%) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: linear-gradient(to bottom, black 0%, transparent 85%);
+  }
+  /* A hatched divider: carries more signal than a plain 1px line, still quiet. */
+  .hatch-rule {
+    height: 1px;
+    background-image: repeating-linear-gradient(90deg, oklch(1 0 0 / 16%) 0 3px, transparent 3px 7px);
+  }
+  /*
+   * Outcome colour is RESERVED. Green and red appear on this page only to mean
+   * won and lost -- never for emphasis, direction or branding -- so a reader can
+   * scan the ledger without decoding anything. Amber is pending, grey is void.
+   */
+  .cell-won {
+    background: color-mix(in oklch, var(--status-good) 16%, transparent);
+    color: color-mix(in oklch, var(--status-good) 72%, white);
+  }
+  .cell-lost {
+    background: color-mix(in oklch, var(--status-critical) 16%, transparent);
+    color: color-mix(in oklch, var(--status-critical) 70%, white);
+  }
+  .cell-open {
+    background: color-mix(in oklch, var(--status-warning) 14%, transparent);
+    color: color-mix(in oklch, var(--status-warning) 76%, white);
+  }
+  .cell-void {
+    background: oklch(1 0 0 / 7%);
+    color: var(--muted-foreground);
+  }
+  /* Wide data tables scroll; fade the right edge so the cut looks intentional. */
+  .mask-fade-r {
+    mask-image: linear-gradient(to right, black calc(100% - 3rem), transparent 100%);
+  }
   /* Hero entrance: content starts visible-but-low and rises in on load. */
   .rise-in {
     animation: rise-in 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;

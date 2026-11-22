@@ -1,6 +1,7 @@
 import { cacheLife } from "next/cache";
 import { getFeaturedMarkets } from "@/lib/data/markets";
 import { getWhaleWatch } from "@/lib/whales";
+import { getLedger, getRecordByKind, getSignalRecord, type LedgerRow, type SignalRecord } from "@/lib/signals";
 
 /**
  * Featured markets for public pages, cached in memory for a few minutes so
@@ -11,6 +12,26 @@ export async function getFeaturedMarketsCached(limit: number) {
   "use cache";
   cacheLife("minutes");
   return getFeaturedMarkets(limit);
+}
+
+export interface TrackRecordView {
+  record: SignalRecord;
+  byKind: Array<{ kind: string; record: SignalRecord }>;
+  open: LedgerRow[];
+  settled: LedgerRow[];
+}
+
+/**
+ * The public signal ledger, cached for a few minutes. Anonymous traffic lands
+ * on this page straight from the nav, and it runs seven aggregate queries, so
+ * it must not hit Postgres per view. Minutes is the right window: the scan that
+ * feeds it only runs every 15.
+ */
+export async function getTrackRecordCached(): Promise<TrackRecordView> {
+  "use cache";
+  cacheLife("minutes");
+  const [record, byKind, ledger] = await Promise.all([getSignalRecord(), getRecordByKind(), getLedger({ openLimit: 40, settledLimit: 40 })]);
+  return { record, byKind, open: ledger.open, settled: ledger.settled };
 }
 
 /** Tracked wallets that must hold the same outcome before public pages call it consensus. */
