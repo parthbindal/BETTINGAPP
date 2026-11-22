@@ -16,6 +16,9 @@ import { pct, num, dateShort, dateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { trackUsage } from "@/lib/ops";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 export default async function PlayerPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ stat?: string; line?: string; window?: string }> }) {
   const { id } = await params;
   const sp = await searchParams;

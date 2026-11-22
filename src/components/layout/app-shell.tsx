@@ -1,13 +1,13 @@
 "use client";
 
+import { CommandPalette } from "./command-palette";
 import { Suspense, useState, ViewTransition, type ReactNode } from "react";
-import { Menu, Search } from "lucide-react";
+import { Menu } from "lucide-react";
 import { Logo } from "@/components/marketing/logo";
 import { SidebarNav, SidebarNavFallback, PageTitle } from "./sidebar-nav";
 import { AccountFooter, AccountProvider, MobileAccount, NotificationsBell } from "./account-chrome";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { LinkButton } from "@/components/ui/link-button";
 import { Disclaimer } from "@/components/shared/page-header";
 
 /**
@@ -72,9 +72,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <PageTitle />
               </Suspense>
             </div>
-            <LinkButton href="/markets?focus=search" variant="ghost" size="sm" className="hidden text-muted-foreground sm:inline-flex">
-              <Search className="size-4" /> Search markets
-            </LinkButton>
+            <CommandPalette />
             <NotificationsBell />
             <div className="lg:hidden">
               <MobileAccount />

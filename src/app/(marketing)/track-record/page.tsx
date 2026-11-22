@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { CountUp } from "@/components/motion/count-up";
 import { LinkButton } from "@/components/ui/link-button";
-import { polymarketMarketUrl } from "@/lib/intel";
+import { polymarketMarketUrl, kindLabel } from "@/lib/intel";
 // Absolute dates only, never "6 days ago": a ledger's timestamps are its
 // evidence, and relative time reads Date.now(), which blocks prerendering.
 import { cents, dateShort, pct, pts } from "@/lib/format";
@@ -64,7 +64,7 @@ function MarketCell({ r }: { r: LedgerRow }) {
       <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
         <span className="font-medium text-secondary-foreground">{r.outcome}</span>
         <span aria-hidden>·</span>
-        <span>{r.entryKind}</span>
+        <span>{kindLabel(r.entryKind)}</span>
       </div>
     </div>
   );
@@ -90,7 +90,7 @@ function Hero({ record, nextSettlement }: { record: SignalRecord; nextSettlement
         <div className="rise-in">
           <div className="flex items-center gap-2">
             <span className="pulse-live" aria-hidden />
-            <span className="label-micro">Public ledger · re-scanned every 15 minutes</span>
+            <span className="label-micro">Public ledger · re-scanned up to every 15 minutes</span>
           </div>
           <h1 className="mt-5 max-w-3xl text-balance text-4xl font-semibold leading-[1.05] sm:text-5xl md:text-6xl">
             Every call on the record, <span className="text-muted-foreground">before the result.</span>
@@ -272,7 +272,7 @@ function ByKind({ rows }: { rows: Array<{ kind: string; record: SignalRecord }> 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {rows.map((r) => (
           <div key={r.kind} className="card-surface lift p-5">
-            <div className="text-sm font-semibold">{r.kind}</div>
+            <div className="text-sm font-semibold">{kindLabel(r.kind)}</div>
             <div className="figure mt-3 text-3xl font-semibold">{r.record.settled > 0 ? pct(r.record.hitRate) : "—"}</div>
             <div className="mt-1 text-xs text-muted-foreground">{r.record.settled > 0 ? `${r.record.won} of ${r.record.settled} graded` : "No calls graded yet"}</div>
             <div className="hatch-rule my-4" />
@@ -299,12 +299,16 @@ function ByKind({ rows }: { rows: Array<{ kind: string; record: SignalRecord }> 
 
 const RULES: Array<{ head: string; body: string }> = [
   {
+    head: "Who \"the top traders\" are is fixed and stated",
+    body: "Since 22 November 2026, 20:28 UTC, it means Polymarket's 1,000 most profitable wallets of all time. Before that, the scan read Polymarket's one-day board by mistake (the API's default), so the calls made earlier came from that day's biggest winners. They stay on the record unchanged: nothing is deleted to tidy the history.",
+  },
+  {
     head: "The entry price is written once",
     body: "Whatever the side was trading at the minute we flagged it is the price on the record forever. The code that updates a signal has no access to the entry fields at all, so a call cannot be quietly re-priced to look better.",
   },
   {
     head: "A consensus counts once, not once per scan",
-    body: "The scan runs every 15 minutes. A position held for three weeks would otherwise appear as roughly 2,000 separate wins. One outcome is one row for all time, so the denominator is calls made, never how often the job ran.",
+    body: "The scan runs many times a day. A position held for three weeks would otherwise appear as roughly 2,000 separate wins. One outcome is one row for all time, so the denominator is calls made, never how often the job ran.",
   },
   {
     head: "Decided markets are refused entry",

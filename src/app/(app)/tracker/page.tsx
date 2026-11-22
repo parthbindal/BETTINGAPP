@@ -13,6 +13,9 @@ import { cn } from "@/lib/utils";
 import { trackUsage } from "@/lib/ops";
 import type { Prediction } from "@/generated/prisma/client";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 const TABS = [
   { key: "all", label: "All forecasts" },
   { key: "market", label: "Prediction markets" },

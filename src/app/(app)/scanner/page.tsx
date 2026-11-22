@@ -11,6 +11,9 @@ import { pct, pts, relative, titleCase } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { trackUsage } from "@/lib/ops";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 const inputClass = "h-8 rounded-lg border border-input bg-surface-2/40 px-2.5 text-sm";
 
 export default async function ScannerPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {

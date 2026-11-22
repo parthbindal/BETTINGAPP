@@ -12,6 +12,9 @@ import { CheckCircle2 } from "lucide-react";
 import { trackUsage } from "@/lib/ops";
 import { LinkButton } from "@/components/ui/link-button";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 export default async function LessonPage({ params }: { params: Promise<{ course: string; lesson: string }> }) {
   const { course: cs, lesson: ls } = await params;
   const hit = getLesson(cs, ls);

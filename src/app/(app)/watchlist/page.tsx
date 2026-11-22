@@ -18,6 +18,9 @@ import { pct, relative, compact } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { trackUsage } from "@/lib/ops";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 function Remove({ id }: { id: string }) {
   return (
     <ActionButton

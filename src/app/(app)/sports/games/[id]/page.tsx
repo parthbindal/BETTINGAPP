@@ -8,6 +8,9 @@ import { UpgradeGate } from "@/components/shared/badges";
 import { dateTime, num } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 export default async function GamePage({
   params,
 }: {

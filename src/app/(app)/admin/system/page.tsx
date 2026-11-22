@@ -7,6 +7,9 @@ import { relative, dateTime, usd, compact } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { daysAgo } from "@/lib/time";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 const JOBS = [
   { id: "sync-markets", label: "Full market scan", hint: "Walk Kalshi's whole open feed (about a minute), cache active markets, close ones that left, record snapshots. Suggested: every 30 minutes." },
   { id: "refresh-hot", label: "Refresh hot markets", hint: "Re-quote the most liquid and all watched markets in a few batched requests. Suggested: every 5 minutes." },

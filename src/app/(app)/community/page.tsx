@@ -8,6 +8,9 @@ import { displayName } from "@/lib/display";
 import { relative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 const KINDS = [
   { key: "", label: "All" },
   { key: "market", label: "Prediction markets" },

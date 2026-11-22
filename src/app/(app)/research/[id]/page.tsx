@@ -9,6 +9,9 @@ import { dateTime } from "@/lib/format";
 import { ActionButton } from "@/components/shared/action-button";
 import { Trash2 } from "lucide-react";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 export default async function ReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await requireUser(`/research/${id}`);

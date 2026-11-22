@@ -8,6 +8,9 @@ import { RankedBars } from "@/components/charts/ranked-bars";
 import { pct, usd, compact } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 function Status({ ok, label, detail }: { ok: boolean; label: string; detail: string }) {
   return (
     <li className="flex items-start justify-between gap-3 text-sm">

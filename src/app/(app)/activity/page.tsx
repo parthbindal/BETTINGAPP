@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Users } from "lucide-react";
 import { requireUser, getEntitlements } from "@/lib/session";
-import { getWhaleWatch, type RecentMove } from "@/lib/whales";
+import { keepScanFresh, getWhaleWatch, type RecentMove } from "@/lib/whales";
 import { Section, EmptyState } from "@/components/shared/page-header";
 import { UpgradeGate } from "@/components/shared/badges";
 import { ScanFreshness } from "@/components/intel/scan-freshness";
@@ -11,10 +11,13 @@ import { TradeRow } from "@/components/intel/trade-row";
 import { ActivityChart } from "@/components/intel/activity-chart";
 import { WhaleRefreshButton } from "@/components/whales/refresh-button";
 import { compact, relative } from "@/lib/format";
-import { ageMs, dailyActivity, walletHref } from "@/lib/intel";
+import { ageMs, dailyActivity, walletHref, flowCaption } from "@/lib/intel";
 import { OpenOnPolymarket } from "@/components/intel/open-on-polymarket";
 import { trackUsage } from "@/lib/ops";
 import { cn } from "@/lib/utils";
+
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
 
 type Params = { side?: string; cat?: string; min?: string };
 const SIZES = [300, 1_000, 5_000, 10_000, 50_000] as const;
@@ -50,6 +53,7 @@ function dayLabel(day: string, scanDay: string, prevDay: string): string {
 export default async function ActivityPage({ searchParams }: { searchParams: Promise<Params> }) {
   const session = await requireUser("/activity");
   const [ent, whale, sp] = await Promise.all([getEntitlements(session.user.id), getWhaleWatch(), searchParams]);
+  keepScanFresh(whale?.ageMs);
   trackUsage("activity.view", session.user.id);
   const pro = ent.limits.scanner;
   const header = (
@@ -142,7 +146,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
             </p>
           </div>
         </Section>
-        <Section title="Money moved per day" description="Dollars bought and sold by the top traders, last 10 days" className="lg:col-span-2">
+        <Section title="Money moved per day" description={`${flowCaption(p)}, last 10 days`} className="lg:col-span-2">
           <ActivityChart data={flow} height={200} />
         </Section>
       </div>

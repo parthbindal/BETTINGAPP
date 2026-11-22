@@ -8,6 +8,9 @@ import { StatCard } from "@/components/shared/stat-card";
 import { cn } from "@/lib/utils";
 import { dateShort } from "@/lib/format";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 export default async function AcademyPage() {
   const session = await requireUser("/academy");
   const [ent, progress] = await Promise.all([getEntitlements(session.user.id), getAcademyProgress(session.user.id)]);

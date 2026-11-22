@@ -15,14 +15,21 @@
  */
 import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
+import { after } from "next/server";
 import { fetchLeaderboard, fetchPositions, fetchRecentTrades, type LeaderEntry, type RawPosition } from "@/lib/data/providers/polymarket-whales";
 import { logError } from "@/lib/ops";
 // Safe despite signals.ts referencing ConsensusHolding: that direction is
 // `import type`, so it is erased and there is no runtime cycle.
 import { recordSignals } from "@/lib/signals";
 
-/** Bump when the aggregation changes, so history never compares different methods. */
-export const WHALE_METHOD = 2;
+/**
+ * Bump when the aggregation changes, so history never compares different methods.
+ * 3: the cohort is Polymarket's ALL-TIME profit leaderboard. Methods 1-2 called the
+ *    API without a period and silently got the 1-day board (today's winners).
+ */
+export const WHALE_METHOD = 3;
+/** Smart-money pages rescan in the background when the stored scan is older than this. */
+export const SCAN_FRESH_MS = 15 * 60_000;
 const POSITION_CONCURRENCY = 6;
 const POSITION_PAUSE_MS = 120;
 const KEEP_HOLDINGS = 120; // most-held outcomes stored
@@ -161,6 +168,8 @@ export interface WhalePayload {
   dailyFlow?: Array<{ day: string; buys: number; sells: number; trades: number }>;
   /** Trades are complete from this time on; earlier days may be missing trades. */
   coverageFrom?: string;
+  /** High-frequency traders left out of dailyFlow because Polymarket caps how many of their trades it returns. */
+  flowExcluded?: number;
 }
 
 async function mapPool<T, R>(items: T[], concurrency: number, fn: (item: T, i: number) => Promise<R>): Promise<R[]> {
@@ -205,7 +214,7 @@ export async function syncWhaleWatch(opts: { topN?: number } = {}): Promise<{ tr
 
 async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: number; positionsScanned: number; holdings: number }> {
   const topN = Math.min(1000, opts.topN ?? 1000);
-  const leaders = await fetchLeaderboard(topN);
+  const leaders = await fetchLeaderboard(topN, "ALL");
   if (!leaders.length) throw new Error("Polymarket leaderboard returned no traders");
   const leaderByWallet = new Map(leaders.map((l) => [l.wallet, l]));
   const now = Date.now();
@@ -386,12 +395,16 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
   const windowStart = new Date(now - (RECENT_DAYS - 1) * 86_400_000);
   windowStart.setUTCHours(0, 0, 0, 0);
   const cutoff = Math.floor(windowStart.getTime() / 1000);
-  let coverageFromSec = cutoff;
+  // A trader at the per-request cap trades so often (market makers, bots) that
+  // Polymarket only returns their last few hours. Letting them set the coverage
+  // line marked every day "partial" and greyed out the whole chart, so instead
+  // they are left out of the daily flow, which is then complete for every day,
+  // and the count is published with it. Their trades still appear in the feed.
+  const capped = new Set<string>();
   const tradesByTrader = await mapPool(bestTraders, POSITION_CONCURRENCY, async (l) => {
     try {
       const trades = (await fetchRecentTrades(l.wallet, RECENT_TRADES_EACH, cutoff)).filter((t) => t.ts >= cutoff);
-      // At the cap, this trader's history may be cut short: coverage starts at its oldest trade.
-      if (trades.length >= RECENT_TRADES_EACH) coverageFromSec = Math.max(coverageFromSec, Math.min(...trades.map((t) => t.ts)));
+      if (trades.length >= RECENT_TRADES_EACH) capped.add(l.wallet);
       return trades;
     } catch (e) {
       await logError("whales.trades", e, { wallet: l.wallet.slice(0, 10) });
@@ -401,7 +414,8 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
 
   const dailyFlow = new Map<string, { buys: number; sells: number; trades: number }>();
   for (let d = 0; d < RECENT_DAYS; d++) dailyFlow.set(new Date(windowStart.getTime() + d * 86_400_000).toISOString().slice(0, 10), { buys: 0, sells: 0, trades: 0 });
-  for (const trades of tradesByTrader) {
+  for (const [i, trades] of tradesByTrader.entries()) {
+    if (capped.has(bestTraders[i]!.wallet)) continue;
     for (const t of trades) {
       if (t.usd < MIN_TRADE_USD) continue;
       const b = dailyFlow.get(new Date(t.ts * 1000).toISOString().slice(0, 10));
@@ -501,7 +515,8 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
     recentWindowDays: RECENT_DAYS,
     recentTraders: bestTraders.length,
     dailyFlow: [...dailyFlow.entries()].map(([day, v]) => ({ day, ...v })),
-    coverageFrom: new Date(coverageFromSec * 1000).toISOString(),
+    coverageFrom: new Date(cutoff * 1000).toISOString(),
+    flowExcluded: capped.size,
     clusters: clusters.slice(0, 40),
     similarPairs: pairs.slice(0, 12),
   };
@@ -524,6 +539,28 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
   }
 
   return { tradersScanned: leaders.length, positionsScanned, holdings: holdings.length };
+}
+
+let lastBackgroundScan = 0;
+
+/**
+ * Keep the scan fresh without a frequent cron (Vercel Hobby allows daily crons
+ * only). Call from a smart-money page after reading the scan: when it is older
+ * than SCAN_FRESH_MS, a rescan runs after the response is sent, so the visitor
+ * never waits and the next visit sees fresh data. One background scan per
+ * instance per window; concurrent scans in one instance already coalesce.
+ */
+export function keepScanFresh(ageMs: number | null | undefined): void {
+  if (ageMs != null && ageMs < SCAN_FRESH_MS) return;
+  if (Date.now() - lastBackgroundScan < SCAN_FRESH_MS) return;
+  lastBackgroundScan = Date.now();
+  after(async () => {
+    try {
+      await syncWhaleWatch({ topN: 1000 });
+    } catch (e) {
+      await logError("whales.background", e);
+    }
+  });
 }
 
 export async function getWhaleWatch(): Promise<{ payload: WhalePayload; ageMs: number } | null> {

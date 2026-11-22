@@ -62,3 +62,56 @@ test("isInPlay treats 3¢ and below or 97¢ and above as decided", () => {
   assert.equal(isInPlay({ currentPrice: 0.97 }), false);
   assert.equal(isInPlay({ currentPrice: 0.04 }), true);
 });
+
+import { squarify } from "../src/lib/treemap";
+
+test("squarify fills the bounds exactly, proportionally, without overlap", () => {
+  const items = [6, 6, 4, 3, 2, 2, 1];
+  const out = squarify(items, (v) => v, { x: 0, y: 0, w: 6, h: 4 });
+  assert.equal(out.length, items.length);
+  const total = items.reduce((s, v) => s + v, 0);
+  for (const { item, rect } of out) {
+    assert.ok(Math.abs(rect.w * rect.h - (item / total) * 24) < 1e-9, "area proportional to weight");
+    assert.ok(rect.x >= -1e-9 && rect.y >= -1e-9 && rect.x + rect.w <= 6 + 1e-9 && rect.y + rect.h <= 4 + 1e-9, "inside bounds");
+  }
+  for (let a = 0; a < out.length; a++)
+    for (let b = a + 1; b < out.length; b++) {
+      const A = out[a]!.rect;
+      const B = out[b]!.rect;
+      const ox = Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x);
+      const oy = Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y);
+      assert.ok(ox <= 1e-9 || oy <= 1e-9, "tiles do not overlap");
+    }
+});
+
+test("squarify drops zero weights and handles empty input", () => {
+  assert.deepEqual(squarify([], (v: number) => v, { x: 0, y: 0, w: 1, h: 1 }), []);
+  assert.equal(squarify([0, 5, 0], (v) => v, { x: 0, y: 0, w: 2, h: 1 }).length, 1);
+});
+
+import { percentileOf, standingLabel } from "../src/lib/intel";
+
+test("percentileOf counts only strictly smaller values and ignores non-finite ones", () => {
+  assert.equal(percentileOf([1, 2, 3, 4], 3), 0.5);
+  assert.equal(percentileOf([1, 2, 3, 4], 1), 0);
+  assert.equal(percentileOf([1, 2, NaN, 4], 5), 1);
+  assert.equal(percentileOf([], 5), 0);
+});
+
+test("standingLabel never says Top 0%", () => {
+  assert.equal(standingLabel(1), "Top 1%");
+  assert.equal(standingLabel(0.97), "Top 3%");
+  assert.equal(standingLabel(0.5), "Top 50%");
+  assert.equal(standingLabel(0.2), "Bottom 20%");
+});
+
+import { walletDailyFlow } from "../src/lib/wallet-live";
+
+test("walletDailyFlow keeps a single partial day instead of returning nothing", () => {
+  const ts = Date.UTC(2026, 10, 22, 12) / 1000;
+  const trades = [0, 60, 120].map((d) => ({ ts: ts + d, side: "BUY" as const, usd: 1000 })) as unknown as Parameters<typeof walletDailyFlow>[0];
+  const rows = walletDailyFlow(trades, true);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]!.buys, 3000);
+  assert.equal(rows[0]!.partial, true);
+});

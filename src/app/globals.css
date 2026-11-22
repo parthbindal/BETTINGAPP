@@ -375,7 +375,20 @@
    * 4. .count-up    Number that counts to its value once, on first sight (client island in
    *                 components/motion/count-up.tsx). Server HTML already holds the final value.
    * 5. .pulse-live  The "data is live" dot. 2s, barely there. One per page.
+   * 6. .ticker      The tape (Home only). Constant speed on purpose -- a tape that eases reads
+   *                 as a glitch -- 80s a loop, pauses on hover and keyboard focus, and becomes
+   *                 a still, swipeable strip under reduced motion. Never over content.
    */
+  .ticker-track {
+    animation: ticker-scroll 80s linear infinite;
+  }
+  .ticker:hover .ticker-track,
+  .ticker:focus-within .ticker-track {
+    animation-play-state: paused;
+  }
+  .ticker-viewport {
+    mask-image: linear-gradient(to right, transparent 0, black 2rem, black calc(100% - 2rem), transparent 100%);
+  }
   .stagger-in > * {
     animation: stagger-rise var(--dur-base) var(--ease-out-soft) both;
     animation-delay: min(calc(var(--i, 0) * 40ms), 240ms);
@@ -442,6 +455,12 @@
       animation: none;
       opacity: 0;
     }
+    .ticker-track {
+      animation: none;
+    }
+    .ticker-viewport {
+      overflow-x: auto;
+    }
   }
   .text-balance {
     text-wrap: balance;
@@ -503,6 +522,12 @@
   }
 }
 
+@keyframes ticker-scroll {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
 @keyframes pulse-live {
   0% {
     transform: scale(1);
@@ -542,6 +567,38 @@
     animation-duration: 0s !important;
     animation-delay: 0s !important;
   }
+}
+
+/* Kept OUTSIDE @layer utilities: these class names are built at runtime
+   (map-${hue}-N), so they must not depend on Tailwind's class detection. */
+/*
+ * Smart-money map tiles. Three tiers per direction, mixed into the page
+ * background so white type keeps contrast; up and down use ONLY the reserved
+ * meaning colours (status-good, chart-2). Each tile is a size container so its
+ * labels appear only when they fit: a tiny tile shows colour alone.
+ */
+.map-status-good-1 { background: color-mix(in oklch, var(--status-good) 26%, var(--background)); color: var(--foreground); }
+.map-status-good-2 { background: color-mix(in oklch, var(--status-good) 42%, var(--background)); color: var(--foreground); }
+.map-status-good-3 { background: color-mix(in oklch, var(--status-good) 58%, var(--background)); color: var(--foreground); }
+.map-chart-2-1 { background: color-mix(in oklch, var(--chart-2) 26%, var(--background)); color: var(--foreground); }
+.map-chart-2-2 { background: color-mix(in oklch, var(--chart-2) 42%, var(--background)); color: var(--foreground); }
+.map-chart-2-3 { background: color-mix(in oklch, var(--chart-2) 58%, var(--background)); color: var(--foreground); }
+.map-tile {
+  container-type: size;
+}
+.map-tile .map-title,
+.map-tile .map-side,
+.map-tile .map-chg {
+  display: none;
+}
+@container (min-width: 3.25rem) and (min-height: 1.75rem) {
+  .map-tile .map-chg { display: block; }
+}
+@container (min-width: 5.25rem) and (min-height: 4.25rem) {
+  .map-tile .map-title { display: -webkit-box; }
+}
+@container (min-width: 8.5rem) and (min-height: 4.75rem) {
+  .map-tile .map-side { display: block; }
 }
 
 /* Charts: the line draws itself once when the chart mounts (~600ms), never on data redraws. */

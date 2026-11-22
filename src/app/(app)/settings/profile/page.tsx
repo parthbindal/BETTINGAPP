@@ -3,6 +3,9 @@ import { Section } from "@/components/shared/page-header";
 import { ProfileForm, PasswordForm, DeleteAccountForm } from "@/components/settings/profile-forms";
 import { dateShort } from "@/lib/format";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 export default async function ProfilePage() {
   const session = await requireUser("/settings/profile");
   const ent = await getEntitlements(session.user.id);

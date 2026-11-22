@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import { Suspense } from "react";
 import Link from "next/link";
 import { Logo } from "@/components/marketing/logo";
@@ -29,6 +30,9 @@ function SignedOutCta() {
 
 /** Reads the session, so it streams in behind a boundary; the rest of the page is static. */
 async function AuthCta() {
+  // Request-time by declaration: the session check reads the clock, which must
+  // never run while the static shell is being prerendered.
+  await connection();
   const session = await getSession();
   if (!session) return <SignedOutCta />;
   return (

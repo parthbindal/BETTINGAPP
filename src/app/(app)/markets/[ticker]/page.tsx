@@ -21,6 +21,9 @@ import { trackUsage } from "@/lib/ops";
 import { isPast } from "@/lib/time";
 import { LinkButton } from "@/components/ui/link-button";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 const RANGES = [1, 7, 30, 90, 365, 730];
 
 export default async function MarketPage({ params, searchParams }: { params: Promise<{ ticker: string }>; searchParams: Promise<{ days?: string }> }) {

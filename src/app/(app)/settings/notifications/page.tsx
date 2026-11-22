@@ -4,6 +4,9 @@ import { config } from "@/lib/env";
 import { Section } from "@/components/shared/page-header";
 import { NotificationPrefsForm } from "@/components/settings/profile-forms";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 export default async function NotificationSettingsPage() {
   const session = await requireUser("/settings/notifications");
   const [ent, prefs] = await Promise.all([getEntitlements(session.user.id), db.notificationPreference.findUnique({ where: { userId: session.user.id } })]);

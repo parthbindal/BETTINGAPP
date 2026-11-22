@@ -196,7 +196,7 @@ export async function syncNbaFromBalldontlie(opts: { logWindowDays?: number; upc
     for (let i = 0; i < projections.length; i += chunk) {
       await tx.projection.createMany({ data: projections.slice(i, i + chunk).map((p) => ({ playerId: p.playerId, gameId: p.gameId, stat: p.stat, line: p.line, source: SOURCE, isDemo: false })) });
     }
-  });
+  }, { timeout: 60_000, maxWait: 10_000 }); // a networked Postgres needs more than the 5s default for this many rows
 
   const note =
     tier === "teams_and_schedule"

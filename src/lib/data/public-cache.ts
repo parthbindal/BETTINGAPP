@@ -1,6 +1,7 @@
 import { cacheLife } from "next/cache";
 import { getFeaturedMarkets } from "@/lib/data/markets";
 import { getWhaleWatch } from "@/lib/whales";
+import { fetchLeaderboard, type LeaderEntry, type LeaderboardPeriod } from "@/lib/data/providers/polymarket-whales";
 import { getLedger, getRecordByKind, getSignalRecord, type LedgerRow, type SignalRecord } from "@/lib/signals";
 
 /**
@@ -93,4 +94,20 @@ export async function getSmartMoneyPreviewCached(): Promise<SmartMoneyPreview | 
         marketSlug: h.marketSlug ?? null,
       })),
   };
+}
+
+/**
+ * Polymarket's short-window profit boards (today / this week / this month),
+ * cached for minutes. These are "who is hot", not "who is good": the scan's
+ * cohort is the ALL-time board, and the UI says which hot traders are also on it.
+ * A failed fetch returns an empty board rather than breaking the page.
+ */
+export async function getHotTradersCached(period: Exclude<LeaderboardPeriod, "ALL">, limit = 12): Promise<LeaderEntry[]> {
+  "use cache";
+  cacheLife("minutes");
+  try {
+    return await fetchLeaderboard(limit, period);
+  } catch {
+    return [];
+  }
 }

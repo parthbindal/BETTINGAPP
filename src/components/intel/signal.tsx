@@ -117,7 +117,7 @@ const SPLIT_COLORS = ["bg-foreground/80", "bg-muted-foreground/60"] as const; //
  * A market where top traders sit on BOTH sides. Shown as one card so the
  * disagreement is visible, instead of two cards that each look like consensus.
  */
-export function SplitCard({ sides, rank, id, className }: { sides: ConsensusHolding[]; rank?: number; id?: string; className?: string }) {
+export function SplitCard({ sides, rank, id, href, className }: { sides: ConsensusHolding[]; rank?: number; id?: string; href?: string; className?: string }) {
   const [a, b] = sides as [ConsensusHolding, ConsensusHolding];
   const totalHolders = sides.reduce((s, h) => s + h.holders, 0);
   const end = fmtEnd(a.endDate);
@@ -136,7 +136,15 @@ export function SplitCard({ sides, rank, id, className }: { sides: ConsensusHold
         </span>
       </div>
 
-      <h3 className="mt-2.5 line-clamp-2 text-[15px] font-medium leading-snug">{a.title}</h3>
+      <h3 className="mt-2.5 line-clamp-2 text-[15px] font-medium leading-snug">
+        {href ? (
+          <Link href={href} className="after:absolute after:inset-0 after:rounded-xl after:content-[''] hover:text-primary focus-visible:outline-none">
+            {a.title}
+          </Link>
+        ) : (
+          a.title
+        )}
+      </h3>
       <p className="mt-2 text-xs text-muted-foreground">{explainSplit(a, b)}</p>
 
       {/* Share of the top traders on each side */}

@@ -6,6 +6,9 @@ import { PageHeader, Section } from "@/components/shared/page-header";
 import { ReportButton } from "@/components/shared/report-button";
 import { statLabel } from "@/lib/data/sports";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 export default async function NewReportPage() {
   await requireUser("/research/new");
   const [featured, projections] = await Promise.all([

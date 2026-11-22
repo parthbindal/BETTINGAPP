@@ -7,6 +7,9 @@ import { ActionButton } from "@/components/shared/action-button";
 import { relative, titleCase } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 export default async function NotificationsPage() {
   const session = await requireUser("/notifications");
   const items = await db.notification.findMany({ where: { userId: session.user.id }, orderBy: { createdAt: "desc" }, take: 100 });

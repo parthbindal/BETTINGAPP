@@ -87,6 +87,18 @@ export function toNormalized(m: DbMarket): NormalizedMarket {
 
 const signature = (q: QuoteLike) => `${q.status}|${q.yesBid}|${q.yesAsk}|${q.lastPrice}|${q.previousPrice}|${q.volume}|${q.volume24h}|${q.openInterest}|${q.result ?? ""}`;
 
+/**
+ * Write fresh quotes as independent row updates, ten at a time. Each quote is
+ * its own fact, so there is nothing to keep atomic; a 100-row interactive
+ * transaction against a networked Postgres ran past Prisma's 5s limit and
+ * rolled back the whole batch.
+ */
+async function applyQuotes(markets: NormalizedMarket[], at: Date): Promise<void> {
+  for (let i = 0; i < markets.length; i += 10) {
+    await Promise.all(markets.slice(i, i + 10).map((m) => db.market.update({ where: { ticker: m.ticker }, data: quoteData(m, at) })));
+  }
+}
+
 function quoteData(m: NormalizedMarket, at: Date) {
   return {
     status: m.status,
@@ -253,9 +265,7 @@ export async function syncMarkets(opts: { maxPages?: number } = {}): Promise<Syn
         }
         if (newEvents.length) await db.marketEvent.createMany({ data: newEvents });
         for (const part of chunk(newMarkets, 400)) await db.market.createMany({ data: part });
-        for (const part of chunk(changed, 100)) {
-          await db.$transaction(part.map((m) => db.market.update({ where: { ticker: m.ticker }, data: quoteData(m, started) })));
-        }
+        await applyQuotes(changed, started);
         for (const part of chunk(same, 800)) await db.market.updateMany({ where: { ticker: { in: part } }, data: { fetchedAt: started } });
         res.created += newMarkets.length;
         res.updated += changed.length;
@@ -319,9 +329,7 @@ export async function refreshHotMarkets(opts: { extraTickers?: string[] } = {}) 
       for (const part of chunk([...meta.keys()], 100)) {
         const fresh = await withProvider("kalshi", () => kalshi.fetchMarketsByTickers(part, meta));
         const at = new Date();
-        for (const sub of chunk(fresh, 100)) {
-          await db.$transaction(sub.map((m) => db.market.update({ where: { ticker: m.ticker }, data: quoteData(m, at) })));
-        }
+        await applyQuotes(fresh, at);
         refreshed += fresh.length;
       }
       await recordSyncState(HOT_REFRESH_KEY, true, Date.now() - t0, `${refreshed} markets re-quoted`);

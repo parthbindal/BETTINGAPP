@@ -8,6 +8,9 @@ import { compact, relative } from "@/lib/format";
 import { isWalletAddress } from "@/lib/intel";
 import { trackUsage } from "@/lib/ops";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 function WalletList({ title, description, wallets, metric }: { title: string; description: string; wallets: WalletStat[]; metric: (w: WalletStat) => string }) {
   return (
     <Section title={title} description={description}>
@@ -89,7 +92,7 @@ export default async function WalletExplorerIndex({ searchParams }: { searchPara
       </Section>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <WalletList title="Top by profit" description="Polymarket's profit leaderboard" wallets={byRank} metric={(w) => `$${compact(w.pnl)}`} />
+        <WalletList title="Top by profit" description="Polymarket's all-time profit leaderboard" wallets={byRank} metric={(w) => `$${compact(w.pnl)}`} />
         <WalletList title="Recently active" description="Latest activity on an open position" wallets={recent} metric={(w) => (w.lastActive ? relative(w.lastActive) : "—")} />
         <WalletList title="Largest open books" description="Current value of open positions" wallets={biggest} metric={(w) => `$${compact(w.openValue)}`} />
       </div>

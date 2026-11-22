@@ -6,6 +6,9 @@ import { LimitEditor } from "@/components/admin/admin-forms";
 import { ActionButton } from "@/components/shared/action-button";
 import { cn } from "@/lib/utils";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 export default async function AdminLimitsPage() {
   await requireAdmin();
   const overrides = await db.featureLimitOverride.findMany();

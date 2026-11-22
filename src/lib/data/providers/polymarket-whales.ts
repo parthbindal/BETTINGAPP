@@ -1,7 +1,10 @@
 /**
  * Polymarket on-chain "whale" data (public v2 Data API + Gamma). No credentials.
  *
- *  - leaderboard: top traders by realized+unrealized profit.
+ *  - leaderboard: top traders by realized+unrealized profit over a time period.
+ *    The period MUST be passed explicitly: with no `timePeriod` the API silently
+ *    returns the 1-DAY board, so "the most profitable traders" became "today's
+ *    biggest winners" and the whole cohort churned every day.
  *  - positions:   a wallet's current holdings (token, size, cost, value, PnL).
  *  - enrichment:  map each token to its outcome label + a coarse category.
  *
@@ -34,9 +37,11 @@ export interface LeaderEntry {
 }
 
 type RawLeader = { rank: number; user_id: string; user_name?: string; pnl: number; volume: number; x_username?: string; verified?: boolean };
-export async function fetchLeaderboard(topN: number): Promise<LeaderEntry[]> {
+/** Polymarket's leaderboard windows. `ALL` is all-time; the API default (no param) is `DAY`. */
+export type LeaderboardPeriod = "ALL" | "MONTH" | "WEEK" | "DAY";
+export async function fetchLeaderboard(topN: number, period: LeaderboardPeriod = "ALL"): Promise<LeaderEntry[]> {
   const limit = Math.min(1000, Math.max(1, topN));
-  const res = await getJson<RawLeader[] | { data?: RawLeader[] }>(`${DATA}/v2/leaderboard?window=all&limit=${limit}`);
+  const res = await getJson<RawLeader[] | { data?: RawLeader[] }>(`${DATA}/v2/leaderboard?timePeriod=${period}&limit=${limit}`);
   const raw: RawLeader[] = Array.isArray(res) ? res : (res?.data ?? []);
   return raw.map((r) => ({
     rank: r.rank,

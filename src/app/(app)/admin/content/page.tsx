@@ -8,6 +8,9 @@ import { UpdateForm } from "@/components/admin/admin-forms";
 import { ActionButton } from "@/components/shared/action-button";
 import { dateShort } from "@/lib/format";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 export default async function AdminContentPage() {
   await requireAdmin();
   const [completions, attempts, updates] = await Promise.all([

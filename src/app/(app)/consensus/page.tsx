@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { MoneyMap } from "@/components/intel/money-map";
 import { Filter } from "lucide-react";
 import { requireUser, getEntitlements } from "@/lib/session";
-import { getWhaleWatch, type ConsensusHolding } from "@/lib/whales";
+import { keepScanFresh, getWhaleWatch, type ConsensusHolding } from "@/lib/whales";
 import { Section, EmptyState } from "@/components/shared/page-header";
 import { UpgradeGate } from "@/components/shared/badges";
 import { ScanFreshness } from "@/components/intel/scan-freshness";
@@ -12,6 +13,9 @@ import { compact, dateShort } from "@/lib/format";
 import { isInPlay, readConsensus, splitSides, walletHref } from "@/lib/intel";
 import { trackUsage } from "@/lib/ops";
 import { cn } from "@/lib/utils";
+
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
 
 const MIN_OPTIONS = [5, 10, 15, 20] as const;
 const PAGE = 48;
@@ -82,6 +86,7 @@ function WhoIsIn({ h }: { h: ConsensusHolding }) {
 export default async function ConsensusPage({ searchParams }: { searchParams: Promise<Params> }) {
   const session = await requireUser("/consensus");
   const [ent, whale, sp] = await Promise.all([getEntitlements(session.user.id), getWhaleWatch(), searchParams]);
+  keepScanFresh(whale?.ageMs);
   trackUsage("consensus.view", session.user.id);
   const pro = ent.limits.scanner;
 
@@ -142,6 +147,15 @@ export default async function ConsensusPage({ searchParams }: { searchParams: Pr
   }
 
   const firstOne = items.find((it) => it.kind === "one");
+  // The map: one tile per market (the side more top traders are on), live markets only, biggest money first.
+  const seenMarket = new Set<string>();
+  const mapSignals: ConsensusHolding[] = [];
+  for (const h of [...list].sort((a, b) => b.holders - a.holders)) {
+    if (!isInPlay(h) || seenMarket.has(h.conditionId)) continue;
+    seenMarket.add(h.conditionId);
+    mapSignals.push(h);
+  }
+  mapSignals.sort((a, b) => b.totalValue - a.totalValue);
   const hiddenActive = [sp.dir, sp.kind, sp.min, sp.settled].filter(Boolean).length;
 
   return (
@@ -150,6 +164,12 @@ export default async function ConsensusPage({ searchParams }: { searchParams: Pr
         {header}
         <ScanFreshness generatedAt={whale.payload.generatedAt} note={`${whale.payload.tradersScanned.toLocaleString("en-US")} traders`} />
       </div>
+
+      {mapSignals.length >= 3 && (
+        <Section title="The smart money map" description="Every live signal, sized by the money behind it and coloured by how it has moved since the traders bought. Tap a tile to open it.">
+          <MoneyMap signals={mapSignals.slice(0, 36)} />
+        </Section>
+      )}
 
       {/* Two visible controls: topic, and everything else behind "More filters". */}
       <div className="space-y-3">
@@ -223,9 +243,9 @@ export default async function ConsensusPage({ searchParams }: { searchParams: Pr
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {items.slice(0, PAGE).map((it, i) =>
               it.kind === "one" ? (
-                <SignalCard key={it.h.tokenId} id={`sig-${it.h.tokenId}`} h={it.h} rank={i + 1} tiered primaryCta={it === firstOne} className="scroll-mt-20 target:border-primary/60 target:ring-2 target:ring-primary/40" footer={<WhoIsIn h={it.h} />} />
+                <SignalCard key={it.h.tokenId} id={`sig-${it.h.tokenId}`} href={`/consensus/${it.h.tokenId}`} h={it.h} rank={i + 1} tiered primaryCta={it === firstOne} className="scroll-mt-20 target:border-primary/60 target:ring-2 target:ring-primary/40" footer={<WhoIsIn h={it.h} />} />
               ) : (
-                <SplitCard key={it.sides[0]!.conditionId} id={`sig-${it.sides[0]!.tokenId}`} sides={it.sides} rank={i + 1} className="scroll-mt-20 target:border-primary/60 target:ring-2 target:ring-primary/40" />
+                <SplitCard key={it.sides[0]!.conditionId} id={`sig-${it.sides[0]!.tokenId}`} href={`/consensus/${it.sides[0]!.tokenId}`} sides={it.sides} rank={i + 1} className="scroll-mt-20 target:border-primary/60 target:ring-2 target:ring-primary/40" />
               ),
             )}
           </div>

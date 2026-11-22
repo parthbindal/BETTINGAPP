@@ -122,32 +122,33 @@ only setup is having that variable present in the Vercel project.
 You can still fire any job by hand from Admin → System, or with
 `POST /api/jobs/<name>` and the same bearer token.
 
-| Job | Does | Cadence |
+**The schedules are daily because this project is on Vercel Hobby.** Hobby
+allows each cron to run at most once a day, and it does not just skip a more
+frequent cron: it **fails the whole deployment**. (Sub-daily schedules here once
+blocked every deploy for a day.) Do not add a sub-daily schedule unless the
+project is on Pro.
+
+| Job | Does | Cron (UTC) |
 |---|---|---|
-| `refresh-hot` | Re-quote the most liquid + all watched markets (few batched calls) | every 5 min |
-| `whale-watch` | Rescan the top 1,000 Polymarket traders' positions — the smart-money data the app is built on | every 15 min |
-| `watchlist-alerts` | Notify on watched-market moves and upcoming events | every 15 min |
-| `sync-markets` | Full Kalshi scan; cache active markets, close departed ones, record snapshots | every 30 min |
-| `resolve-predictions` | Score forecasts from exchange results; finalize demo games | hourly |
-| `onboarding-emails` | Advance the 6-step onboarding sequence | hourly |
+| `whale-watch` | Rescan the top 1,000 all-time Polymarket traders — the smart-money data the app is built on | daily 06:02 |
+| `sync-markets` | Full Kalshi scan; cache active markets, close departed ones, record snapshots | daily 07:14 |
+| `score-signals` | Grade ledger signals whose markets have settled | daily 08:26 |
+| `resolve-predictions` | Score forecasts from exchange results | daily 09:38 |
+| `refresh-hot` | Re-quote the most liquid + all watched markets | daily 10:44 |
+| `watchlist-alerts` | Notify on watched-market moves and upcoming events | daily 11:52 |
 | `daily-brief` / `weekly-brief` | Build the research summary and send opted-in digests | daily / weekly |
+| `onboarding-emails` | Advance the 6-step onboarding sequence | daily 15:19 |
 
-The schedules are deliberately offset rather than all landing on the hour
-(`whale-watch` at :02/:17/:32/:47, `watchlist-alerts` at :09/:24/:39/:54, and so
-on). `whale-watch` crawls a thousand wallets and is declared `maxDuration = 300`;
-letting it collide with the other jobs is how you get timeouts.
+**Freshness does not depend on the crons.** The smart-money pages (Home, Signals,
+Live Trades, Top Traders, Smart Money) start a background rescan with `after()`
+whenever the stored scan is older than 15 minutes, so the data is as fresh as
+the last visit. The cron is the floor for days nobody visits. On Pro, tighten
+`whale-watch` to `2-59/15 * * * *` and `refresh-hot` to `*/5 * * * *`.
 
-Why 15 minutes and not real time: there is no Polymarket feed that pushes "this
-trader's portfolio changed". Positions have to be crawled wallet by wallet, so
-the floor is however long a full scan takes — minutes, not seconds. That suits
-the data, which is multi-day conviction positions rather than scalps. Prices are
-the part that *can* be near-live, which is why `refresh-hot` runs 3x as often
-and touches only hot and watched markets.
-
-**Plan requirement.** Sub-daily crons and the 300s duration need Vercel Pro. On
-Hobby, crons fire roughly once a day and functions are cut off well before
-`whale-watch` finishes, so the scan will fail rather than run stale — check the
-plan before trusting these schedules.
+`whale-watch` crawls a thousand wallets and is declared `maxDuration = 300`
+(available on Hobby with Fluid compute). There is no Polymarket feed that pushes
+"this trader's portfolio changed", so positions are crawled wallet by wallet and
+the floor is however long a full scan takes — minutes, not seconds.
 
 Neither Polymarket API the app uses (`gamma-api` for markets,
 `data-api` for the leaderboard and wallet positions) takes a key, so there is no

@@ -9,6 +9,9 @@ import { ActionButton } from "@/components/shared/action-button";
 import { displayName } from "@/lib/display";
 import { dateTime, relative } from "@/lib/format";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 export default async function ThreadPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await requireUser(`/community/${id}`);

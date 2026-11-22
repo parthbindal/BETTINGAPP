@@ -17,6 +17,9 @@ import { dateShort, usd } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { logError } from "@/lib/ops";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 function Meter({ label, used, limit }: { label: string; used: number; limit: number }) {
   const ratio = limit > 0 ? Math.min(1, used / limit) : 0;
   return (

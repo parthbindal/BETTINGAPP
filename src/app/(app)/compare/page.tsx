@@ -11,6 +11,9 @@ import { cn } from "@/lib/utils";
 import { trackUsage } from "@/lib/ops";
 import type { EventComparison, OppCategory, VenueQuote } from "@/lib/data/cross-source";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 const CAT_TONE: Record<OppCategory, string> = {
   strong: "border-status-good/40 bg-status-good/10 text-status-good",
   moderate: "border-status-warning/40 bg-status-warning/10 text-status-warning",

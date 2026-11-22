@@ -25,7 +25,7 @@ export interface LeaderRow {
 type SortKey = "rank" | "pnl" | "openRoi" | "positions" | "avgPosition" | "openValue" | "lastActive";
 
 const PRESETS: Array<{ label: string; sort: SortKey; title: string }> = [
-  { label: "Highest profit", sort: "pnl", title: "Polymarket leaderboard profit" },
+  { label: "Highest profit", sort: "pnl", title: "All-time profit on Polymarket's leaderboard" },
   { label: "Highest open ROI", sort: "openRoi", title: "Unrealized return on open positions, among wallets with at least $5,000 deployed" },
   { label: "Most active", sort: "positions", title: "Most open positions right now" },
   { label: "Recently active", sort: "lastActive", title: "Most recent activity on an open position" },
@@ -131,7 +131,7 @@ export function LeaderboardTable({ rows }: { rows: LeaderRow[] }) {
             <tr className="border-b border-border text-left text-[11px] text-muted-foreground">
               <SortHeader label="#" k="rank" sort={sort} dir={dir} onSort={onSort} align="left" />
               <th scope="col" className="px-2 py-2 font-medium uppercase tracking-[0.12em]">Trader</th>
-              <SortHeader label="Total profit" k="pnl" sort={sort} dir={dir} onSort={onSort} />
+              <SortHeader label="All-time profit" k="pnl" sort={sort} dir={dir} onSort={onSort} />
               <SortHeader label="Open ROI" k="openRoi" sort={sort} dir={dir} onSort={onSort} />
               <SortHeader label="Positions" k="positions" sort={sort} dir={dir} onSort={onSort} />
               <SortHeader label="Avg position" k="avgPosition" sort={sort} dir={dir} onSort={onSort} />

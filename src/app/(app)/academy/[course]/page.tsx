@@ -6,6 +6,9 @@ import { getAcademyProgress } from "@/lib/academy";
 import { getCourse } from "@/content/academy";
 import { PageHeader, Section } from "@/components/shared/page-header";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 export default async function CoursePage({ params }: { params: Promise<{ course: string }> }) {
   const { course: slug } = await params;
   const course = getCourse(slug);

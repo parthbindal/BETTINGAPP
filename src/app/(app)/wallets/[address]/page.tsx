@@ -7,15 +7,18 @@ import { getWhaleWatch } from "@/lib/whales";
 import { getWalletLive, walletDailyFlow, WALLET_TRADES_LIMIT, type WalletLive } from "@/lib/wallet-live";
 import { Section, EmptyState } from "@/components/shared/page-header";
 import { WatchButton } from "@/components/shared/watch-button";
-import { RankedBars } from "@/components/charts/ranked-bars";
+import { AllocationBar, TraderStanding, type Standing } from "@/components/intel/trader-standing";
 import { TraderAvatar } from "@/components/intel/trader-identity";
 import { CopyButton } from "@/components/intel/copy-button";
 import { ActivityChart } from "@/components/intel/activity-chart";
 import { compact, dateShort, pct, relative } from "@/lib/format";
-import { isInPlay, isWalletAddress, polygonTxUrl, polymarketProfileUrl, shortAddress } from "@/lib/intel";
+import { isInPlay, isWalletAddress, polygonTxUrl, polymarketProfileUrl, shortAddress, percentileOf } from "@/lib/intel";
 import { OpenOnPolymarket } from "@/components/intel/open-on-polymarket";
 import { trackUsage } from "@/lib/ops";
 import { cn } from "@/lib/utils";
+
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
 
 function Figure({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "down" }) {
   return (
@@ -52,7 +55,6 @@ export default async function WalletPage({ params }: { params: Promise<{ address
   const openValue = positions.reduce((s, p) => s + p.currentValue, 0);
   const openCost = positions.reduce((s, p) => s + p.totalCost, 0);
   const unrealized = positions.reduce((s, p) => s + p.unrealizedPnl, 0);
-  const realized = positions.reduce((s, p) => s + p.realizedPnl, 0);
   const openRoi = openCost > 0 ? unrealized / openCost : null;
   const byCategory = new Map<string, number>();
   for (const p of positions) byCategory.set(p.category, (byCategory.get(p.category) ?? 0) + p.currentValue);
@@ -60,6 +62,21 @@ export default async function WalletPage({ params }: { params: Promise<{ address
   const limitHit = trades.length >= WALLET_TRADES_LIMIT;
   const flow = walletDailyFlow(trades, limitHit);
   const consensusIn = (whale?.payload.holdings ?? []).filter((h) => h.topHolders?.some((t) => t.wallet.toLowerCase() === addr));
+  const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
+
+  // Standing against the rest of the tracked 1,000, from the same scan so every row compares like with like.
+  const cohort = whale?.payload.wallets ?? [];
+  const holdersOf = cohort.filter((w) => w.positions > 0);
+  const roiPool = cohort.filter((w) => w.openRoi !== null && w.openCost >= 5_000);
+  const standing: Standing[] = stat
+    ? [
+        { label: "All-time profit", value: `$${compact(stat.pnl)}`, p: percentileOf(cohort.map((w) => w.pnl), stat.pnl), detail: `#${stat.rank} of ${cohort.length.toLocaleString("en-US")} on Polymarket's all-time board` },
+        { label: "Money on the table now", value: `$${compact(stat.openValue)}`, p: stat.positions > 0 ? percentileOf(holdersOf.map((w) => w.openValue), stat.openValue) : null, detail: `vs. the ${holdersOf.length} with open bets` },
+        { label: "Return on open bets", value: stat.openRoi === null ? "—" : `${stat.openRoi >= 0 ? "+" : ""}${pct(stat.openRoi, 1)}`, p: stat.openRoi !== null && stat.openCost >= 5_000 ? percentileOf(roiPool.map((w) => w.openRoi ?? 0), stat.openRoi) : null, detail: `vs. the ${roiPool.length} with $5K+ deployed` },
+        { label: "Bet size", value: stat.positions > 0 ? `$${compact(stat.avgPosition)} avg` : "—", p: stat.positions > 0 ? percentileOf(holdersOf.map((w) => w.avgPosition), stat.avgPosition) : null, detail: "average open position" },
+        { label: "Activity", value: plural(stat.positions, "open bet"), p: stat.positions > 0 ? percentileOf(holdersOf.map((w) => w.positions), stat.positions) : null, detail: stat.topCategory ? `mostly ${stat.topCategory}` : "positions of $100+" },
+      ]
+    : [];
 
   return (
     <div className="space-y-6">
@@ -76,7 +93,7 @@ export default async function WalletPage({ params }: { params: Promise<{ address
               <h1 className="truncate text-2xl font-semibold tracking-tight sm:text-3xl">{name}</h1>
               <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
                 {stat ? (
-                  <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 font-medium text-foreground">#{stat.rank} on Polymarket&apos;s profit leaderboard</span>
+                  <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 font-medium text-foreground">#{stat.rank} all-time on Polymarket&apos;s profit leaderboard</span>
                 ) : (
                   <span className="rounded-full border border-border px-2 py-0.5 text-muted-foreground">Not in the tracked top 1,000</span>
                 )}
@@ -108,17 +125,17 @@ export default async function WalletPage({ params }: { params: Promise<{ address
       ) : (
         <>
           <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-3 lg:grid-cols-6">
-            <Figure label="Leaderboard profit" value={stat ? `$${compact(stat.pnl)}` : "—"} sub={stat ? "Polymarket profit ranking" : "Not ranked in the top 1,000"} />
-            <Figure label="Open exposure" value={`$${compact(openValue)}`} sub={`${positions.length} positions of $100+`} />
+            <Figure label="All-time profit" value={stat ? `$${compact(stat.pnl)}` : "—"} sub={stat ? `#${stat.rank} on Polymarket` : "Not in the all-time top 1,000"} />
+            <Figure label="Open exposure" value={`$${compact(openValue)}`} sub={`${plural(positions.length, "position")} of $100+`} />
             <Figure label="Unrealized P&L" value={signed(unrealized)} sub="On open positions" tone={unrealized < 0 ? "down" : undefined} />
             <Figure label="Open ROI" value={openRoi === null ? "—" : `${openRoi >= 0 ? "+" : ""}${pct(openRoi, 1)}`} sub="Unrealized ÷ cost" tone={openRoi !== null && openRoi < 0 ? "down" : undefined} />
-            <Figure label="Avg position" value={positions.length ? `$${compact(openValue / positions.length)}` : "—"} sub={`Realized on open: ${signed(realized)}`} />
+            <Figure label="Avg position" value={positions.length ? `$${compact(openValue / positions.length)}` : "—"} sub={positions.length ? `across ${plural(positions.length, "position")}` : "no open positions"} />
             <Figure label="Last trade" value={trades[0] ? relative(new Date(trades[0].ts * 1000)) : "—"} sub={`${trades.length} recent trades read`} />
           </div>
 
           <div className="grid gap-4 lg:grid-cols-5">
-            <Section title="Exposure by category" description="Current value of open positions" className="lg:col-span-2">
-              {categories.length ? <RankedBars data={categories} valueLabel="Open value" valueFormat="compact" /> : <EmptyState title="No open positions" description="This wallet holds no positions of $100 or more right now." />}
+            <Section title="How this trader compares" description={stat ? "Against the other traders EDGEWISE tracks, from the latest scan" : "Ranking needs the trader to be in the all-time top 1,000"} className="lg:col-span-2">
+              {standing.length ? <TraderStanding rows={standing} /> : <EmptyState title="Not in the tracked 1,000" description="This wallet is not among Polymarket's 1,000 most profitable traders of all time, so there is no cohort to compare it with." />}
             </Section>
             <Section title="Trading activity" description={limitHit ? `Dollar volume per day (UTC), latest ${WALLET_TRADES_LIMIT} trades` : "Dollar volume per day (UTC), recent trades"} className="lg:col-span-3">
               <ActivityChart data={flow} height={220} emptyText="No recent trades." ranges={[7, 30, 90]} />
@@ -126,7 +143,12 @@ export default async function WalletPage({ params }: { params: Promise<{ address
             </Section>
           </div>
 
-          <Section title="Open positions" description={`${positions.length} positions of $100 or more, largest first`}>
+          <Section title="Open positions" description={`${plural(positions.length, "position")} of $100 or more, largest first`}>
+            {categories.length > 1 && (
+              <div className="mb-5">
+                <AllocationBar items={categories.map((c) => ({ label: c.name, value: c.value }))} />
+              </div>
+            )}
             {positions.length ? (
               <div className="-mx-1 overflow-x-auto">
                 <table className="w-full min-w-[860px] text-sm">
@@ -212,15 +234,17 @@ export default async function WalletPage({ params }: { params: Promise<{ address
                 <EmptyState title="No recent trades" description="Polymarket returned no trades for this wallet." />
               )}
             </Section>
-            <Section title="Consensus participation" description="Outcomes where this wallet holds alongside other top traders" className="lg:col-span-2" right={<Link href="/consensus" className="text-xs text-primary hover:underline">Consensus →</Link>}>
+            <Section title="Signals this trader is in" description="Bets where this wallet sits alongside other top traders" className="lg:col-span-2" right={<Link href="/consensus" className="text-xs text-primary hover:underline">All signals →</Link>}>
               {consensusIn.length ? (
                 <ul className="-mx-1 divide-y divide-border">
                   {consensusIn.slice(0, 8).map((h) => (
                     <li key={h.tokenId} className="px-1 py-2.5">
-                      <div className="line-clamp-2 text-sm font-medium">{h.title}</div>
-                      <div className="mt-0.5 text-xs text-muted-foreground">
-                        Holding <span className="text-foreground/90">{h.outcome}</span> with {h.holders - 1} other tracked wallets · ${compact(h.totalValue)} combined
-                      </div>
+                      <Link href={`/consensus/${h.tokenId}`} className="group block">
+                        <div className="line-clamp-2 text-sm font-medium group-hover:text-primary">{h.title}</div>
+                        <div className="mt-0.5 text-xs text-muted-foreground">
+                          Holding <span className="text-foreground/90">{h.outcome}</span> with {plural(h.holders - 1, "other top trader")} · ${compact(h.totalValue)} combined
+                        </div>
+                      </Link>
                     </li>
                   ))}
                 </ul>

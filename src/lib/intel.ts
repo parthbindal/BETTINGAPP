@@ -31,6 +31,19 @@ export interface ConsensusRead {
  * What kind of agreement this is, from breadth, concentration and entry timing.
  * A label describes the positioning; it is never a signal to copy it.
  */
+/**
+ * The consumer name for each internal read. The ledger stores the internal
+ * label (it is part of the permanent record), and every screen shows this one,
+ * so the app and the public track record use the same words.
+ */
+export const KIND_LABEL: Record<ConsensusRead["label"], string> = {
+  "Converging now": "New money this week",
+  "Long-held": "Long-term bet",
+  "Whale-led": "Mostly one trader",
+  Broad: "Many traders agree",
+};
+export const kindLabel = (internal: string): string => KIND_LABEL[internal as ConsensusRead["label"]] ?? internal;
+
 export function readConsensus(h: ConsensusHolding): ConsensusRead {
   const share = h.topHolderShare;
   if (share !== undefined && share >= 0.5) {
@@ -130,4 +143,26 @@ export function explainSplit(a: Side, b: Side): string {
   return a.totalValue >= b.totalValue
     ? `${head}, and they have more money on it too (${money(a.totalValue)} vs ${money(b.totalValue)}).`
     : `${head}, but more money is on ${b.outcome} (${money(b.totalValue)} vs ${money(a.totalValue)}).`;
+}
+
+/** Caption for the daily money-flow chart, naming any high-frequency traders left out of it. */
+export function flowCaption(p: { recentTraders?: number; flowExcluded?: number }): string {
+  const n = p.recentTraders ?? 100;
+  const x = p.flowExcluded ?? 0;
+  return x > 0
+    ? `Dollars bought and sold each day by the top ${n} traders, excluding ${x} high-frequency trader${x === 1 ? "" : "s"} whose full history Polymarket does not return`
+    : `Dollars bought and sold each day by the top ${n} traders`;
+}
+
+/** Share of `values` strictly below `v`, 0..1. Ties do not count as beaten. */
+export function percentileOf(values: number[], v: number): number {
+  const finite = values.filter((x) => Number.isFinite(x));
+  if (!finite.length || !Number.isFinite(v)) return 0;
+  return finite.filter((x) => x < v).length / finite.length;
+}
+
+/** "Top 3%" / "Bottom 40%" wording for a percentile, never "Top 0%". */
+export function standingLabel(p: number): string {
+  if (p >= 0.5) return `Top ${Math.max(1, Math.round((1 - p) * 100))}%`;
+  return `Bottom ${Math.max(1, Math.round((p + 1 / 1000) * 100))}%`;
 }

@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { HotTicker } from "@/components/intel/hot-traders";
+import { getHotTradersCached } from "@/lib/data/public-cache";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { requireUser, getEntitlements } from "@/lib/session";
-import { getWhaleWatch, getWhaleHistory } from "@/lib/whales";
+import { keepScanFresh, getWhaleWatch, getWhaleHistory } from "@/lib/whales";
 import { CONSENSUS_MIN_WALLETS } from "@/lib/data/public-cache";
 import { listWatchlist } from "@/lib/watchlist";
 import { Section, EmptyState } from "@/components/shared/page-header";
@@ -13,9 +15,12 @@ import { TradeRow, TraderProfitList } from "@/components/intel/trade-row";
 import { WhaleRefreshButton } from "@/components/whales/refresh-button";
 import { LinkButton } from "@/components/ui/link-button";
 import { pct } from "@/lib/format";
-import { ageMs, dailyActivity, isInPlay, scanChange, splitSides, windowStart } from "@/lib/intel";
+import { ageMs, dailyActivity, isInPlay, scanChange, splitSides, windowStart, flowCaption } from "@/lib/intel";
 import { trackUsage } from "@/lib/ops";
 import { cn } from "@/lib/utils";
+
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
 
 const RANGES = [
   { key: "3d", days: 3, label: "3 days" },
@@ -69,7 +74,8 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const userId = session.user.id;
   const sp = await searchParams;
   const range = RANGES.find((r) => r.key === sp.range) ?? RANGES[1];
-  const [ent, whale, history, watchlist] = await Promise.all([getEntitlements(userId), getWhaleWatch(), getWhaleHistory(CONSENSUS_MIN_WALLETS), listWatchlist(userId)]);
+  const [ent, whale, history, watchlist, hotToday] = await Promise.all([getEntitlements(userId), getWhaleWatch(), getWhaleHistory(CONSENSUS_MIN_WALLETS), listWatchlist(userId), getHotTradersCached("DAY")]);
+  keepScanFresh(whale?.ageMs);
   trackUsage("overview.view", userId);
   const pro = ent.limits.scanner;
   const firstName = session.user.name?.split(" ")[0];
@@ -119,13 +125,14 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const volume = flow.reduce((s, d) => s + d.buys + d.sells, 0);
   const trades = flow.reduce((s, d) => s + d.trades, 0);
   const topTraders = [...wallets].sort((a, b) => a.rank - b.rank).slice(0, 8);
-  const sigHref = (tokenId: string) => `/consensus#sig-${tokenId}`;
+  const sigHref = (tokenId: string) => `/consensus/${tokenId}`;
 
   return (
     <div className="space-y-10">
       <div className="space-y-4">
         {header}
         <ScanFreshness generatedAt={p.generatedAt} note={`${p.tradersScanned.toLocaleString("en-US")} traders`} />
+        <HotTicker traders={hotToday} allTimeRank={new Map(wallets.map((w) => [w.wallet.toLowerCase(), w.rank]))} />
       </div>
 
       {/* The hero opens the page; every later block enters after it (.stagger-in, 40ms apart). */}
@@ -147,7 +154,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
           <Glance id="glance-signals" value={signals.length} format="int" label="bets the top traders agree on" sub={`${CONSENSUS_MIN_WALLETS}+ traders on one side`} change={scanChange(history, "consensusOutcomes")} />
           <Glance id={`glance-volume-${range.key}`} value={volume} format="usd" label={`traded in the last ${range.label}`} sub={`${trades.toLocaleString("en-US")} trades of $300 or more`} />
           <Glance id="glance-active" value={active} format="int" label="traders holding open bets" sub={`of the ${p.tradersScanned.toLocaleString("en-US")} we track`} change={scanChange(history, "activeWallets")} />
-          <Glance id="glance-profit" value={combinedPnl} format="usd" label="profit these traders have made" sub="Polymarket leaderboard" />
+          <Glance id="glance-profit" value={combinedPnl} format="usd" label="all-time profit of these traders" sub="Polymarket's all-time leaderboard" />
         </section>
 
         {more.length > 0 && (
@@ -170,7 +177,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
         )}
 
         <div style={staggerIndex(3)} className="grid gap-4 xl:grid-cols-5">
-          <Section title="Where the money is moving" description={`Dollars bought and sold each day by the top ${p.recentTraders ?? 100} traders`} className="xl:col-span-3">
+          <Section title="Where the money is moving" description={flowCaption(p)} className="xl:col-span-3">
             <ActivityChart data={flow} height={300} />
           </Section>
           <Section title="Just traded" description="Latest big moves by top traders" right={<Link href="/activity" className="text-xs font-medium text-primary hover:underline">Live trades →</Link>} className="xl:col-span-2">
@@ -187,7 +194,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
         </div>
 
         <div style={staggerIndex(4)} className="grid gap-4 lg:grid-cols-5">
-          <Section title="Most profitable traders" description="Ranked by total profit on Polymarket" right={<Link href="/leaderboard" className="text-xs font-medium text-primary hover:underline">All traders →</Link>} className="lg:col-span-3">
+          <Section title="Most profitable traders" description="Ranked by all-time profit on Polymarket" right={<Link href="/leaderboard" className="text-xs font-medium text-primary hover:underline">All traders →</Link>} className="lg:col-span-3">
             <TraderProfitList traders={topTraders} />
           </Section>
           <Section title="Your watchlist" right={<Link href="/watchlist" className="text-xs font-medium text-primary hover:underline">Open →</Link>} className="lg:col-span-2">

@@ -23,10 +23,10 @@ export async function getWalletLive(address: string): Promise<WalletLive> {
 
 /**
  * Daily buy and sell volume from a wallet's fetched trades. When the fetch hit
- * its limit, the oldest day may be partial, so it is dropped rather than shown
- * as a quiet day.
+ * its limit, the oldest day may be partial, so it is flagged `partial` (drawn
+ * faded) rather than presented as a complete day.
  */
-export function walletDailyFlow(trades: RawTrade[], limitHit: boolean, maxDays = 14): Array<{ day: string; buys: number; sells: number; trades: number }> {
+export function walletDailyFlow(trades: RawTrade[], limitHit: boolean, maxDays = 14): Array<{ day: string; buys: number; sells: number; trades: number; partial?: boolean }> {
   if (!trades.length) return [];
   const byDay = new Map<string, { buys: number; sells: number; trades: number }>();
   const newest = Math.max(...trades.map((t) => t.ts)) * 1000;
@@ -35,7 +35,10 @@ export function walletDailyFlow(trades: RawTrade[], limitHit: boolean, maxDays =
   end.setUTCHours(0, 0, 0, 0);
   const start = new Date(Math.max(oldest, end.getTime() - (maxDays - 1) * 86_400_000));
   start.setUTCHours(0, 0, 0, 0);
-  if (limitHit) start.setTime(start.getTime() + 86_400_000);
+  // At the trade limit the oldest day is cut short. It is kept and flagged partial
+  // (faded in the chart) rather than dropped: dropping it emptied the chart for
+  // fast traders whose whole fetched history falls on a single day.
+  const partialDay = limitHit ? start.toISOString().slice(0, 10) : null;
   for (let t = start.getTime(); t <= end.getTime(); t += 86_400_000) byDay.set(new Date(t).toISOString().slice(0, 10), { buys: 0, sells: 0, trades: 0 });
   for (const t of trades) {
     const b = byDay.get(new Date(t.ts * 1000).toISOString().slice(0, 10));
@@ -44,5 +47,5 @@ export function walletDailyFlow(trades: RawTrade[], limitHit: boolean, maxDays =
     if (t.side === "BUY") b.buys += t.usd;
     else b.sells += t.usd;
   }
-  return [...byDay.entries()].map(([day, v]) => ({ day, ...v }));
+  return [...byDay.entries()].map(([day, v]) => ({ day, ...v, ...(day === partialDay ? { partial: true } : {}) }));
 }

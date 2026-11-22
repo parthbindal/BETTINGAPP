@@ -6,6 +6,9 @@ import { Section, EmptyState } from "@/components/shared/page-header";
 import { trackUsage } from "@/lib/ops";
 import { cn } from "@/lib/utils";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 type Team = { id: string; name: string; abbreviation: string; city: string | null; conference: string | null };
 
 function TeamMark({ team, size = "md" }: { team: Pick<Team, "abbreviation">; size?: "md" | "lg" }) {

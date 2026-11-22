@@ -9,6 +9,9 @@ import { relative, pct, pts } from "@/lib/format";
 import { Plus } from "lucide-react";
 import { LinkButton } from "@/components/ui/link-button";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 export default async function ResearchPage() {
   const session = await requireUser("/research");
   const ent = await getEntitlements(session.user.id);

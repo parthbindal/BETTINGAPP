@@ -7,6 +7,9 @@ import { isTier } from "@/lib/subscriptions/plans";
 import { dateShort } from "@/lib/format";
 import { insensitive } from "@/lib/data/markets";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 export default async function AdminUsersPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const sp = await searchParams;
   const session = await requireAdmin();

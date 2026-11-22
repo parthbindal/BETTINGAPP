@@ -5,6 +5,9 @@ import { config } from "@/lib/env";
 import { AnalystChat } from "@/components/analyst/chat";
 import { PageHeader } from "@/components/shared/page-header";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 export default async function AnalystPage({ searchParams }: { searchParams: Promise<{ c?: string; context?: string }> }) {
   const sp = await searchParams;
   const session = await requireUser("/analyst");

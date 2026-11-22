@@ -1,22 +1,23 @@
-import { after } from "next/server";
 import Link from "next/link";
 import { Waves, TrendingUp, TrendingDown, Users, Check, X, Trophy, Clock, ArrowLeftRight } from "lucide-react";
 import { requireUser, getEntitlements } from "@/lib/session";
-import { getWhaleWatch, syncWhaleWatch, type ConsensusHolding, type WhalePayload } from "@/lib/whales";
+import { getWhaleWatch, keepScanFresh, type ConsensusHolding, type WhalePayload } from "@/lib/whales";
 import { PageHeader, Section, EmptyState } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { UpgradeGate } from "@/components/shared/badges";
 import { usd, compact, pct, relative } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { logError, trackUsage } from "@/lib/ops";
+import { trackUsage } from "@/lib/ops";
 import { WhaleRefreshButton } from "@/components/whales/refresh-button";
 import { WhaleHeroCarousel, type HeroPick } from "@/components/whales/hero-carousel";
 import { dateTime } from "@/lib/format";
 import { isInPlay, polymarketMarketUrl } from "@/lib/intel";
 import { OpenOnPolymarket } from "@/components/intel/open-on-polymarket";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 const CATS = ["All", "Sports", "Politics", "Crypto", "Economics", "Other"];
-const STALE_MS = 5 * 60_000; // auto-refresh in the background when older than this
 
 // Exact market link when the scan has its slugs; a Polymarket search otherwise.
 function polyUrl(h: ConsensusHolding) {
@@ -92,15 +93,7 @@ export default async function WhalesPage({ searchParams }: { searchParams: Promi
   }
 
   const data = await getWhaleWatch();
-  if (!data || data.ageMs > STALE_MS) {
-    after(async () => {
-      try {
-        await syncWhaleWatch({ topN: 1000 });
-      } catch (e) {
-        await logError("whales.background", e);
-      }
-    });
-  }
+  keepScanFresh(data?.ageMs);
   trackUsage("whales.view", session.user.id);
 
   if (!data) {
@@ -296,7 +289,7 @@ export default async function WhalesPage({ searchParams }: { searchParams: Promi
               <tr className="text-left text-[11px] uppercase tracking-wide text-muted-foreground">
                 <th className="px-2 py-1.5 font-medium">#</th>
                 <th className="px-2 py-1.5 font-medium">Trader</th>
-                <th className="px-2 py-1.5 text-right font-medium">Total profit</th>
+                <th className="px-2 py-1.5 text-right font-medium">All-time profit</th>
                 <th className="px-2 py-1.5 font-medium">Wallet</th>
               </tr>
             </thead>

@@ -1,6 +1,8 @@
 import { Info } from "lucide-react";
+import { HOT_PERIODS, HotTradersBoard } from "@/components/intel/hot-traders";
+import { getHotTradersCached } from "@/lib/data/public-cache";
 import { requireUser, getEntitlements } from "@/lib/session";
-import { getWhaleWatch } from "@/lib/whales";
+import { keepScanFresh, getWhaleWatch } from "@/lib/whales";
 import { PageHeader, Section, EmptyState } from "@/components/shared/page-header";
 import { UpgradeGate } from "@/components/shared/badges";
 import { ScanFreshness } from "@/components/intel/scan-freshness";
@@ -15,6 +17,9 @@ import { TraderAvatar } from "@/components/intel/trader-identity";
 import { TraderProfitList } from "@/components/intel/trade-row";
 import { walletHref } from "@/lib/intel";
 import { cn } from "@/lib/utils";
+
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
 
 const PLACE = ["text-status-warning", "text-foreground/80", "text-chart-2"] as const;
 const PLACE_NAME = ["1st", "2nd", "3rd"] as const;
@@ -84,7 +89,7 @@ function PodiumCard({ t, place, lead = false }: { t: WalletStat; place: number; 
       </div>
       <div className="ml-auto shrink-0 text-right">
         <span className={cn("figure block font-semibold", lead ? "text-4xl sm:text-5xl" : "text-2xl")}>${compact(t.pnl)}</span>
-        <span className="label-micro">total profit</span>
+        <span className="label-micro">all-time profit</span>
       </div>
     </Link>
   );
@@ -92,9 +97,12 @@ function PodiumCard({ t, place, lead = false }: { t: WalletStat; place: number; 
 
 const FREE_ROWS = 25;
 
-export default async function LeaderboardPage() {
+export default async function LeaderboardPage({ searchParams }: { searchParams: Promise<{ hot?: string }> }) {
   const session = await requireUser("/leaderboard");
-  const [ent, whale] = await Promise.all([getEntitlements(session.user.id), getWhaleWatch()]);
+  const sp = await searchParams;
+  const hotPeriod = HOT_PERIODS.find((h) => h.key === sp.hot) ?? HOT_PERIODS[1]!;
+  const [ent, whale, hot] = await Promise.all([getEntitlements(session.user.id), getWhaleWatch(), getHotTradersCached(hotPeriod.api)]);
+  keepScanFresh(whale?.ageMs);
   trackUsage("leaderboard.view", session.user.id);
   const pro = ent.limits.scanner;
 
@@ -144,16 +152,21 @@ export default async function LeaderboardPage() {
 
       <Podium top={ranked.slice(0, 3)} />
 
-      <Section title="Ranks 4 to 12" description="Total profit on Polymarket, next to the leader's">
-        <TraderProfitList traders={ranked.slice(3, 12)} max={ranked[0]?.pnl} />
-      </Section>
+      <div className="grid gap-4 lg:grid-cols-5">
+        <Section title="Ranks 4 to 12" description="All-time profit on Polymarket, next to the leader's" className="lg:col-span-3">
+          <TraderProfitList traders={ranked.slice(3, 12)} max={ranked[0]?.pnl} />
+        </Section>
+        <Section title="Hot right now" description="Biggest winners on Polymarket's shorter boards" className="lg:col-span-2">
+          <HotTradersBoard traders={hot} period={hotPeriod.key} allTimeRank={new Map(ranked.map((w) => [w.wallet.toLowerCase(), w.rank]))} hrefFor={(k) => (k === "week" ? "/leaderboard" : `/leaderboard?hot=${k}`)} />
+        </Section>
+      </div>
 
       <Section title="Every tracked trader" description="Search, sort and compare">
         <LeaderboardTable rows={rows} />
         <div className="mt-4 flex gap-2 rounded-lg border border-border bg-surface-1 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
           <Info className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden="true" />
           <p>
-            Ranking and total profit come from Polymarket&apos;s public profit leaderboard. Polymarket now publishes a single ranking, with no day, week or month windows, so this board has no time-range filter. Open ROI, positions, average size, exposure and last activity are read from each wallet&apos;s positions of $100 or more. Win rate is not shown because closed-trade outcomes are not published.
+            Ranking and profit come from Polymarket&apos;s public all-time profit leaderboard; the &ldquo;Hot right now&rdquo; board above uses its day, week and month windows. Open ROI, positions, average size, exposure and last activity are read from each wallet&apos;s positions of $100 or more. Win rate is not shown because closed-trade outcomes are not published.
           </p>
         </div>
       </Section>

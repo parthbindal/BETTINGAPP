@@ -11,6 +11,9 @@ import { db } from "@/lib/db";
 import { WatchButton } from "@/components/shared/watch-button";
 import { trackUsage } from "@/lib/ops";
 
+/** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
+export const instant = false;
+
 const SORTS: Array<{ v: MarketSort; l: string }> = [
   { v: "volume24h", l: "Most active (24h)" },
   { v: "volume", l: "Total volume" },
