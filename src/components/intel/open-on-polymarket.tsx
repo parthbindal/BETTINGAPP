@@ -19,6 +19,7 @@ export function OpenOnPolymarket({
   inPlay = true,
   variant = "full",
   note = variant === "full",
+  short = false,
   className,
 }: {
   title: string;
@@ -28,6 +29,8 @@ export function OpenOnPolymarket({
   inPlay?: boolean;
   variant?: "full" | "compact" | "icon";
   note?: boolean;
+  /** Compact only: "Back KNICKS" instead of "Back KNICKS on Polymarket", for narrow spots. */
+  short?: boolean;
   className?: string;
 }) {
   const url = polymarketMarketUrl(eventSlug, marketSlug);
@@ -66,7 +69,7 @@ export function OpenOnPolymarket({
   if (variant === "compact") {
     return (
       <a href={url} target="_blank" rel="noopener noreferrer" aria-label={aria} title="Opens Polymarket. EDGEWISE does not place or hold bets." className={cn(buttonVariants({ variant: "default", size: "sm" }), "max-w-full font-semibold", className)}>
-        <span className="truncate">{label}</span>
+        <span className="truncate">{short ? `Back ${side}` : label}</span>
         <ExternalLink aria-hidden="true" />
       </a>
     );

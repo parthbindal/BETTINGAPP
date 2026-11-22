@@ -105,3 +105,29 @@ export function polymarketMarketUrl(eventSlug: string | null | undefined, market
   if (marketSlug) return `https://polymarket.com/market/${marketSlug}`;
   return null;
 }
+
+/** Both sides of one market held by many top traders. Sides come sorted by trader count, most first. */
+export function splitSides<T extends { conditionId: string; holders: number; totalValue: number }>(all: T[], minHolders: number): Map<string, T[]> {
+  const by = new Map<string, T[]>();
+  for (const h of all) if (h.holders >= minHolders) by.set(h.conditionId, [...(by.get(h.conditionId) ?? []), h]);
+  const out = new Map<string, T[]>();
+  for (const [id, sides] of by) if (sides.length >= 2) out.set(id, [...sides].sort((a, b) => b.holders - a.holders || b.totalValue - a.totalValue));
+  return out;
+}
+
+const money = (n: number) => (n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `$${Math.round(n / 1e3)}K` : `$${Math.round(n)}`);
+
+type Side = { outcome: string; holders: number; totalValue: number };
+
+/** One plain sentence on a split market: who has more traders, and whether the money agrees. */
+export function explainSplit(a: Side, b: Side): string {
+  if (a.holders === b.holders) {
+    if (a.totalValue === b.totalValue) return `Top traders are evenly split: ${a.holders} on each side.`;
+    const [more, less] = a.totalValue > b.totalValue ? [a, b] : [b, a];
+    return `Top traders are evenly split (${a.holders} each), but more money is on ${more.outcome} (${money(more.totalValue)} vs ${money(less.totalValue)}).`;
+  }
+  const head = `More top traders back ${a.outcome} (${a.holders} vs ${b.holders})`;
+  return a.totalValue >= b.totalValue
+    ? `${head}, and they have more money on it too (${money(a.totalValue)} vs ${money(b.totalValue)}).`
+    : `${head}, but more money is on ${b.outcome} (${money(b.totalValue)} vs ${money(a.totalValue)}).`;
+}

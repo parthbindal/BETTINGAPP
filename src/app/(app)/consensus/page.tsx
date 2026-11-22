@@ -6,10 +6,10 @@ import { Section, EmptyState } from "@/components/shared/page-header";
 import { UpgradeGate } from "@/components/shared/badges";
 import { ScanFreshness } from "@/components/intel/scan-freshness";
 import { TraderAvatar } from "@/components/intel/trader-identity";
-import { SIGNAL_KINDS, SignalCard, signalKind, type SignalKind } from "@/components/intel/signal";
+import { SIGNAL_KINDS, SignalCard, SplitCard, signalKind, type SignalKind } from "@/components/intel/signal";
 import { WhaleRefreshButton } from "@/components/whales/refresh-button";
 import { compact, dateShort } from "@/lib/format";
-import { isInPlay, readConsensus, walletHref } from "@/lib/intel";
+import { isInPlay, readConsensus, splitSides, walletHref } from "@/lib/intel";
 import { trackUsage } from "@/lib/ops";
 import { cn } from "@/lib/utils";
 
@@ -133,6 +133,19 @@ export default async function ConsensusPage({ searchParams }: { searchParams: Pr
     .sort((a, b) => b.holders - a.holders || b.totalValue - a.totalValue);
   const settledCount = whale.payload.holdings.filter((h) => h.holders >= min && !isInPlay(h)).length;
 
+  // A market with top traders on both sides renders once, as a split card, at its busiest side's place.
+  const splits = splitSides(base, min);
+  const items: Array<{ kind: "one"; h: ConsensusHolding } | { kind: "split"; sides: ConsensusHolding[] }> = [];
+  const seen = new Set<string>();
+  for (const h of list) {
+    const sides = splits.get(h.conditionId);
+    if (!sides) items.push({ kind: "one", h });
+    else if (!seen.has(h.conditionId)) {
+      seen.add(h.conditionId);
+      items.push({ kind: "split", sides });
+    }
+  }
+
   return (
     <div className="space-y-6">
       {header}
@@ -205,8 +218,9 @@ export default async function ConsensusPage({ searchParams }: { searchParams: Pr
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <span className="tabular">
-          {list.length} signal{list.length === 1 ? "" : "s"}
-          {list.length > PAGE ? `, showing the ${PAGE} with the most traders` : ""}
+          {items.length} signal{items.length === 1 ? "" : "s"}
+          {seen.size > 0 ? ` (${seen.size} where top traders are split)` : ""}
+          {items.length > PAGE ? `, showing the ${PAGE} with the most traders` : ""}
         </span>
         {settledCount > 0 && (
           <Link href={href(params, { settled: showSettled ? "" : "1" })} scroll={false} className="font-medium text-primary hover:underline">
@@ -215,11 +229,15 @@ export default async function ConsensusPage({ searchParams }: { searchParams: Pr
         )}
       </div>
 
-      {list.length ? (
+      {items.length ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {list.slice(0, PAGE).map((h, i) => (
-            <SignalCard key={h.tokenId} id={`sig-${h.tokenId}`} h={h} rank={i + 1} className="scroll-mt-20 target:border-primary/60 target:ring-2 target:ring-primary/40" footer={<WhoIsIn h={h} />} />
-          ))}
+          {items.slice(0, PAGE).map((it, i) =>
+            it.kind === "one" ? (
+              <SignalCard key={it.h.tokenId} id={`sig-${it.h.tokenId}`} h={it.h} rank={i + 1} className="scroll-mt-20 target:border-primary/60 target:ring-2 target:ring-primary/40" footer={<WhoIsIn h={it.h} />} />
+            ) : (
+              <SplitCard key={it.sides[0]!.conditionId} id={`sig-${it.sides[0]!.tokenId}`} sides={it.sides} rank={i + 1} className="scroll-mt-20 target:border-primary/60 target:ring-2 target:ring-primary/40" />
+            ),
+          )}
         </div>
       ) : (
         <Section>

@@ -12,7 +12,7 @@ import { TradeRow, TraderProfitList } from "@/components/intel/trade-row";
 import { WhaleRefreshButton } from "@/components/whales/refresh-button";
 import { LinkButton } from "@/components/ui/link-button";
 import { compact, pct } from "@/lib/format";
-import { ageMs, dailyActivity, isInPlay, scanChange, windowStart } from "@/lib/intel";
+import { ageMs, dailyActivity, isInPlay, scanChange, splitSides, windowStart } from "@/lib/intel";
 import { trackUsage } from "@/lib/ops";
 import { cn } from "@/lib/utils";
 
@@ -103,7 +103,9 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const active = wallets.filter((w) => w.positions > 0).length;
   const combinedPnl = wallets.reduce((s, w) => s + w.pnl, 0);
   const signals = p.holdings.filter((h) => h.holders >= CONSENSUS_MIN_WALLETS).sort((a, b) => b.holders - a.holders || b.totalValue - a.totalValue);
-  const live = signals.filter(isInPlay);
+  // Spotlight only clear agreement: skip markets where top traders sit on both sides.
+  const split = splitSides(p.holdings, CONSENSUS_MIN_WALLETS);
+  const live = signals.filter(isInPlay).filter((h) => !split.has(h.conditionId));
   const featured = live.find((h) => signalKind(h) === "now") ?? live[0];
   const more = live.filter((h) => h !== featured).slice(0, 3);
   const since = windowStart(range.days);

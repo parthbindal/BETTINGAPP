@@ -1,8 +1,8 @@
 import type React from "react";
 import Link from "next/link";
-import { ArrowDownRight, ArrowUpRight, Clock3, Flame, UserRound, Users } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Clock3, Flame, Scale, UserRound, Users } from "lucide-react";
 import type { ConsensusHolding } from "@/lib/whales";
-import { isInPlay, readConsensus } from "@/lib/intel";
+import { explainSplit, isInPlay, readConsensus } from "@/lib/intel";
 import { OpenOnPolymarket } from "./open-on-polymarket";
 import { compact } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -100,6 +100,62 @@ export function PriceTrack({ entry, now, className }: { entry: number; now: numb
         <span className="absolute top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted-foreground" style={{ left: `${e * 100}%` }} />
         <span className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground ring-2 ring-card" style={{ left: `${n * 100}%` }} />
       </div>
+    </div>
+  );
+}
+
+const SPLIT_COLORS = ["bg-chart-1", "bg-chart-7"] as const;
+
+/**
+ * A market where top traders sit on BOTH sides. Shown as one card so the
+ * disagreement is visible, instead of two cards that each look like consensus.
+ */
+export function SplitCard({ sides, rank, id, className }: { sides: ConsensusHolding[]; rank?: number; id?: string; className?: string }) {
+  const [a, b] = sides as [ConsensusHolding, ConsensusHolding];
+  const totalHolders = sides.reduce((s, h) => s + h.holders, 0);
+  const end = fmtEnd(a.endDate);
+  return (
+    <div id={id} className={cn("card-surface relative flex flex-col p-4", className)}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-2 text-[11px] text-muted-foreground">
+          {rank !== undefined && <span className="tabular font-mono text-muted-foreground/80">#{rank}</span>}
+          <span className="truncate">
+            {a.category}
+            {end ? ` · ends ${end}` : ""}
+          </span>
+        </span>
+        <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-status-warning/40 bg-status-warning/10 px-2 py-0.5 text-[11px] font-medium text-status-warning">
+          <Scale className="size-3" aria-hidden="true" /> Top traders are split
+        </span>
+      </div>
+
+      <h3 className="mt-2.5 line-clamp-2 text-[15px] font-medium leading-snug">{a.title}</h3>
+      <p className="mt-2 text-xs text-muted-foreground">{explainSplit(a, b)}</p>
+
+      {/* Share of the top traders on each side */}
+      <div className="mt-4 flex h-2.5 gap-0.5 overflow-hidden rounded-full" role="img" aria-label={sides.map((s) => `${s.holders} top traders on ${s.outcome}`).join(", ")}>
+        {sides.map((s, i) => (
+          <span key={s.tokenId} className={cn(SPLIT_COLORS[i % 2])} style={{ width: `${(s.holders / totalHolders) * 100}%` }} />
+        ))}
+      </div>
+
+      <ul className="mt-3 grid grid-cols-2 gap-3">
+        {sides.slice(0, 2).map((s, i) => (
+          <li key={s.tokenId} className={cn("min-w-0", i === 1 && "text-right")}>
+            <span className={cn("flex items-center gap-1.5", i === 1 && "justify-end")}>
+              <span className={cn("size-2.5 shrink-0 rounded-sm", SPLIT_COLORS[i % 2])} aria-hidden="true" />
+              <SidePill outcome={s.outcome} />
+            </span>
+            <span className="mt-1.5 block">
+              <span className="tabular text-2xl font-semibold">{s.holders}</span> <span className="text-xs text-muted-foreground">traders</span>
+            </span>
+            <span className="tabular block text-xs text-muted-foreground">
+              ${compact(s.totalValue)} invested · now {Math.round(s.currentPrice * 100)}¢
+            </span>
+            <OpenOnPolymarket className={cn("mt-2.5", i === 1 && "ml-auto")} variant="compact" short title={s.title} outcome={s.outcome} eventSlug={s.slug} marketSlug={s.marketSlug} inPlay={isInPlay(s)} />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
