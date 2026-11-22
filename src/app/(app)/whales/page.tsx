@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import Link from "next/link";
-import { ExternalLink, Waves, TrendingUp, TrendingDown, Users, Check, X, Trophy, Clock, ArrowLeftRight } from "lucide-react";
+import { Waves, TrendingUp, TrendingDown, Users, Check, X, Trophy, Clock, ArrowLeftRight } from "lucide-react";
 import { requireUser, getEntitlements } from "@/lib/session";
 import { getWhaleWatch, syncWhaleWatch, type ConsensusHolding, type WhalePayload } from "@/lib/whales";
 import { PageHeader, Section, EmptyState } from "@/components/shared/page-header";
@@ -12,16 +12,18 @@ import { logError, trackUsage } from "@/lib/ops";
 import { WhaleRefreshButton } from "@/components/whales/refresh-button";
 import { WhaleHeroCarousel, type HeroPick } from "@/components/whales/hero-carousel";
 import { dateTime } from "@/lib/format";
+import { isInPlay, polymarketMarketUrl } from "@/lib/intel";
+import { OpenOnPolymarket } from "@/components/intel/open-on-polymarket";
 
 const CATS = ["All", "Sports", "Politics", "Crypto", "Economics", "Other"];
 const STALE_MS = 5 * 60_000; // auto-refresh in the background when older than this
 
-const POLY_EVENT = (slug: string | null | undefined) => (slug ? `https://polymarket.com/event/${slug}` : null);
+// Exact market link when the scan has its slugs; a Polymarket search otherwise.
 function polyUrl(h: ConsensusHolding) {
-  return POLY_EVENT(h.slug) ?? `https://polymarket.com/markets?_q=${encodeURIComponent(h.title.slice(0, 40))}`;
+  return polymarketMarketUrl(h.slug, h.marketSlug) ?? `https://polymarket.com/markets?_q=${encodeURIComponent(h.title.slice(0, 40))}`;
 }
-function moveUrl(eventSlug: string | null, title: string) {
-  return POLY_EVENT(eventSlug) ?? `https://polymarket.com/markets?_q=${encodeURIComponent(title.slice(0, 40))}`;
+function moveUrl(eventSlug: string | null, title: string, marketSlug?: string | null) {
+  return polymarketMarketUrl(eventSlug, marketSlug) ?? `https://polymarket.com/markets?_q=${encodeURIComponent(title.slice(0, 40))}`;
 }
 
 /** A plain-English statement of the bet (what side they are on, in words). */
@@ -51,9 +53,7 @@ function EarnerCard({ h, rank, field }: { h: ConsensusHolding; rank: number; fie
         <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
           <Trophy className="size-3" /> #{rank} moneymaker
         </span>
-        <a href={polyUrl(h)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
-          Polymarket <ExternalLink className="size-3" />
-        </a>
+        <OpenOnPolymarket variant="icon" title={h.title} outcome={h.outcome} eventSlug={h.slug} marketSlug={h.marketSlug} inPlay={isInPlay(h)} />
       </div>
       <p className="mt-2 text-[15px] font-semibold leading-snug">
         <span className={cn("mr-1.5 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-bold", yes ? "bg-status-good/15 text-status-good" : no ? "bg-status-critical/15 text-status-critical" : "bg-primary/15 text-primary")}>
@@ -192,11 +192,11 @@ export default async function WhalesPage({ searchParams }: { searchParams: Promi
                 <span className="font-medium">{m.trader}</span>
                 <span className="text-muted-foreground">bought</span>
                 <span className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-semibold", /^yes$/i.test(m.outcome) ? "bg-status-good/15 text-status-good" : /^no$/i.test(m.outcome) ? "bg-status-critical/15 text-status-critical" : "bg-primary/15 text-primary")}>{m.outcome}</span>
-                <a href={moveUrl(m.eventSlug, m.title)} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-muted-foreground hover:text-primary hover:underline">{m.title}</a>
+                <a href={moveUrl(m.eventSlug, m.title, m.marketSlug)} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate text-muted-foreground hover:text-primary hover:underline">{m.title}</a>
                 <span className="tabular shrink-0 font-medium">{usd(m.usd, 0)}</span>
                 <span className="tabular shrink-0 text-xs text-muted-foreground">at {m.pricePct}¢</span>
                 <span className="shrink-0 text-[11px] text-muted-foreground inline-flex items-center gap-1"><Clock className="size-3" />{relative(m.tsIso)}</span>
-                <a href={moveUrl(m.eventSlug, m.title)} target="_blank" rel="noreferrer" aria-label="Open on Polymarket" className="shrink-0 text-primary hover:text-primary/80"><ExternalLink className="size-3.5" /></a>
+                <OpenOnPolymarket variant="icon" title={m.title} outcome={m.outcome} eventSlug={m.eventSlug} marketSlug={m.marketSlug} inPlay={isInPlay({ currentPrice: m.pricePct / 100 })} />
               </li>
             ))}
           </ul>
@@ -277,7 +277,7 @@ export default async function WhalesPage({ searchParams }: { searchParams: Promi
                       <td className="tabular px-2 py-2.5 text-right">{h.holders} <span className="text-[11px] text-muted-foreground">({pct(h.pctOfField, 1)})</span></td>
                       <td className="tabular px-2 py-2.5 text-right text-muted-foreground">{Math.round(h.avgEntry * 100)}¢ → {Math.round(h.currentPrice * 100)}¢</td>
                       <td className="tabular px-2 py-2.5 text-right">{usd(h.totalValue, 0)}</td>
-                      <td className="px-2 py-2.5 text-right"><a href={polyUrl(h)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">Polymarket <ExternalLink className="size-3" /></a></td>
+                      <td className="px-2 py-2.5 text-right"><OpenOnPolymarket variant="icon" title={h.title} outcome={h.outcome} eventSlug={h.slug} marketSlug={h.marketSlug} inPlay={isInPlay(h)} /></td>
                     </tr>
                   );
                 })}

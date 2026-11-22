@@ -164,15 +164,15 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
       )}
 
       {/* Money flow + live trades */}
-      <div className="grid gap-4 lg:grid-cols-5">
-        <Section title="Where the money is moving" description={`Dollars bought and sold each day by the top ${p.recentTraders ?? 100} traders`} className="lg:col-span-3">
+      <div className="grid gap-4 xl:grid-cols-5">
+        <Section title="Where the money is moving" description={`Dollars bought and sold each day by the top ${p.recentTraders ?? 100} traders`} className="xl:col-span-3">
           <ActivityChart data={flow} height={300} />
         </Section>
-        <Section title="Just traded" description="Latest big moves by top traders" right={<Link href="/activity" className="text-xs font-medium text-primary hover:underline">Live trades →</Link>} className="lg:col-span-2">
+        <Section title="Just traded" description="Latest big moves by top traders" right={<Link href="/activity" className="text-xs font-medium text-primary hover:underline">Live trades →</Link>} className="xl:col-span-2">
           {moves.length ? (
             <div className="-my-3 divide-y divide-border/70">
               {moves.slice(0, 5).map((m, i) => (
-                <TradeRow key={`${m.txHash ?? m.tsIso}-${i}`} m={m} fresh={ageMs(m.tsIso) < DAY_MS / 4} />
+                <TradeRow key={`${m.txHash ?? m.tsIso}-${i}`} m={m} fresh={ageMs(m.tsIso) < DAY_MS / 4} action />
               ))}
             </div>
           ) : (

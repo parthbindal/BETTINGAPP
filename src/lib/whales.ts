@@ -59,6 +59,7 @@ export interface ConsensusHolding {
   unrealizedPnl: number;
   endDate: string | null;
   slug: string | null; // polymarket.com/event/<slug>
+  marketSlug?: string | null; // added after method 2; older snapshots lack it
   // Added with method 2; absent on older snapshots.
   hedged?: number; // tracked wallets holding both sides of this market evenly
   firstEntry?: string | null;
@@ -92,6 +93,7 @@ export interface RecentMove {
   pricePct: number;
   category: string;
   eventSlug: string | null;
+  marketSlug?: string | null;
   txHash?: string | null;
 }
 
@@ -130,6 +132,7 @@ export interface TradeCluster {
   outcome: string;
   category: string;
   eventSlug: string | null;
+  marketSlug?: string | null;
   wallets: Array<{ trader: string; wallet: string; rank: number; usd: number; tsIso: string }>;
   firstIso: string;
   lastIso: string;
@@ -219,6 +222,7 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
     outcome: string;
     category: string;
     eventSlug: string | null;
+    marketSlug: string | null;
     endDate: string | null;
     holders: Map<string, { value: number; entryAt: number | null }>;
     totalValue: number;
@@ -289,6 +293,7 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
         outcome: lean.outcome,
         category: lean.category,
         eventSlug: lean.eventSlug,
+        marketSlug: lean.marketSlug,
         endDate: lean.endDate,
         holders: new Map(),
         totalValue: 0,
@@ -330,6 +335,7 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
         unrealizedPnl: a.unrealizedPnl,
         endDate: a.endDate,
         slug: a.eventSlug,
+        marketSlug: a.marketSlug,
         hedged: hedgedByToken.get(tokenId) ?? 0,
         firstEntry: entries.length ? iso(Math.min(...entries)) : null,
         medianEntry: entries.length ? iso(median(entries)) : null,
@@ -405,15 +411,15 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
 
   const recentMoves: RecentMove[] = [];
   const pickSets = new Map<string, { rank: number; picks: Map<string, { title: string; outcome: string }> }>();
-  const buysByToken = new Map<string, { title: string; outcome: string; category: string; eventSlug: string | null; buys: Array<{ trader: string; wallet: string; rank: number; usd: number; ts: number }> }>();
+  const buysByToken = new Map<string, { title: string; outcome: string; category: string; eventSlug: string | null; marketSlug: string | null; buys: Array<{ trader: string; wallet: string; rank: number; usd: number; ts: number }> }>();
   bestTraders.forEach((l, idx) => {
     const trades = tradesByTrader[idx] ?? [];
     const picks = new Map<string, { title: string; outcome: string }>();
     for (const t of trades) {
       if (t.usd >= MIN_TRADE_USD) {
-        recentMoves.push({ trader: l.name, wallet: l.wallet, rank: l.rank, tsIso: new Date(t.ts * 1000).toISOString(), side: t.side, outcome: t.outcome, title: t.title, usd: t.usd, pricePct: Math.round(t.price * 100), category: t.category, eventSlug: t.eventSlug || null, txHash: t.txHash });
+        recentMoves.push({ trader: l.name, wallet: l.wallet, rank: l.rank, tsIso: new Date(t.ts * 1000).toISOString(), side: t.side, outcome: t.outcome, title: t.title, usd: t.usd, pricePct: Math.round(t.price * 100), category: t.category, eventSlug: t.eventSlug || null, marketSlug: t.marketSlug, txHash: t.txHash });
         if (t.side === "BUY" && t.tokenId) {
-          const b = buysByToken.get(t.tokenId) ?? { title: t.title, outcome: t.outcome, category: t.category, eventSlug: t.eventSlug || null, buys: [] };
+          const b = buysByToken.get(t.tokenId) ?? { title: t.title, outcome: t.outcome, category: t.category, eventSlug: t.eventSlug || null, marketSlug: t.marketSlug, buys: [] };
           b.buys.push({ trader: l.name, wallet: l.wallet, rank: l.rank, usd: t.usd, ts: t.ts * 1000 });
           buysByToken.set(t.tokenId, b);
         }
@@ -455,6 +461,7 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
       outcome: b.outcome,
       category: b.category,
       eventSlug: b.eventSlug,
+      marketSlug: b.marketSlug,
       wallets: ws.map((w) => ({ trader: w.trader, wallet: w.wallet, rank: w.rank, usd: w.usd, tsIso: new Date(w.ts).toISOString() })),
       firstIso: new Date(ws[0]!.ts).toISOString(),
       lastIso: new Date(ws[ws.length - 1]!.ts).toISOString(),

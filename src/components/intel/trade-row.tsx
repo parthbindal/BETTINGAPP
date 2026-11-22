@@ -2,14 +2,19 @@ import Link from "next/link";
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import type { RecentMove, WalletStat } from "@/lib/whales";
 import { compact, relative } from "@/lib/format";
-import { polygonTxUrl, polymarketEventUrl, walletHref } from "@/lib/intel";
+import { isInPlay, polygonTxUrl, polymarketMarketUrl, walletHref } from "@/lib/intel";
+import { OpenOnPolymarket } from "./open-on-polymarket";
 import { cn } from "@/lib/utils";
 import { TraderAvatar } from "./trader-identity";
 import { SidePill } from "./signal";
 
 /** One trade, read as a sentence: "<trader> bought <side> at 82¢ — $4.2K". */
-export function TradeRow({ m, fresh = false, showTx = false }: { m: RecentMove; fresh?: boolean; showTx?: boolean }) {
+export function TradeRow({ m, fresh = false, showTx = false, action = false }: { m: RecentMove; fresh?: boolean; showTx?: boolean; action?: boolean }) {
   const buy = m.side === "BUY";
+  const url = polymarketMarketUrl(m.eventSlug, m.marketSlug);
+  // A trade only records the price it happened at, not today's; a fill at 97¢+ or 3¢- is the best
+  // available sign that the market has already been decided.
+  const inPlay = isInPlay({ currentPrice: m.pricePct / 100 });
   const Icon = buy ? ArrowUpRight : ArrowDownLeft;
   const who = m.wallet ? (
     <Link href={walletHref(m.wallet)} className="font-medium hover:text-primary">
@@ -19,7 +24,7 @@ export function TradeRow({ m, fresh = false, showTx = false }: { m: RecentMove; 
     <span className="font-medium">{m.trader}</span>
   );
   return (
-    <div className="flex items-start gap-3 py-3">
+    <div className="group/trade flex items-start gap-3 py-3">
       <div className="relative">
         <TraderAvatar wallet={m.wallet ?? m.trader} name={m.trader} size={34} />
         <span
@@ -38,8 +43,8 @@ export function TradeRow({ m, fresh = false, showTx = false }: { m: RecentMove; 
           <span className="tabular shrink-0 text-sm font-semibold">${compact(m.usd)}</span>
         </div>
         <p className="mt-1 truncate text-xs text-muted-foreground">
-          {m.eventSlug ? (
-            <a href={polymarketEventUrl(m.eventSlug)} target="_blank" rel="noreferrer" className="hover:text-foreground">
+          {url ? (
+            <a href={url} target="_blank" rel="noopener noreferrer" className="hover:text-foreground hover:underline">
               {m.title}
             </a>
           ) : (
@@ -62,6 +67,17 @@ export function TradeRow({ m, fresh = false, showTx = false }: { m: RecentMove; 
           <span className="sr-only">{buy ? "Buy" : "Sell"}</span>
         </p>
       </div>
+      {action && (
+        <OpenOnPolymarket
+          variant="icon"
+          title={m.title}
+          outcome={m.outcome}
+          eventSlug={m.eventSlug}
+          marketSlug={m.marketSlug}
+          inPlay={inPlay}
+          className="self-center transition-opacity sm:opacity-0 sm:focus-visible:opacity-100 sm:group-hover/trade:opacity-100 sm:group-focus-within/trade:opacity-100"
+        />
+      )}
     </div>
   );
 }

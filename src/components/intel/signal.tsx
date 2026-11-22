@@ -2,7 +2,8 @@ import type React from "react";
 import Link from "next/link";
 import { ArrowDownRight, ArrowUpRight, Clock3, Crown, Flame, Users } from "lucide-react";
 import type { ConsensusHolding } from "@/lib/whales";
-import { readConsensus } from "@/lib/intel";
+import { isInPlay, readConsensus } from "@/lib/intel";
+import { OpenOnPolymarket } from "./open-on-polymarket";
 import { compact } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { TraderAvatar } from "./trader-identity";
@@ -34,7 +35,7 @@ export function SignalBadge({ h, className }: { h: ConsensusHolding; className?:
   const k = KIND[signalKind(h)];
   const Icon = k.icon;
   return (
-    <span title={readConsensus(h).detail} className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium", k.cls, className)}>
+    <span title={readConsensus(h).detail} className={cn("inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium", k.cls, className)}>
       <Icon className="size-3" aria-hidden="true" />
       {k.label}
     </span>
@@ -122,7 +123,16 @@ export function SignalCard({ h, rank, href, featured = false, className, id, foo
         <SignalBadge h={h} />
       </div>
 
-      <h3 className={cn("mt-2.5 line-clamp-2 font-medium leading-snug group-hover:text-primary", featured ? "text-xl sm:text-2xl" : "text-[15px]")}>{h.title}</h3>
+      <h3 className={cn("mt-2.5 line-clamp-2 font-medium leading-snug", featured ? "text-xl sm:text-2xl" : "text-[15px]")}>
+        {href ? (
+          // Stretched link: the whole card opens the signal; the Polymarket button sits above it.
+          <Link href={href} className="after:absolute after:inset-0 after:rounded-xl after:content-[''] hover:text-primary focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring">
+            {h.title}
+          </Link>
+        ) : (
+          h.title
+        )}
+      </h3>
 
       <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
         <span className="flex items-baseline gap-1.5">
@@ -164,18 +174,14 @@ export function SignalCard({ h, rank, href, featured = false, className, id, foo
         <span>
           <span className="tabular text-sm font-semibold">${compact(h.totalValue)}</span> <span className="text-muted-foreground">on the line</span>
         </span>
-        {href && <span className="font-medium text-primary">Details →</span>}
+        {href && <span className="text-muted-foreground">See details →</span>}
       </div>
-      {footer}
+      <OpenOnPolymarket className={cn("relative z-10 mt-3", !featured && "self-start")} variant={featured ? "full" : "compact"} title={h.title} outcome={h.outcome} eventSlug={h.slug} marketSlug={h.marketSlug} inPlay={isInPlay(h)} />
+      {footer && <div className="relative z-10">{footer}</div>}
     </>
   );
-  const cls = cn("card-surface group flex flex-col p-4 transition-colors", featured && "p-6", href && "hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", className);
-  return href ? (
-    <Link id={id} href={href} className={cls}>
-      {inner}
-    </Link>
-  ) : (
-    <div id={id} className={cls}>
+  return (
+    <div id={id} className={cn("card-surface group relative flex flex-col p-4 transition-colors", featured && "p-6", href && "hover:border-primary/40", className)}>
       {inner}
     </div>
   );

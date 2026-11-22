@@ -33,6 +33,7 @@ export interface SmartMoneyPreview {
     currentPrice: number;
     category: string;
     slug: string | null;
+    marketSlug: string | null;
   }>;
 }
 
@@ -68,6 +69,7 @@ export async function getSmartMoneyPreviewCached(): Promise<SmartMoneyPreview | 
         currentPrice: h.currentPrice,
         category: h.category,
         slug: h.slug,
+        marketSlug: h.marketSlug ?? null,
       })),
   };
 }

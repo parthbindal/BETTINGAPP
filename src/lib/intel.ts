@@ -93,3 +93,15 @@ export function dailyActivity(payload: WhalePayload, days: number): Array<{ day:
 export function isInPlay(h: { currentPrice: number }): boolean {
   return h.currentPrice > 0.03 && h.currentPrice < 0.97;
 }
+
+/**
+ * Link to the exact question on Polymarket. Grouped events hold many markets,
+ * and only /event/<event>/<market> lands on the right one. Snapshots taken
+ * before market slugs were stored fall back to the event page.
+ */
+export function polymarketMarketUrl(eventSlug: string | null | undefined, marketSlug?: string | null): string | null {
+  if (eventSlug && marketSlug) return `https://polymarket.com/event/${eventSlug}/${marketSlug}`;
+  if (eventSlug) return polymarketEventUrl(eventSlug);
+  if (marketSlug) return `https://polymarket.com/market/${marketSlug}`;
+  return null;
+}

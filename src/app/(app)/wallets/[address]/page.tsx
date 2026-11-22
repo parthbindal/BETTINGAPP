@@ -12,7 +12,8 @@ import { TraderAvatar } from "@/components/intel/trader-identity";
 import { CopyButton } from "@/components/intel/copy-button";
 import { ActivityChart } from "@/components/intel/activity-chart";
 import { compact, dateShort, pct, relative } from "@/lib/format";
-import { isWalletAddress, polygonTxUrl, polymarketEventUrl, polymarketProfileUrl, shortAddress } from "@/lib/intel";
+import { isInPlay, isWalletAddress, polygonTxUrl, polymarketProfileUrl, shortAddress } from "@/lib/intel";
+import { OpenOnPolymarket } from "@/components/intel/open-on-polymarket";
 import { trackUsage } from "@/lib/ops";
 import { cn } from "@/lib/utils";
 
@@ -146,15 +147,14 @@ export default async function WalletPage({ params }: { params: Promise<{ address
                       return (
                         <tr key={p.tokenId} className="border-b border-border/60 last:border-0 hover:bg-surface-2/40">
                           <td className="max-w-[340px] px-1 py-2.5">
-                            {p.eventSlug ? (
-                              <a href={polymarketEventUrl(p.eventSlug)} target="_blank" rel="noreferrer" className="line-clamp-2 font-medium hover:text-primary">{p.title}</a>
-                            ) : (
-                              <span className="line-clamp-2 font-medium">{p.title}</span>
-                            )}
+                            <span className="line-clamp-2 font-medium">{p.title}</span>
                             <div className="text-[11px] text-muted-foreground">{p.category}{p.endDate ? ` · ends ${dateShort(p.endDate)}` : ""}</div>
                           </td>
                           <td className="px-1 py-2.5">
-                            <span className="rounded-md border border-border bg-surface-2 px-2 py-0.5 text-xs font-medium">{p.outcome || "?"}</span>
+                            <span className="flex items-center gap-2">
+                              <span className="rounded-md border border-border bg-surface-2 px-2 py-0.5 text-xs font-medium">{p.outcome || "?"}</span>
+                              <OpenOnPolymarket variant="icon" title={p.title} outcome={p.outcome} eventSlug={p.eventSlug} marketSlug={p.marketSlug} inPlay={isInPlay(p)} />
+                            </span>
                           </td>
                           <td className="tabular px-1 py-2.5 text-right">{Math.round(p.avgPrice * 100)}¢</td>
                           <td className="tabular px-1 py-2.5 text-right">{Math.round(p.currentPrice * 100)}¢</td>
@@ -189,10 +189,11 @@ export default async function WalletPage({ params }: { params: Promise<{ address
                           <span className={t.side === "BUY" ? "font-medium" : "font-medium text-chart-2"}>{t.side === "BUY" ? "Bought" : "Sold"}</span> {t.outcome} at {Math.round(t.price * 100)}¢
                         </div>
                         <div className="truncate text-xs text-muted-foreground">
-                          {t.eventSlug ? <a href={polymarketEventUrl(t.eventSlug)} target="_blank" rel="noreferrer" className="hover:text-foreground">{t.title}</a> : t.title}
+                          {t.title}
                         </div>
                       </div>
-                      <div className="shrink-0 text-right">
+                      <OpenOnPolymarket variant="icon" className="order-last self-center" title={t.title} outcome={t.outcome} eventSlug={t.eventSlug} marketSlug={t.marketSlug} inPlay={isInPlay({ currentPrice: t.price })} />
+                      <div className="ml-auto shrink-0 text-right">
                         <div className="tabular text-sm font-medium">${compact(t.usd)}</div>
                         <div className="text-[11px] text-muted-foreground">
                           {relative(new Date(t.ts * 1000))}

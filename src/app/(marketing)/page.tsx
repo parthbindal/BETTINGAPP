@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { io } from "next/cache";
-import { ArrowRight, ArrowUpRight, BarChart3, BookOpen, Bot, LineChart, ShieldCheck, Target } from "lucide-react";
+import { ArrowRight, BarChart3, BookOpen, Bot, LineChart, ShieldCheck, Target } from "lucide-react";
+import { OpenOnPolymarket } from "@/components/intel/open-on-polymarket";
 import { LinkButton } from "@/components/ui/link-button";
 import { ParticleLogo } from "@/components/marketing/particle-logo";
 import { PLANS } from "@/lib/subscriptions/plans";
@@ -24,7 +25,6 @@ const FEATURES = [
   { icon: ShieldCheck, title: "Performance Tracker", body: "Locked predictions scored with Brier, log loss and calibration curves, compared against the market at the time." },
 ];
 
-const polymarketUrl = (slug: string) => `https://polymarket.com/event/${slug}`;
 
 function StripSkeleton() {
   return (
@@ -109,18 +109,12 @@ async function ConsensusPreview() {
               <span className="mt-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">wallets</span>
             </div>
             <div className="min-w-0 flex-1">
-              {h.slug ? (
-                <a href={polymarketUrl(h.slug)} target="_blank" rel="noreferrer" className="line-clamp-2 text-sm font-medium hover:text-primary">
-                  {h.title}
-                  <ArrowUpRight className="ml-1 inline size-3.5 opacity-0 transition-opacity group-hover:opacity-70" aria-hidden="true" />
-                </a>
-              ) : (
-                <div className="line-clamp-2 text-sm font-medium">{h.title}</div>
-              )}
+              <div className="line-clamp-2 text-sm font-medium">{h.title}</div>
               <div className="tabular mt-1 text-xs text-muted-foreground">
                 {h.category} · {(h.pctOfField * 100).toFixed(1)}% of tracked field · ${compact(h.totalValue)} held
               </div>
             </div>
+            <OpenOnPolymarket variant="icon" className="shrink-0" title={h.title} outcome={h.outcome} eventSlug={h.slug} marketSlug={h.marketSlug} />
             <div className="shrink-0 text-right">
               <div className="rounded-md border border-border bg-surface-2 px-2 py-0.5 text-xs font-medium">{h.outcome}</div>
               <div className="tabular mt-1 text-[11px] text-muted-foreground">at {cents(h.currentPrice)}</div>

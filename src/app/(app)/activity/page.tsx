@@ -11,7 +11,8 @@ import { TradeRow } from "@/components/intel/trade-row";
 import { ActivityChart } from "@/components/intel/activity-chart";
 import { WhaleRefreshButton } from "@/components/whales/refresh-button";
 import { compact, relative } from "@/lib/format";
-import { ageMs, dailyActivity, polymarketEventUrl, walletHref } from "@/lib/intel";
+import { ageMs, dailyActivity, walletHref } from "@/lib/intel";
+import { OpenOnPolymarket } from "@/components/intel/open-on-polymarket";
 import { trackUsage } from "@/lib/ops";
 import { cn } from "@/lib/utils";
 
@@ -150,19 +151,11 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
           <p className="text-sm text-muted-foreground">Two or more top traders bought the same side within 72 hours.</p>
           <div className="-mx-1 mt-3 flex snap-x gap-3 overflow-x-auto px-1 pb-2">
             {clusters.map((c) => (
-              <article key={c.tokenId} className="card-surface w-72 shrink-0 snap-start p-4">
+              <article key={c.tokenId} className="card-surface flex w-72 shrink-0 snap-start flex-col p-4">
                 <div className="flex items-center gap-1.5 text-xs font-medium text-brand-cyan">
                   <Users className="size-3.5" aria-hidden="true" /> {c.wallets.length} traders · ${compact(c.totalUsd)}
                 </div>
-                <p className="mt-2 line-clamp-2 min-h-[2.5rem] text-sm font-medium">
-                  {c.eventSlug ? (
-                    <a href={polymarketEventUrl(c.eventSlug)} target="_blank" rel="noreferrer" className="hover:text-primary">
-                      {c.title}
-                    </a>
-                  ) : (
-                    c.title
-                  )}
-                </p>
+                <p className="mt-2 line-clamp-2 min-h-[2.5rem] text-sm font-medium">{c.title}</p>
                 <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                   All bought <SidePill outcome={c.outcome} />
                 </div>
@@ -176,6 +169,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
                   </span>
                   <span className="text-[11px] text-muted-foreground">latest {relative(c.lastIso)}</span>
                 </div>
+                <OpenOnPolymarket className="mt-4 self-start" variant="compact" title={c.title} outcome={c.outcome} eventSlug={c.eventSlug} marketSlug={c.marketSlug} />
               </article>
             ))}
           </div>
@@ -211,7 +205,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
                 </h3>
                 <div className="divide-y divide-border/70">
                   {g.items.map((m, i) => (
-                    <TradeRow key={`${m.txHash ?? m.tsIso}-${i}`} m={m} fresh={ageMs(m.tsIso) < 6 * HOUR_MS} showTx />
+                    <TradeRow key={`${m.txHash ?? m.tsIso}-${i}`} m={m} fresh={ageMs(m.tsIso) < 6 * HOUR_MS} showTx action />
                   ))}
                 </div>
               </div>

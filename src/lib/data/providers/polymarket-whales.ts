@@ -56,6 +56,7 @@ export interface RawPosition {
   title: string;
   outcome: string;
   eventSlug: string | null;
+  marketSlug: string | null; // the specific question inside the event
   endDate: string | null; // YYYY-MM-DD
   category: string;
   shares: number;
@@ -85,6 +86,7 @@ export async function fetchPositions(wallet: string, limit = 200): Promise<RawPo
     if (currentValue < 100) continue; // ignore dust
     const title = String(p.title ?? "");
     const eventSlug = p.event_slug ? String(p.event_slug) : null;
+    const marketSlug = p.slug ? String(p.slug) : null;
     out.push({
       wallet,
       tokenId: String(p.token_id),
@@ -92,6 +94,7 @@ export async function fetchPositions(wallet: string, limit = 200): Promise<RawPo
       title,
       outcome: String(p.outcome ?? ""),
       eventSlug,
+      marketSlug,
       endDate: p.end_date ? String(p.end_date) : null,
       category: classifyMarket(title, eventSlug ?? ""),
       shares: Number(p.current_size) || 0,
@@ -114,6 +117,7 @@ export interface MarketMeta {
   category: string;
   endDate: string | null;
   slug: string | null; // event slug for a direct polymarket.com/event/<slug> link
+  marketSlug: string | null; // market slug: polymarket.com/event/<slug>/<marketSlug> lands on this question
   tokenOutcome: Record<string, string>; // token_id -> outcome label
 }
 
@@ -160,6 +164,7 @@ export async function fetchMarketMeta(conditionIds: string[]): Promise<Map<strin
         category: classify(String(m.question ?? ""), ev?.ticker),
         endDate: (m.endDateIso as string) ?? null,
         slug: ev?.slug ?? (m.slug as string) ?? null,
+        marketSlug: (m.slug as string) ?? null,
         tokenOutcome,
       });
     }
@@ -178,6 +183,7 @@ export interface RawTrade {
   conditionId: string;
   tokenId: string;
   eventSlug: string;
+  marketSlug: string | null;
   category: string;
   txHash: string | null; // Polygon transaction, for verification
 }
@@ -223,6 +229,7 @@ export async function fetchRecentTrades(wallet: string, limit = 40, sinceSec?: n
       conditionId: String(t.condition_id ?? ""),
       tokenId: String(t.token_id ?? ""),
       eventSlug,
+      marketSlug: t.slug ? String(t.slug) : null,
       category: classifyMarket(title, eventSlug),
       txHash: t.transaction_hash ? String(t.transaction_hash) : null,
     });

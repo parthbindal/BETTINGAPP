@@ -9,7 +9,7 @@ import { TraderAvatar } from "@/components/intel/trader-identity";
 import { SIGNAL_KINDS, SignalCard, signalKind, type SignalKind } from "@/components/intel/signal";
 import { WhaleRefreshButton } from "@/components/whales/refresh-button";
 import { compact, dateShort } from "@/lib/format";
-import { isInPlay, polymarketEventUrl, readConsensus, walletHref } from "@/lib/intel";
+import { isInPlay, readConsensus, walletHref } from "@/lib/intel";
 import { trackUsage } from "@/lib/ops";
 import { cn } from "@/lib/utils";
 
@@ -73,14 +73,6 @@ function WhoIsIn({ h }: { h: ConsensusHolding }) {
       <p className="mt-2.5 text-[11px] leading-relaxed text-muted-foreground">
         {readConsensus(h).detail}
         {h.hedged ? ` ${h.hedged} trader${h.hedged === 1 ? "" : "s"} betting both sides ${h.hedged === 1 ? "is" : "are"} not counted.` : ""}
-        {h.slug && (
-          <>
-            {" "}
-            <a href={polymarketEventUrl(h.slug)} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-              View on Polymarket ↗
-            </a>
-          </>
-        )}
       </p>
     </details>
   );
@@ -178,7 +170,7 @@ export default async function ConsensusPage({ searchParams }: { searchParams: Pr
       </div>
 
       {/* Refine */}
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface-1 p-3 lg:flex-row lg:items-center lg:gap-6">
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface-1 p-3 2xl:flex-row 2xl:items-center 2xl:gap-6">
         <div className="flex min-w-0 items-center gap-2 overflow-x-auto">
           <span className="shrink-0 text-xs text-muted-foreground">Topic</span>
           <Chip to={href(params, { cat: "" })} active={!sp.cat}>All</Chip>
