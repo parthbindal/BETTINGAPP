@@ -7,11 +7,12 @@ import { listWatchlist } from "@/lib/watchlist";
 import { Section, EmptyState } from "@/components/shared/page-header";
 import { ActivityChart } from "@/components/intel/activity-chart";
 import { ScanFreshness } from "@/components/intel/scan-freshness";
-import { SignalCard, signalKind } from "@/components/intel/signal";
+import { HeroSignal, SignalCard, staggerIndex } from "@/components/intel/signal";
+import { CountUp, type CountFormat } from "@/components/motion/count-up";
 import { TradeRow, TraderProfitList } from "@/components/intel/trade-row";
 import { WhaleRefreshButton } from "@/components/whales/refresh-button";
 import { LinkButton } from "@/components/ui/link-button";
-import { compact, pct } from "@/lib/format";
+import { pct } from "@/lib/format";
 import { ageMs, dailyActivity, isInPlay, scanChange, splitSides, windowStart } from "@/lib/intel";
 import { trackUsage } from "@/lib/ops";
 import { cn } from "@/lib/utils";
@@ -44,12 +45,12 @@ function RangeSelector({ active }: { active: string }) {
   );
 }
 
-/** One plain-language number with what it means underneath. */
-function Glance({ value, label, sub, change }: { value: string; label: string; sub?: string; change?: { pct: number } | null }) {
+/** One plain-language number with what it means underneath; delta only against a real earlier scan. */
+function Glance({ value, format, label, sub, change, id }: { value: number; format: CountFormat; label: string; sub?: string; change?: { pct: number } | null; id: string }) {
   return (
-    <div className="py-3.5 first:pt-0 last:pb-0">
+    <div className="px-5 py-5 first:pl-0 sm:first:pl-5 lg:first:pl-0">
       <div className="flex items-baseline gap-2">
-        <span className="tabular text-2xl font-semibold tracking-tight">{value}</span>
+        <CountUp value={value} format={format} id={id} className="text-3xl font-semibold tracking-tight" />
         {change && Math.abs(change.pct) >= 0.005 && (
           <span className={cn("tabular text-xs font-medium", change.pct >= 0 ? "text-status-good" : "text-chart-2")}>
             {change.pct >= 0 ? "▲" : "▼"} {pct(Math.abs(change.pct), 0)}
@@ -57,7 +58,7 @@ function Glance({ value, label, sub, change }: { value: string; label: string; s
           </span>
         )}
       </div>
-      <div className="text-sm">{label}</div>
+      <div className="mt-1 text-sm">{label}</div>
       {sub && <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>}
     </div>
   );
@@ -102,12 +103,12 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const wallets = p.wallets ?? [];
   const active = wallets.filter((w) => w.positions > 0).length;
   const combinedPnl = wallets.reduce((s, w) => s + w.pnl, 0);
-  const signals = p.holdings.filter((h) => h.holders >= CONSENSUS_MIN_WALLETS).sort((a, b) => b.holders - a.holders || b.totalValue - a.totalValue);
-  // Spotlight only clear agreement: skip markets where top traders sit on both sides.
+  const signals = p.holdings.filter((h) => h.holders >= CONSENSUS_MIN_WALLETS);
+  // Spotlight only clear agreement, ranked by dollars at risk: skip decided markets and ones where top traders sit on both sides.
   const split = splitSides(p.holdings, CONSENSUS_MIN_WALLETS);
-  const live = signals.filter(isInPlay).filter((h) => !split.has(h.conditionId));
-  const featured = live.find((h) => signalKind(h) === "now") ?? live[0];
-  const more = live.filter((h) => h !== featured).slice(0, 3);
+  const live = signals.filter(isInPlay).filter((h) => !split.has(h.conditionId)).sort((x, y) => y.totalValue - x.totalValue);
+  const featured = live[0];
+  const more = live.slice(1, 4);
   const since = windowStart(range.days);
   const moves = p.recentMoves.filter((m) => Date.parse(m.tsIso) >= since);
   const flow = dailyActivity(p, range.days);
@@ -117,93 +118,91 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const sigHref = (tokenId: string) => `/consensus#sig-${tokenId}`;
 
   return (
-    <div className="space-y-8">
-      {header}
-      <ScanFreshness generatedAt={p.generatedAt} note={`${p.tradersScanned.toLocaleString("en-US")} top traders`} />
-
-      {/* Hero: the single strongest signal, next to the week at a glance */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        {featured ? (
-          <div className="lg:col-span-2">
-            <div className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.14em] text-primary">
-              <Sparkles className="size-3.5" aria-hidden="true" /> Biggest signal right now
-            </div>
-            <SignalCard h={featured} href={sigHref(featured.tokenId)} featured className="h-[calc(100%-1.5rem)]" />
-          </div>
-        ) : (
-          <Section className="lg:col-span-2">
-            <EmptyState title="No strong agreement right now" description={`A signal appears when ${CONSENSUS_MIN_WALLETS} or more top traders hold the same side of a market.`} />
-          </Section>
-        )}
-        <Section title="At a glance" description={`Last ${range.label}`}>
-          <div className="divide-y divide-border/70">
-            <Glance value={signals.length.toLocaleString("en-US")} label="bets the top traders agree on" sub={`${CONSENSUS_MIN_WALLETS}+ traders on the same side`} change={scanChange(history, "consensusOutcomes")} />
-            <Glance value={`$${compact(volume)}`} label="traded by the top 100" sub={`${trades.toLocaleString("en-US")} trades of $300 or more`} />
-            <Glance value={active.toLocaleString("en-US")} label="traders holding open bets" sub={`of the ${p.tradersScanned.toLocaleString("en-US")} we track`} change={scanChange(history, "activeWallets")} />
-            <Glance value={`$${compact(combinedPnl)}`} label="profit these traders have made" sub="Polymarket leaderboard" />
-          </div>
-        </Section>
+    <div className="space-y-12">
+      <div className="space-y-4">
+        {header}
+        <ScanFreshness generatedAt={p.generatedAt} note={`${p.tradersScanned.toLocaleString("en-US")} traders`} />
       </div>
 
-      {/* More signals */}
-      {more.length > 0 && (
-        <section>
-          <div className="mb-3 flex items-end justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold tracking-tight">More signals</h2>
-              <p className="text-sm text-muted-foreground">Other bets where many top traders are on the same side.</p>
-            </div>
-            <Link href="/consensus" className="shrink-0 text-sm font-medium text-primary hover:underline">
-              All {signals.length} signals →
-            </Link>
+      {/* The hero opens the page; every later block enters after it (.stagger-in, 40ms apart). */}
+      <div className="stagger-in space-y-12">
+        <section style={staggerIndex(0)}>
+          <div className="mb-3 flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            <Sparkles className="size-3.5" aria-hidden="true" /> Biggest bet the top traders agree on
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            {more.map((h) => (
-              <SignalCard key={h.tokenId} h={h} href={sigHref(h.tokenId)} />
-            ))}
-          </div>
+          {featured ? (
+            <HeroSignal h={featured} href={sigHref(featured.tokenId)} />
+          ) : (
+            <Section>
+              <EmptyState title="No strong agreement right now" description={`A signal appears when ${CONSENSUS_MIN_WALLETS} or more top traders hold the same side of a market.`} />
+            </Section>
+          )}
         </section>
-      )}
 
-      {/* Money flow + live trades */}
-      <div className="grid gap-4 xl:grid-cols-5">
-        <Section title="Where the money is moving" description={`Dollars bought and sold each day by the top ${p.recentTraders ?? 100} traders`} className="xl:col-span-3">
-          <ActivityChart data={flow} height={300} />
-        </Section>
-        <Section title="Just traded" description="Latest big moves by top traders" right={<Link href="/activity" className="text-xs font-medium text-primary hover:underline">Live trades →</Link>} className="xl:col-span-2">
-          {moves.length ? (
-            <div className="-my-3 divide-y divide-border/70">
-              {moves.slice(0, 5).map((m, i) => (
-                <TradeRow key={`${m.txHash ?? m.tsIso}-${i}`} m={m} fresh={ageMs(m.tsIso) < DAY_MS / 4} action />
+        <section style={staggerIndex(1)} aria-label={`At a glance, last ${range.label}`} className="card-surface grid divide-border/70 px-5 sm:grid-cols-2 sm:divide-x lg:grid-cols-4 lg:px-6 [&>*]:border-border/70 max-sm:divide-y">
+          <Glance id="glance-signals" value={signals.length} format="int" label="bets the top traders agree on" sub={`${CONSENSUS_MIN_WALLETS}+ traders on one side`} change={scanChange(history, "consensusOutcomes")} />
+          <Glance id={`glance-volume-${range.key}`} value={volume} format="usd" label={`traded in the last ${range.label}`} sub={`${trades.toLocaleString("en-US")} trades of $300 or more`} />
+          <Glance id="glance-active" value={active} format="int" label="traders holding open bets" sub={`of the ${p.tradersScanned.toLocaleString("en-US")} we track`} change={scanChange(history, "activeWallets")} />
+          <Glance id="glance-profit" value={combinedPnl} format="usd" label="profit these traders have made" sub="Polymarket leaderboard" />
+        </section>
+
+        {more.length > 0 && (
+          <section style={staggerIndex(2)}>
+            <div className="mb-4 flex items-end justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold tracking-tight">More signals</h2>
+                <p className="text-sm text-muted-foreground">The next biggest bets where many top traders are on the same side.</p>
+              </div>
+              <Link href="/consensus" className="shrink-0 text-sm font-medium text-primary hover:underline">
+                All {signals.length} signals →
+              </Link>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              {more.map((h) => (
+                <SignalCard key={h.tokenId} h={h} href={sigHref(h.tokenId)} />
               ))}
             </div>
-          ) : (
-            <EmptyState title="Quiet stretch" description={`No trades of $300+ from top traders in the last ${range.label}.`} />
-          )}
-        </Section>
-      </div>
+          </section>
+        )}
 
-      {/* Leaders + watchlist */}
-      <div className="grid gap-4 lg:grid-cols-5">
-        <Section title="Most profitable traders" description="Ranked by total profit on Polymarket" right={<Link href="/leaderboard" className="text-xs font-medium text-primary hover:underline">All traders →</Link>} className="lg:col-span-3">
-          <TraderProfitList traders={topTraders} />
-        </Section>
-        <Section title="Your watchlist" right={<Link href="/watchlist" className="text-xs font-medium text-primary hover:underline">Open →</Link>} className="lg:col-span-2">
-          {watchlist.length ? (
-            <ul className="divide-y divide-border/70">
-              {watchlist.slice(0, 6).map((w) => (
-                <li key={w.id}>
-                  <Link href={w.kind === "wallet" ? `/wallets/${w.refId}` : w.kind === "market" ? `/markets/${w.refId}` : w.kind === "player" ? `/sports/players/${w.refId}` : "/watchlist"} className="flex items-center justify-between gap-3 py-2.5 text-sm hover:text-primary">
-                    <span className="truncate">{w.label}</span>
-                    <span className="tabular shrink-0 text-xs text-muted-foreground">{w.currentValue !== null ? pct(w.currentValue, 0) : w.kind === "wallet" ? "Trader" : w.kind}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <EmptyState title="Follow traders you trust" description="Open any trader and tap Follow. Their moves will show up here." action={<LinkButton href="/leaderboard" size="sm" variant="outline">Find traders <ArrowRight className="size-4" /></LinkButton>} />
-          )}
-        </Section>
+        <div style={staggerIndex(3)} className="grid gap-4 xl:grid-cols-5">
+          <Section title="Where the money is moving" description={`Dollars bought and sold each day by the top ${p.recentTraders ?? 100} traders`} className="xl:col-span-3">
+            <ActivityChart data={flow} height={300} />
+          </Section>
+          <Section title="Just traded" description="Latest big moves by top traders" right={<Link href="/activity" className="text-xs font-medium text-primary hover:underline">Live trades →</Link>} className="xl:col-span-2">
+            {moves.length ? (
+              <div className="-my-3 divide-y divide-border/70">
+                {moves.slice(0, 5).map((m, i) => (
+                  <TradeRow key={`${m.txHash ?? m.tsIso}-${i}`} m={m} fresh={ageMs(m.tsIso) < DAY_MS / 4} action />
+                ))}
+              </div>
+            ) : (
+              <EmptyState title="Quiet stretch" description={`No trades of $300+ from top traders in the last ${range.label}.`} />
+            )}
+          </Section>
+        </div>
+
+        <div style={staggerIndex(4)} className="grid gap-4 lg:grid-cols-5">
+          <Section title="Most profitable traders" description="Ranked by total profit on Polymarket" right={<Link href="/leaderboard" className="text-xs font-medium text-primary hover:underline">All traders →</Link>} className="lg:col-span-3">
+            <TraderProfitList traders={topTraders} />
+          </Section>
+          <Section title="Your watchlist" right={<Link href="/watchlist" className="text-xs font-medium text-primary hover:underline">Open →</Link>} className="lg:col-span-2">
+            {watchlist.length ? (
+              <ul className="divide-y divide-border/70">
+                {watchlist.slice(0, 6).map((w) => (
+                  <li key={w.id}>
+                    <Link href={w.kind === "wallet" ? `/wallets/${w.refId}` : w.kind === "market" ? `/markets/${w.refId}` : w.kind === "player" ? `/sports/players/${w.refId}` : "/watchlist"} className="flex items-center justify-between gap-3 py-2.5 text-sm hover:text-primary">
+                      <span className="truncate">{w.label}</span>
+                      <span className="tabular shrink-0 text-xs text-muted-foreground">{w.currentValue !== null ? pct(w.currentValue, 0) : w.kind === "wallet" ? "Trader" : w.kind}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState title="Follow traders you trust" description="Open any trader and tap Follow. Their moves will show up here." action={<LinkButton href="/leaderboard" size="sm" variant="outline">Find traders <ArrowRight className="size-4" /></LinkButton>} />
+            )}
+          </Section>
+        </div>
       </div>
     </div>
   );

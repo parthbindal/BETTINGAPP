@@ -1,9 +1,10 @@
 import type React from "react";
 import Link from "next/link";
-import { ArrowDownRight, ArrowUpRight, Clock3, Flame, Scale, UserRound, Users } from "lucide-react";
+import { ArrowDownRight, ArrowRight, ArrowUpRight, Clock3, Flame, Scale, UserRound, Users } from "lucide-react";
 import type { ConsensusHolding } from "@/lib/whales";
 import { explainSplit, isInPlay, readConsensus } from "@/lib/intel";
 import { OpenOnPolymarket } from "./open-on-polymarket";
+import { CountUp } from "@/components/motion/count-up";
 import { compact } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { TraderAvatar } from "./trader-identity";
@@ -17,7 +18,7 @@ import { TraderAvatar } from "./trader-identity";
 type SignalKind = "now" | "held" | "whale" | "broad";
 
 const KIND: Record<SignalKind, { label: string; meaning: string; icon: typeof Flame; cls: string }> = {
-  now: { label: "New money this week", meaning: "Many of these traders bought in the last 7 days.", icon: Flame, cls: "border-primary/40 bg-primary/12 text-primary" },
+  now: { label: "New money this week", meaning: "Many of these traders bought in the last 7 days.", icon: Flame, cls: "border-brand-cyan/40 bg-brand-cyan/10 text-brand-cyan" },
   held: { label: "Long-term bet", meaning: "They have held this side for a month or more.", icon: Clock3, cls: "border-border bg-surface-2 text-foreground/85" },
   whale: { label: "Mostly one trader", meaning: "One trader holds over half the money, so agreement is thinner than it looks.", icon: UserRound, cls: "border-status-warning/40 bg-status-warning/10 text-status-warning" },
   broad: { label: "Many traders agree", meaning: "The money is spread across many traders, not one big one.", icon: Users, cls: "border-brand-cyan/35 bg-brand-cyan/10 text-brand-cyan" },
@@ -45,7 +46,8 @@ export function SignalBadge({ h, className }: { h: ConsensusHolding; className?:
 /** The side the traders are on, as a solid pill. Yes/No get distinct shapes of emphasis, not just color. */
 export function SidePill({ outcome, size = "md" }: { outcome: string; size?: "md" | "lg" }) {
   const o = outcome.trim();
-  const tone = /^yes$/i.test(o) ? "bg-status-good/15 text-status-good ring-status-good/40" : /^no$/i.test(o) ? "bg-chart-2/15 text-chart-2 ring-chart-2/40" : "bg-primary/15 text-primary ring-primary/40";
+  // Sides are words, not moods: a neutral pill, so YES/NO never borrow the up/down colors.
+  const tone = "bg-surface-3 text-foreground ring-border";
   return (
     <span className={cn("inline-flex max-w-[12rem] items-center truncate rounded-md font-semibold uppercase tracking-wide ring-1 ring-inset", size === "lg" ? "px-2.5 py-1 text-base" : "px-1.5 py-0.5 text-xs", tone)}>
       {o || "—"}
@@ -54,16 +56,21 @@ export function SidePill({ outcome, size = "md" }: { outcome: string; size?: "md
 }
 
 /** Overlapping avatars of the biggest holders, then "+N". */
-export function AvatarStack({ holders, total, max = 5, size = 24 }: { holders: Array<{ wallet: string; name: string }>; total: number; max?: number; size?: number }) {
+/** CSS custom property for .stagger-in children. */
+export const staggerIndex = (i: number) => ({ "--i": i }) as React.CSSProperties;
+
+export function AvatarStack({ holders, total, max = 5, size = 24, stagger = false }: { holders: Array<{ wallet: string; name: string }>; total: number; max?: number; size?: number; stagger?: boolean }) {
   const shown = holders.slice(0, max);
   const extra = Math.max(0, total - shown.length);
   return (
-    <span className="flex items-center">
+    <span className={cn("flex items-center", stagger && "stagger-in")}>
       {shown.map((t, i) => (
-        <TraderAvatar key={t.wallet} wallet={t.wallet} name={t.name} size={size} className={cn("ring-2 ring-card", i > 0 && "-ml-2")} />
+        <span key={t.wallet} className={cn("inline-flex", i > 0 && "-ml-2")} style={staggerIndex(i)}>
+          <TraderAvatar wallet={t.wallet} name={t.name} size={size} className="ring-2 ring-card" />
+        </span>
       ))}
       {extra > 0 && (
-        <span className="-ml-2 inline-flex items-center justify-center rounded-full bg-surface-3 px-1.5 text-[10px] font-semibold text-muted-foreground ring-2 ring-card" style={{ height: size, minWidth: size }}>
+        <span className="-ml-2 inline-flex items-center justify-center rounded-full bg-surface-3 px-1.5 text-[10px] font-semibold text-muted-foreground ring-2 ring-card" style={{ height: size, minWidth: size, ...staggerIndex(shown.length) }}>
           +{extra}
         </span>
       )}
@@ -81,22 +88,22 @@ export function PriceTrack({ entry, now, className }: { entry: number; now: numb
   const n = Math.min(1, Math.max(0, now));
   const up = n >= e;
   const change = e > 0 ? (n - e) / e : 0;
+  const flat = Math.abs(change) < 0.005; // under half a percent reads as "no change", in neutral
   const lo = Math.min(e, n);
-  const Arrow = up ? ArrowUpRight : ArrowDownRight;
+  const Arrow = flat ? ArrowRight : up ? ArrowUpRight : ArrowDownRight;
   return (
     <div className={className}>
       <div className="flex items-baseline justify-between text-xs">
         <span className="text-muted-foreground">
           Paid <span className="tabular font-medium text-foreground">{Math.round(e * 100)}¢</span> → now <span className="tabular font-medium text-foreground">{Math.round(n * 100)}¢</span>
         </span>
-        <span className={cn("tabular inline-flex items-center gap-0.5 font-semibold", up ? "text-status-good" : "text-chart-2")}>
+        <span className={cn("tabular inline-flex items-center gap-0.5 font-semibold", flat ? "text-muted-foreground" : up ? "text-status-good" : "text-chart-2")}>
           <Arrow className="size-3.5" aria-hidden="true" />
-          {up ? "+" : ""}
-          {Math.round(change * 100)}%
+          {flat ? "0" : `${up ? "+" : ""}${Math.round(change * 100)}`}%
         </span>
       </div>
       <div className="relative mt-1.5 h-1.5 rounded-full bg-surface-3" aria-hidden="true">
-        <span className={cn("absolute inset-y-0 rounded-full", up ? "bg-status-good/70" : "bg-chart-2/70")} style={{ left: `${lo * 100}%`, width: `${Math.max(Math.abs(n - e) * 100, 0.8)}%` }} />
+        <span className={cn("absolute inset-y-0 rounded-full", flat ? "bg-muted-foreground/50" : up ? "bg-status-good/70" : "bg-chart-2/70")} style={{ left: `${lo * 100}%`, width: `${Math.max(Math.abs(n - e) * 100, 0.8)}%` }} />
         <span className="absolute top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted-foreground" style={{ left: `${e * 100}%` }} />
         <span className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground ring-2 ring-card" style={{ left: `${n * 100}%` }} />
       </div>
@@ -104,7 +111,7 @@ export function PriceTrack({ entry, now, className }: { entry: number; now: numb
   );
 }
 
-const SPLIT_COLORS = ["bg-chart-1", "bg-chart-7"] as const;
+const SPLIT_COLORS = ["bg-foreground/80", "bg-muted-foreground/60"] as const; // neutral: sides are identity, not meaning
 
 /**
  * A market where top traders sit on BOTH sides. Shown as one card so the
@@ -115,7 +122,7 @@ export function SplitCard({ sides, rank, id, className }: { sides: ConsensusHold
   const totalHolders = sides.reduce((s, h) => s + h.holders, 0);
   const end = fmtEnd(a.endDate);
   return (
-    <div id={id} className={cn("card-surface relative flex flex-col p-4", className)}>
+    <div id={id} className={cn("card-surface lift relative flex flex-col p-4", className)}>
       <div className="flex items-center justify-between gap-2">
         <span className="flex min-w-0 items-center gap-2 text-[11px] text-muted-foreground">
           {rank !== undefined && <span className="tabular font-mono text-muted-foreground/80">#{rank}</span>}
@@ -160,6 +167,12 @@ export function SplitCard({ sides, rank, id, className }: { sides: ConsensusHold
   );
 }
 
+/** $1M+ big, $100K–$1M mid, under $100K small. */
+export type MoneyTier = "big" | "mid" | "small";
+export const moneyTier = (usd: number): MoneyTier => (usd >= 1_000_000 ? "big" : usd >= 100_000 ? "mid" : "small");
+// The page's three type sizes: hero figure, card figure, body.
+const TIER_MONEY: Record<MoneyTier, string> = { big: "text-5xl", mid: "text-3xl", small: "text-sm" };
+
 const fmtEnd = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null);
 
 /**
@@ -167,8 +180,10 @@ const fmtEnd = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("
  * top to bottom as a sentence: what the market is, who agrees and on which
  * side, how the trade has gone, and how much money is behind it.
  */
-export function SignalCard({ h, rank, href, featured = false, className, id, footer }: { h: ConsensusHolding; rank?: number; href?: string; featured?: boolean; className?: string; id?: string; footer?: React.ReactNode }) {
+export function SignalCard({ h, rank, href, featured = false, tiered = false, className, id, footer }: { h: ConsensusHolding; rank?: number; href?: string; featured?: boolean; tiered?: boolean; className?: string; id?: string; footer?: React.ReactNode }) {
   const end = fmtEnd(h.endDate);
+  // Size on screen tracks size in dollars, in three steps (never a continuous ramp).
+  const tier = tiered ? moneyTier(h.totalValue) : "mid";
   const inner = (
     <>
       <div className="flex items-center justify-between gap-2">
@@ -229,8 +244,9 @@ export function SignalCard({ h, rank, href, featured = false, className, id, foo
 
       <div className="min-h-4 flex-1" aria-hidden="true" />
       <div className="flex items-center justify-between gap-3 border-t border-border/70 pt-3 text-xs">
-        <span>
-          <span className="tabular text-sm font-semibold">${compact(h.totalValue)}</span> <span className="text-muted-foreground">invested</span>
+        <span className={cn(tier !== "small" && "flex flex-col")}>
+          <span className={cn("tabular font-semibold tracking-tight", TIER_MONEY[tier])}>${compact(h.totalValue)}</span>{" "}
+          <span className="text-muted-foreground">invested</span>
         </span>
         {href && <span className="text-muted-foreground">See details →</span>}
       </div>
@@ -239,8 +255,75 @@ export function SignalCard({ h, rank, href, featured = false, className, id, foo
     </>
   );
   return (
-    <div id={id} className={cn("card-surface group relative flex flex-col p-4 transition-colors", featured && "p-6", href && "hover:border-primary/40", className)}>
+    <div id={id} className={cn("card-surface lift group relative flex flex-col p-4", (featured || tier === "big") && "p-6", tier === "big" && "ring-1 ring-foreground/12 md:col-span-2", href && "hover:border-primary/40", className)}>
       {inner}
     </div>
+  );
+}
+
+/**
+ * The one signal that opens Home: full width, the headline count and the money
+ * counting up once, the avatars arriving one by one. Everything else on the
+ * page enters after it.
+ */
+export function HeroSignal({ h, href }: { h: ConsensusHolding; href: string }) {
+  const end = fmtEnd(h.endDate);
+  return (
+    <article className="card-surface relative overflow-hidden p-6 sm:p-8">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs text-muted-foreground">
+          {h.category}
+          {end ? ` · ends ${end}` : ""}
+        </span>
+        <SignalBadge h={h} />
+      </div>
+
+      <div className="mt-5 grid gap-8 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:gap-12">
+        <div className="min-w-0">
+          <h2 className="text-balance text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">
+            <Link href={href} className="after:absolute after:inset-0 after:content-[''] hover:text-primary focus-visible:outline-none">
+              {h.title}
+            </Link>
+          </h2>
+          <div className="mt-6 flex flex-wrap items-end gap-x-4 gap-y-3">
+            <span className="flex items-baseline gap-2">
+              <CountUp value={h.holders} id={`hero-holders-${h.tokenId}`} className="text-6xl font-semibold leading-none tracking-tight" />
+              <span className="text-base text-muted-foreground">top traders bet</span>
+            </span>
+            <SidePill outcome={h.outcome} size="lg" />
+          </div>
+          <p className="mt-3 max-w-xl text-sm text-muted-foreground">{readConsensus(h).detail}</p>
+          {h.topHolders?.length ? (
+            <div className="mt-5">
+              <AvatarStack holders={h.topHolders} total={h.holders} size={32} max={7} stagger />
+            </div>
+          ) : null}
+        </div>
+
+        <div className="relative z-10 flex min-w-0 flex-col gap-6">
+          <PriceTrack entry={h.avgEntry} now={h.currentPrice} />
+          <div>
+            <div className="text-xs text-muted-foreground">Invested on this side</div>
+            <CountUp value={h.totalValue} format="usd" id={`hero-value-${h.tokenId}`} className="mt-1 block text-3xl font-semibold tracking-tight" />
+          </div>
+          {h.topHolders?.length ? (
+            <ul className="grid gap-2 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+              {h.topHolders.slice(0, 3).map((t) => (
+                <li key={t.wallet} className="flex min-w-0 items-center gap-2 rounded-lg bg-surface-2/60 px-2.5 py-2">
+                  <TraderAvatar wallet={t.wallet} name={t.name} size={26} />
+                  <span className="min-w-0">
+                    <span className="block truncate text-xs font-medium">{t.name}</span>
+                    <span className="tabular block text-[11px] text-muted-foreground">
+                      #{t.rank} · ${compact(t.value)}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <OpenOnPolymarket title={h.title} outcome={h.outcome} eventSlug={h.slug} marketSlug={h.marketSlug} inPlay={isInPlay(h)} />
+        </div>
+      </div>
+    </article>
   );
 }

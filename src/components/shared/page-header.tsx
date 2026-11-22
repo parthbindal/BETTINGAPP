@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Sparkle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function PageHeader({ title, description, actions, eyebrow, className }: { title: ReactNode; description?: ReactNode; actions?: ReactNode; eyebrow?: ReactNode; className?: string }) {
@@ -31,13 +32,21 @@ export function Section({ title, description, right, children, className, id }: 
   );
 }
 
+/**
+ * Empty state: one quiet visual (the icon inside soft concentric rings) and
+ * one sentence. No apologies, no bare "no data".
+ */
 export function EmptyState({ title, description, action, icon }: { title: string; description?: string; action?: ReactNode; icon?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border px-6 py-10 text-center">
-      {icon && <div className="text-muted-foreground [&_svg]:size-6">{icon}</div>}
-      <div className="text-sm font-medium">{title}</div>
-      {description && <p className="max-w-sm text-xs text-muted-foreground">{description}</p>}
-      {action && <div className="mt-2">{action}</div>}
+    <div className="flex flex-col items-center justify-center gap-3 rounded-xl px-6 py-12 text-center">
+      <div className="relative flex size-20 items-center justify-center" aria-hidden="true">
+        <span className="absolute inset-0 rounded-full border border-border/60" />
+        <span className="absolute inset-3 rounded-full border border-border bg-surface-1" />
+        <span className="relative text-muted-foreground [&_svg]:size-6">{icon ?? <Sparkle />}</span>
+      </div>
+      <div className="text-base font-medium">{title}</div>
+      {description && <p className="max-w-sm text-sm text-muted-foreground">{description}</p>}
+      {action && <div className="mt-1">{action}</div>}
     </div>
   );
 }

@@ -11,14 +11,14 @@ type Row = { day: string; buys: number; sells: number; trades: number; partial?:
 const dayLabel = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
 const LEGEND = [
-  { label: "Bought", color: "var(--chart-1)" },
-  { label: "Sold", color: "var(--chart-2)" },
+  { label: "Bought", color: "var(--foreground)" },
+  { label: "Sold", color: "var(--muted-foreground)" },
 ];
 
 /**
- * Dollar volume the tracked traders bought and sold per day. Two series in the
- * validated palette's first two slots (blue, orange), stacked, with a surface
- * gap between segments.
+ * Dollar volume the tracked traders bought and sold per day, stacked with a
+ * surface gap. Bought/sold are neutral (white / grey) on purpose: blue means
+ * "click" and orange means "price fell" (see the color map in globals.css).
  *
  * `ranges` adds a trailing-window selector. Omit it on pages that already have
  * their own range control (e.g. /overview) so the two cannot disagree.
@@ -80,8 +80,8 @@ export function ActivityChart({
                 <ChartTooltipFrame
                   title={dayLabel(String(label))}
                   rows={[
-                    { label: "Bought", value: `$${compact(r.buys)}`, color: "var(--chart-1)" },
-                    { label: "Sold", value: `$${compact(r.sells)}`, color: "var(--chart-2)" },
+                    { label: "Bought", value: `$${compact(r.buys)}`, color: "var(--foreground)" },
+                    { label: "Sold", value: `$${compact(r.sells)}`, color: "var(--muted-foreground)" },
                     { label: "Trades", value: r.trades.toLocaleString("en-US") },
                     ...(r.partial ? [{ label: "Coverage", value: "May undercount the busiest traders" }] : []),
                   ]}
@@ -89,11 +89,11 @@ export function ActivityChart({
               );
             }}
           />
-          <Bar dataKey="buys" stackId="flow" fill="var(--chart-1)" stroke="var(--card)" strokeWidth={2} isAnimationActive={false}>
-            {rows.map((d) => <Cell key={d.day} fillOpacity={d.partial ? 0.4 : 1} />)}
+          <Bar dataKey="buys" stackId="flow" fill="var(--foreground)" stroke="var(--card)" strokeWidth={2} isAnimationActive={false}>
+            {rows.map((d) => <Cell key={d.day} fillOpacity={d.partial ? 0.3 : 0.85} />)}
           </Bar>
-          <Bar dataKey="sells" stackId="flow" fill="var(--chart-2)" stroke="var(--card)" strokeWidth={2} radius={[4, 4, 0, 0]} isAnimationActive={false}>
-            {rows.map((d) => <Cell key={d.day} fillOpacity={d.partial ? 0.4 : 1} />)}
+          <Bar dataKey="sells" stackId="flow" fill="var(--muted-foreground)" stroke="var(--card)" strokeWidth={2} radius={[4, 4, 0, 0]} isAnimationActive={false}>
+            {rows.map((d) => <Cell key={d.day} fillOpacity={d.partial ? 0.3 : 0.75} />)}
           </Bar>
         </BarChart>
       </ResponsiveContainer>

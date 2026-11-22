@@ -102,7 +102,7 @@ export function LeaderboardTable({ rows }: { rows: LeaderRow[] }) {
               onClick={() => applyPreset(p.sort)}
               className={cn(
                 "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                sort === p.sort ? "border-primary/50 bg-primary/12 text-foreground" : "border-border text-muted-foreground hover:border-border hover:bg-surface-2 hover:text-foreground",
+                sort === p.sort ? "border-foreground/40 bg-foreground/10 text-foreground" : "border-border text-muted-foreground hover:border-border hover:bg-surface-2 hover:text-foreground",
               )}
             >
               {p.label}

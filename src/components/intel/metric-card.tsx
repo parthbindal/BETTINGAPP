@@ -38,7 +38,7 @@ export function MetricCard({
         <span className="tabular text-[28px] font-semibold leading-none tracking-tight">{value}</span>
         {change && (
           <span className="tabular inline-flex items-center gap-0.5 text-xs font-medium text-foreground/80" title={`Compared with the scan ${relative(change.from)}`}>
-            {up ? <ArrowUpRight className="size-3.5 text-primary" aria-hidden="true" /> : <ArrowDownRight className="size-3.5 text-brand-violet" aria-hidden="true" />}
+            {up ? <ArrowUpRight className="size-3.5 text-status-good" aria-hidden="true" /> : <ArrowDownRight className="size-3.5 text-brand-violet" aria-hidden="true" />}
             {`${up ? "+" : ""}${(change.pct * 100).toFixed(1)}%`}
             <span className="sr-only">since the previous scan</span>
           </span>

@@ -121,6 +121,38 @@
   --sidebar-ring: rgb(22 139 255 / 60%);
 }
 
+/*
+ * COLOR MEANS ONE THING. Every colored state also carries an icon and words,
+ * so the app reads the same in greyscale and for colorblind users.
+ *   --primary (blue)        The thing to click: buttons, links, the focus ring. Nothing else.
+ *   --foreground (white)    "You are here": active nav item, selected filter chips, switches on.
+ *                           Also neutral data: "bought" (white) vs "sold" (grey), with arrows.
+ *   --status-good (green)   Price went UP (▲ / up-right arrow). Also the live-data pulse.
+ *   --chart-2 (orange)      Price went DOWN (▼ / down-right arrow). Never "sold", never "No".
+ *   --brand-cyan            Agreement: many top traders on one side (signal badges, clusters).
+ *   --status-warning        Caution: mostly one trader, traders split, data older than 6 hours.
+ *   --chart-1 … --chart-8   Identity only (trader avatar tints, chart series); never meaning.
+ * YES / NO / team names are neutral pills: a side is a word, not a mood.
+ */
+
+/*
+ * MOTION VOCABULARY. Use these and only these; do not invent a new easing or duration.
+ *   --ease-out-soft  Default for everything that enters or settles. Fast start, gentle stop.
+ *   --ease-spring    Small overshoot, for things the user directly pressed or hovered.
+ *   --dur-fast  140ms  State changes: hover, focus, toggles. Must feel instant.
+ *   --dur-base  240ms  Small entrances and crossfades (page transitions, list items).
+ *   --dur-slow  420ms  The largest entrance on a page (the hero). Never longer than 500ms.
+ * Rules: no animation may delay reading a number; every utility below has a
+ * prefers-reduced-motion fallback that shows the final state immediately.
+ */
+:root {
+  --ease-out-soft: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --dur-fast: 140ms;
+  --dur-base: 240ms;
+  --dur-slow: 420ms;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -132,10 +164,29 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  /* Ambient light. Two very faint glows drift over 90s; it should be invisible if you look for it. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: -10%;
+    z-index: -1;
+    pointer-events: none;
     background-image:
-      radial-gradient(1200px 600px at 10% -10%, rgb(22 139 255 / 6%), transparent 60%),
-      radial-gradient(900px 500px at 100% 0%, rgb(129 91 255 / 4%), transparent 60%);
-    background-attachment: fixed;
+      radial-gradient(1200px 600px at 10% -10%, color-mix(in oklch, var(--primary) 6%, transparent), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, color-mix(in oklch, var(--brand-violet) 4%, transparent), transparent 60%);
+    animation: ambient-drift 90s ease-in-out infinite alternate;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body::before {
+      animation: none;
+    }
+  }
+  /* ONE focus treatment for every interactive element: a 2px ring, offset, visible on dark. */
+  :where(a, button, summary, input, select, textarea, [role="switch"], [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 6px;
   }
   ::selection {
     background: rgb(22 139 255 / 35%);
@@ -173,6 +224,82 @@
       animation: none;
     }
   }
+  /*
+   * MOTION UTILITIES (exactly five; see the vocabulary above).
+   * 1. .stagger-in  List entrances. Each child sets style="--i: n"; delay is n x 40ms, capped at 240ms.
+   * 2. .lift        Cards: rise 2px with a soft shadow bloom on hover AND keyboard focus.
+   * 3. .shimmer     One sheen across a value when it CHANGES (added by the count-up island), never on mount.
+   * 4. .count-up    Number that counts to its value once, on first sight (client island in
+   *                 components/motion/count-up.tsx). Server HTML already holds the final value.
+   * 5. .pulse-live  The "data is live" dot. 2s, barely there. One per page.
+   */
+  .stagger-in > * {
+    animation: stagger-rise var(--dur-base) var(--ease-out-soft) both;
+    animation-delay: min(calc(var(--i, 0) * 40ms), 240ms);
+  }
+  .lift {
+    transition:
+      transform var(--dur-fast) var(--ease-out-soft),
+      box-shadow var(--dur-fast) var(--ease-out-soft),
+      border-color var(--dur-fast) var(--ease-out-soft);
+  }
+  .lift:hover,
+  .lift:focus-visible,
+  .lift:focus-within {
+    transform: translateY(-2px);
+    box-shadow:
+      0 1px 0 0 oklch(1 0 0 / 4%) inset,
+      0 14px 32px -16px color-mix(in oklch, var(--primary) 35%, transparent);
+  }
+  .shimmer {
+    position: relative;
+    isolation: isolate;
+  }
+  .shimmer::after {
+    content: "";
+    position: absolute;
+    inset: -2px -4px;
+    z-index: 1;
+    pointer-events: none;
+    border-radius: 4px;
+    background: linear-gradient(100deg, transparent 30%, color-mix(in oklch, var(--foreground) 22%, transparent) 50%, transparent 70%);
+    background-size: 250% 100%;
+    animation: shimmer-pass 700ms var(--ease-out-soft) 1 forwards;
+  }
+  .count-up {
+    font-variant-numeric: tabular-nums;
+  }
+  .pulse-live {
+    position: relative;
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--status-good);
+  }
+  .pulse-live::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: inherit;
+    animation: pulse-live 2s var(--ease-out-soft) infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .stagger-in > * {
+      animation: none;
+    }
+    .lift:hover,
+    .lift:focus-visible,
+    .lift:focus-within {
+      transform: none;
+    }
+    .shimmer::after,
+    .pulse-live::after {
+      animation: none;
+      opacity: 0;
+    }
+  }
   .text-balance {
     text-wrap: balance;
   }
@@ -208,6 +335,90 @@
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+@keyframes stagger-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes shimmer-pass {
+  from {
+    background-position: 100% 0;
+    opacity: 1;
+  }
+  to {
+    background-position: -50% 0;
+    opacity: 0;
+  }
+}
+
+@keyframes pulse-live {
+  0% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  70%,
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+@keyframes ambient-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(3%, 2%, 0);
+  }
+}
+
+/* Page transitions: a short crossfade between routes (React <ViewTransition> in the app shell). */
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-old(root),
+::view-transition-new(root),
+::view-transition-old(app-page),
+::view-transition-new(app-page) {
+  animation-duration: var(--dur-base);
+  animation-timing-function: var(--ease-out-soft);
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}
+
+/* Charts: the line draws itself once when the chart mounts (~600ms), never on data redraws. */
+.chart-mount .recharts-line-curve,
+.chart-mount .recharts-area-curve {
+  stroke-dasharray: 4000;
+  stroke-dashoffset: 4000;
+  animation: line-draw 600ms var(--ease-out-soft) 80ms forwards;
+}
+@keyframes line-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chart-mount .recharts-line-curve,
+  .chart-mount .recharts-area-curve {
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+    animation: none;
   }
 }
 

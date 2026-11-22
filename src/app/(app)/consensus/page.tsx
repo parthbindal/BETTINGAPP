@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CircleDollarSign, LineChart, Users } from "lucide-react";
+import { Filter } from "lucide-react";
 import { requireUser, getEntitlements } from "@/lib/session";
 import { getWhaleWatch, type ConsensusHolding } from "@/lib/whales";
 import { Section, EmptyState } from "@/components/shared/page-header";
@@ -37,7 +37,7 @@ function Chip({ to, active, children }: { to: string; active: boolean; children:
       aria-current={active ? "true" : undefined}
       className={cn(
         "whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        active ? "border-primary/50 bg-primary/15 text-foreground" : "border-border text-muted-foreground hover:bg-surface-2 hover:text-foreground",
+        active ? "border-foreground/40 bg-foreground/10 text-foreground" : "border-border text-muted-foreground hover:bg-surface-2 hover:text-foreground",
       )}
     >
       {children}
@@ -78,11 +78,6 @@ function WhoIsIn({ h }: { h: ConsensusHolding }) {
   );
 }
 
-const STEPS = [
-  { icon: Users, title: "Who agrees", body: "How many of the 1,000 most profitable traders hold the same side." },
-  { icon: LineChart, title: "How it's going", body: "The average price they paid versus the price right now." },
-  { icon: CircleDollarSign, title: "How much is riding", body: "The combined dollars those traders have on this side." },
-];
 
 export default async function ConsensusPage({ searchParams }: { searchParams: Promise<Params> }) {
   const session = await requireUser("/consensus");
@@ -130,7 +125,7 @@ export default async function ConsensusPage({ searchParams }: { searchParams: Pr
     .filter((h) => !sp.cat || h.category === sp.cat)
     .filter((h) => !sp.dir || side(h) === sp.dir)
     .filter((h) => !sp.kind || signalKind(h) === sp.kind)
-    .sort((a, b) => b.holders - a.holders || b.totalValue - a.totalValue);
+    .sort((a, b) => b.totalValue - a.totalValue || b.holders - a.holders); // dollars at risk first: that is the product
   const settledCount = whale.payload.holdings.filter((h) => h.holders >= min && !isInPlay(h)).length;
 
   // A market with top traders on both sides renders once, as a split card, at its busiest side's place.
@@ -146,106 +141,101 @@ export default async function ConsensusPage({ searchParams }: { searchParams: Pr
     }
   }
 
+  const hiddenActive = [sp.dir, sp.kind, sp.min, sp.settled].filter(Boolean).length;
+
   return (
-    <div className="space-y-6">
-      {header}
-      <ScanFreshness generatedAt={whale.payload.generatedAt} note={`${whale.payload.tradersScanned.toLocaleString("en-US")} top traders`} />
-
-      {/* How to read a signal */}
-      <ol className="grid gap-3 sm:grid-cols-3">
-        {STEPS.map((s, i) => (
-          <li key={s.title} className="flex gap-3 rounded-xl border border-border bg-surface-1 p-3.5">
-            <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary">
-              <s.icon className="size-4" aria-hidden="true" />
-            </span>
-            <span>
-              <span className="block text-sm font-medium">
-                <span className="tabular text-muted-foreground">{i + 1}.</span> {s.title}
-              </span>
-              <span className="mt-0.5 block text-xs text-muted-foreground">{s.body}</span>
-            </span>
-          </li>
-        ))}
-      </ol>
-
-      {/* Signal type tabs with counts */}
-      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1" role="navigation" aria-label="Signal type">
-        <Chip to={href(params, { kind: "" })} active={!sp.kind}>
-          All · {base.length}
-        </Chip>
-        {SIGNAL_KINDS.map((k) => (
-          <Chip key={k.key} to={href(params, { kind: k.key })} active={sp.kind === k.key}>
-            <span className="inline-flex items-center gap-1.5">
-              <k.icon className="size-3.5" aria-hidden="true" /> {k.label} · {kindCounts[k.key]}
-            </span>
-          </Chip>
-        ))}
+    <div className="space-y-10">
+      <div className="space-y-4">
+        {header}
+        <ScanFreshness generatedAt={whale.payload.generatedAt} note={`${whale.payload.tradersScanned.toLocaleString("en-US")} traders`} />
       </div>
 
-      <dl className="grid gap-x-6 gap-y-2 text-xs sm:grid-cols-2">
-        {SIGNAL_KINDS.map((k) => (
-          <div key={k.key} className="flex gap-2">
-            <dt className="inline-flex shrink-0 items-center gap-1 font-medium text-foreground">
-              <k.icon className="size-3.5 text-muted-foreground" aria-hidden="true" /> {k.label}:
-            </dt>
-            <dd className="text-muted-foreground">{k.meaning}</dd>
+      {/* Two visible controls: topic, and everything else behind "More filters". */}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="-mx-1 flex min-w-0 flex-1 items-center gap-2 overflow-x-auto px-1 pb-1" role="navigation" aria-label="Topic">
+            <Chip to={href(params, { cat: "" })} active={!sp.cat}>All topics</Chip>
+            {categories.map((c) => (
+              <Chip key={c} to={href(params, { cat: c })} active={sp.cat === c}>{c}</Chip>
+            ))}
           </div>
-        ))}
-      </dl>
-
-      {/* Refine */}
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface-1 p-3 2xl:flex-row 2xl:items-center 2xl:gap-6">
-        <div className="flex min-w-0 items-center gap-2 overflow-x-auto">
-          <span className="shrink-0 text-xs text-muted-foreground">Topic</span>
-          <Chip to={href(params, { cat: "" })} active={!sp.cat}>All</Chip>
-          {categories.map((c) => (
-            <Chip key={c} to={href(params, { cat: c })} active={sp.cat === c}>{c}</Chip>
-          ))}
         </div>
-        <div className="flex items-center gap-2">
-          <span className="shrink-0 text-xs text-muted-foreground">Side</span>
-          {[["", "Any"], ["yes", "Yes"], ["no", "No"], ["named", "Team / name"]].map(([k, l]) => (
-            <Chip key={k} to={href(params, { dir: k })} active={(sp.dir ?? "") === k}>{l}</Chip>
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="shrink-0 text-xs text-muted-foreground">At least</span>
-          {MIN_OPTIONS.map((m) => (
-            <Chip key={m} to={href(params, { min: m === 10 ? "" : String(m) })} active={m === min}>{m} traders</Chip>
-          ))}
-        </div>
+        <details className="group rounded-xl border border-border bg-surface-1" open={hiddenActive > 0}>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <span>
+              More filters{hiddenActive > 0 ? <span className="tabular ml-1.5 rounded-full bg-surface-3 px-1.5 py-0.5 text-xs">{hiddenActive}</span> : null}
+            </span>
+            <span aria-hidden="true" className="text-muted-foreground transition-transform group-open:rotate-180">▾</span>
+          </summary>
+          <div className="space-y-4 border-t border-border px-4 py-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="w-20 shrink-0 text-xs text-muted-foreground">Type</span>
+              <Chip to={href(params, { kind: "" })} active={!sp.kind}>Any · {base.length}</Chip>
+              {SIGNAL_KINDS.map((k) => (
+                <Chip key={k.key} to={href(params, { kind: k.key })} active={sp.kind === k.key}>
+                  <span className="inline-flex items-center gap-1.5">
+                    <k.icon className="size-3.5" aria-hidden="true" /> {k.label} · {kindCounts[k.key]}
+                  </span>
+                </Chip>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="w-20 shrink-0 text-xs text-muted-foreground">Side</span>
+              {[["", "Any"], ["yes", "Yes"], ["no", "No"], ["named", "Team / name"]].map(([k, l]) => (
+                <Chip key={k} to={href(params, { dir: k })} active={(sp.dir ?? "") === k}>{l}</Chip>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="w-20 shrink-0 text-xs text-muted-foreground">At least</span>
+              {MIN_OPTIONS.map((m) => (
+                <Chip key={m} to={href(params, { min: m === 10 ? "" : String(m) })} active={m === min}>{m} traders</Chip>
+              ))}
+            </div>
+            {settledCount > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="w-20 shrink-0 text-xs text-muted-foreground">Decided</span>
+                <Chip to={href(params, { settled: "" })} active={!showSettled}>Hide</Chip>
+                <Chip to={href(params, { settled: "1" })} active={showSettled}>Show {settledCount}</Chip>
+              </div>
+            )}
+            <dl className="grid gap-x-6 gap-y-2 border-t border-border pt-4 text-xs sm:grid-cols-2">
+              {SIGNAL_KINDS.map((k) => (
+                <div key={k.key} className="flex gap-2">
+                  <dt className="inline-flex shrink-0 items-center gap-1 font-medium text-foreground">
+                    <k.icon className="size-3.5 text-muted-foreground" aria-hidden="true" /> {k.label}:
+                  </dt>
+                  <dd className="text-muted-foreground">{k.meaning}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </details>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-        <span className="tabular">
-          {items.length} signal{items.length === 1 ? "" : "s"}
-          {seen.size > 0 ? ` (${seen.size} where top traders are split)` : ""}
-          {items.length > PAGE ? `, showing the ${PAGE} with the most traders` : ""}
-        </span>
-        {settledCount > 0 && (
-          <Link href={href(params, { settled: showSettled ? "" : "1" })} scroll={false} className="font-medium text-primary hover:underline">
-            {showSettled ? "Hide decided markets" : `Show ${settledCount} decided market${settledCount === 1 ? "" : "s"}`}
-          </Link>
+      <section>
+        <p className="tabular mb-4 text-xs text-muted-foreground">
+          {items.length} signal{items.length === 1 ? "" : "s"}, biggest money first
+          {seen.size > 0 ? ` · ${seen.size} where top traders are split` : ""}
+          {items.length > PAGE ? ` · showing the top ${PAGE}` : ""}
+        </p>
+        {items.length ? (
+          <div className="grid grid-flow-row-dense gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {items.slice(0, PAGE).map((it, i) =>
+              it.kind === "one" ? (
+                <SignalCard key={it.h.tokenId} id={`sig-${it.h.tokenId}`} h={it.h} rank={i + 1} tiered className="scroll-mt-20 target:border-primary/60 target:ring-2 target:ring-primary/40" footer={<WhoIsIn h={it.h} />} />
+              ) : (
+                <SplitCard key={it.sides[0]!.conditionId} id={`sig-${it.sides[0]!.tokenId}`} sides={it.sides} rank={i + 1} className="scroll-mt-20 target:border-primary/60 target:ring-2 target:ring-primary/40" />
+              ),
+            )}
+          </div>
+        ) : (
+          <Section>
+            <EmptyState icon={<Filter />} title="No signal fits these filters" description="Widen the topic or lower the trader count to see more." action={<Link href="/consensus" className="text-sm font-medium text-primary hover:underline">Clear filters</Link>} />
+          </Section>
         )}
-      </div>
+      </section>
 
-      {items.length ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {items.slice(0, PAGE).map((it, i) =>
-            it.kind === "one" ? (
-              <SignalCard key={it.h.tokenId} id={`sig-${it.h.tokenId}`} h={it.h} rank={i + 1} className="scroll-mt-20 target:border-primary/60 target:ring-2 target:ring-primary/40" footer={<WhoIsIn h={it.h} />} />
-            ) : (
-              <SplitCard key={it.sides[0]!.conditionId} id={`sig-${it.sides[0]!.tokenId}`} sides={it.sides} rank={i + 1} className="scroll-mt-20 target:border-primary/60 target:ring-2 target:ring-primary/40" />
-            ),
-          )}
-        </div>
-      ) : (
-        <Section>
-          <EmptyState title="Nothing matches these filters" description="Try fewer traders, another topic, or clear the filters." action={<Link href="/consensus" className="text-sm font-medium text-primary hover:underline">Clear filters</Link>} />
-        </Section>
-      )}
-
-      <p className="text-[11px] leading-relaxed text-muted-foreground">
+      <p className="text-xs leading-relaxed text-muted-foreground">
         A trader counts toward a side only when at least 60% of their money in that market is on it; traders betting both sides evenly are left out. Agreement between strong traders is a starting point for your own research, not a tip to copy.
       </p>
     </div>

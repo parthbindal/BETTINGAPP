@@ -17,7 +17,9 @@ import { trackUsage } from "@/lib/ops";
 import { cn } from "@/lib/utils";
 
 type Params = { side?: string; cat?: string; min?: string };
-const SIZES = [300, 1_000, 10_000, 50_000] as const;
+const SIZES = [300, 1_000, 5_000, 10_000, 50_000] as const;
+// "Big trades only" (on by default): $5K+ leaves roughly a hundred meaningful trades instead of a 600-row log.
+const BIG = 5_000;
 const HOUR_MS = 3_600_000;
 const FEED_LIMIT = 120;
 
@@ -30,7 +32,7 @@ function Chip({ params, patch, active, children }: { params: Params; patch: Part
       aria-current={active ? "true" : undefined}
       className={cn(
         "whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        active ? "border-primary/50 bg-primary/15 text-foreground" : "border-border text-muted-foreground hover:bg-surface-2 hover:text-foreground",
+        active ? "border-foreground/40 bg-foreground/10 text-foreground" : "border-border text-muted-foreground hover:bg-surface-2 hover:text-foreground",
       )}
     >
       {children}
@@ -81,7 +83,8 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
 
   const p = whale.payload;
   const params: Params = { side: sp.side, cat: sp.cat, min: sp.min };
-  const min = SIZES.find((s) => String(s) === sp.min) ?? 300;
+  const min = SIZES.find((s) => String(s) === sp.min) ?? BIG;
+  const bigOnly = min >= BIG;
   const categories = [...new Set(p.recentMoves.map((m) => m.category))].sort();
   const moves = p.recentMoves
     .filter((m) => !sp.side || (sp.side === "buy" ? m.side === "BUY" : m.side === "SELL"))
@@ -108,7 +111,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-10">
       {header}
       <ScanFreshness generatedAt={p.generatedAt} note={`top ${p.recentTraders ?? 100} traders · refreshed with each scan`} />
 
@@ -118,21 +121,21 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
           <div className="grid grid-cols-2 gap-3">
             <div>
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <ArrowUpRight className="size-3.5 text-status-good" aria-hidden="true" /> Bought
+                <ArrowUpRight className="size-3.5 text-foreground" aria-hidden="true" /> Bought
               </div>
               <div className="tabular mt-1 text-2xl font-semibold">${compact(bought)}</div>
             </div>
             <div>
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <ArrowDownLeft className="size-3.5 text-chart-2" aria-hidden="true" /> Sold
+                <ArrowDownLeft className="size-3.5 text-muted-foreground" aria-hidden="true" /> Sold
               </div>
               <div className="tabular mt-1 text-2xl font-semibold">${compact(sold)}</div>
             </div>
           </div>
           <div className="mt-4">
             <div className="flex h-2.5 overflow-hidden rounded-full bg-surface-3" role="img" aria-label={`${Math.round(buyShare * 100)}% of the dollars were buys`}>
-              <span className="bg-status-good/80" style={{ width: `${buyShare * 100}%` }} />
-              <span className="bg-chart-2/80" style={{ width: `${(1 - buyShare) * 100}%` }} />
+              <span className="bg-foreground/80" style={{ width: `${buyShare * 100}%` }} />
+              <span className="bg-muted-foreground/50" style={{ width: `${(1 - buyShare) * 100}%` }} />
             </div>
             <p className="mt-2 text-sm">
               <span className="tabular font-semibold">{Math.round(buyShare * 100)}%</span> <span className="text-muted-foreground">of the money was buying, across {day.length.toLocaleString("en-US")} trades.</span>
@@ -178,24 +181,51 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
 
       {/* Feed */}
       <Section>
-        <div className="mb-2 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <h2 className="text-lg font-semibold tracking-tight">All trades</h2>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {[["", "Buys & sells"], ["buy", "Buys"], ["sell", "Sells"]].map(([k, l]) => (
-              <Chip key={k} params={params} patch={{ side: k }} active={(sp.side ?? "") === k}>{l}</Chip>
-            ))}
-            <span className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
-            {SIZES.map((s) => (
-              <Chip key={s} params={params} patch={{ min: s === 300 ? "" : String(s) }} active={s === min}>${compact(s)}+</Chip>
-            ))}
+        {/* Two visible controls: the big-trades switch and "More filters". */}
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-lg font-semibold tracking-tight">{bigOnly ? "Big trades" : "All trades"}</h2>
+          <Link
+            href={(() => {
+              const q = new URLSearchParams(Object.entries({ ...params, min: bigOnly ? "300" : "" }).filter(([, v]) => v) as Array<[string, string]>).toString();
+              return q ? `/activity?${q}` : "/activity";
+            })()}
+            scroll={false}
+            role="switch"
+            aria-checked={bigOnly}
+            className="inline-flex items-center gap-2.5 self-start rounded-full border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:self-auto"
+          >
+            <span className={cn("relative h-4 w-7 rounded-full transition-colors", bigOnly ? "bg-foreground" : "bg-surface-3")} aria-hidden="true">
+              <span className={cn("absolute top-0.5 size-3 rounded-full bg-background transition-transform", bigOnly ? "translate-x-3.5" : "translate-x-0.5")} />
+            </span>
+            Big trades only <span className="text-muted-foreground">($5K+)</span>
+          </Link>
+        </div>
+        <details className="group mb-5 rounded-xl border border-border bg-surface-1" open={Boolean(sp.side || sp.cat || (sp.min && sp.min !== "300"))}>
+          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            More filters <span aria-hidden="true" className="text-muted-foreground transition-transform group-open:rotate-180">▾</span>
+          </summary>
+          <div className="space-y-3 border-t border-border px-4 py-3">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="w-16 shrink-0 text-xs text-muted-foreground">Side</span>
+              {[["", "Buys & sells"], ["buy", "Buys"], ["sell", "Sells"]].map(([k, l]) => (
+                <Chip key={k} params={params} patch={{ side: k }} active={(sp.side ?? "") === k}>{l}</Chip>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="w-16 shrink-0 text-xs text-muted-foreground">Size</span>
+              {SIZES.map((s) => (
+                <Chip key={s} params={params} patch={{ min: s === BIG ? "" : String(s) }} active={s === min}>${compact(s)}+</Chip>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="w-16 shrink-0 text-xs text-muted-foreground">Topic</span>
+              <Chip params={params} patch={{ cat: "" }} active={!sp.cat}>Every topic</Chip>
+              {categories.map((c) => (
+                <Chip key={c} params={params} patch={{ cat: c }} active={sp.cat === c}>{c}</Chip>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="-mx-1 mb-3 flex gap-1.5 overflow-x-auto px-1 pb-1">
-          <Chip params={params} patch={{ cat: "" }} active={!sp.cat}>Every topic</Chip>
-          {categories.map((c) => (
-            <Chip key={c} params={params} patch={{ cat: c }} active={sp.cat === c}>{c}</Chip>
-          ))}
-        </div>
+        </details>
         {groups.length ? (
           <div className="space-y-4">
             {groups.map((g) => (
@@ -205,7 +235,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
                 </h3>
                 <div className="divide-y divide-border/70">
                   {g.items.map((m, i) => (
-                    <TradeRow key={`${m.txHash ?? m.tsIso}-${i}`} m={m} fresh={ageMs(m.tsIso) < 6 * HOUR_MS} showTx action />
+                    <TradeRow key={`${m.txHash ?? m.tsIso}-${i}`} m={m} fresh={ageMs(m.tsIso) < 6 * HOUR_MS} showTx action tiered />
                   ))}
                 </div>
               </div>

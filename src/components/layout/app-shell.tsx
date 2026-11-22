@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, type ReactNode } from "react";
+import { Suspense, useState, ViewTransition, type ReactNode } from "react";
 import { Menu, Search } from "lucide-react";
 import { Logo } from "@/components/marketing/logo";
 import { SidebarNav, SidebarNavFallback, PageTitle } from "./sidebar-nav";
@@ -74,7 +74,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               <MobileAccount />
             </div>
           </header>
-          <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+          <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
+            {/* Route changes crossfade (240ms) instead of flashing; reduced motion swaps instantly. */}
+            <ViewTransition name="app-page">{children}</ViewTransition>
+          </main>
           <footer className="mx-auto w-full max-w-7xl px-4 pb-6 sm:px-6 lg:px-8">
             <Disclaimer />
           </footer>
