@@ -28,7 +28,16 @@ export async function getOrCreateCustomer(userId: string, email: string, name: s
   const stripe = getStripe();
   if (!stripe) throw new Error("Stripe is not configured");
   const sub = await db.subscription.findUnique({ where: { userId } });
-  if (sub?.stripeCustomerId) return sub.stripeCustomerId;
+  if (sub?.stripeCustomerId) {
+    // The saved customer may live in another Stripe account (test -> live switch, or a different
+    // key on the deployment). Reuse it only if this account still has it; otherwise start fresh.
+    try {
+      const existing = await stripe.customers.retrieve(sub.stripeCustomerId);
+      if (!("deleted" in existing && existing.deleted)) return sub.stripeCustomerId;
+    } catch (e) {
+      if ((e as { code?: string })?.code !== "resource_missing") throw e;
+    }
+  }
   const customer = await stripe.customers.create({ email, name, metadata: { userId } });
   await db.subscription.upsert({
     where: { userId },
