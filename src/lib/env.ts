@@ -9,7 +9,8 @@ const env = {
   authSecret: process.env.BETTER_AUTH_SECRET ?? "",
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
   anthropicModel: process.env.ANTHROPIC_MODEL ?? "claude-opus-5-5",
-  stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? "",
+  // EDGEWISE_STRIPE_SECRET_KEY wins: a Vercel–Stripe integration can own STRIPE_SECRET_KEY (locked, maybe another account).
+  stripeSecretKey: process.env.EDGEWISE_STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY || "",
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? "",
   stripePriceProMonthly: process.env.STRIPE_PRICE_PRO_MONTHLY ?? "",
   kalshiApiBase: process.env.KALSHI_API_BASE ?? "https://api.elections.kalshi.com/trade-api/v2",
