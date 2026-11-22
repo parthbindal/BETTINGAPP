@@ -83,8 +83,8 @@ function PodiumCard({ t, place, lead = false }: { t: WalletStat; place: number; 
         </span>
       </div>
       <div className="ml-auto shrink-0 text-right">
-        <span className={cn("tabular block font-semibold tracking-tight", lead ? "text-3xl sm:text-4xl" : "text-2xl")}>${compact(t.pnl)}</span>
-        <span className="text-xs text-muted-foreground">total profit</span>
+        <span className={cn("figure block font-semibold", lead ? "text-4xl sm:text-5xl" : "text-2xl")}>${compact(t.pnl)}</span>
+        <span className="label-micro">total profit</span>
       </div>
     </Link>
   );

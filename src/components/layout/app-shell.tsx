@@ -20,8 +20,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <AccountProvider>
       <div className="flex min-h-screen">
-        <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar/80 lg:flex">
-          <div className="flex h-14 shrink-0 items-center px-4">
+        {/*
+          The rail reads as a slab the page sits on top of: a vertical wash from
+          the sidebar tone into the page background, so the seam is a change in
+          light rather than a drawn line.
+        */}
+        <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-sidebar-border bg-gradient-to-b from-sidebar via-sidebar to-background lg:flex">
+          <div className="flex h-16 shrink-0 items-center px-4">
             <Logo href="/overview" />
           </div>
           <div className="scrollbar-thin flex-1 overflow-y-auto px-3 py-2">
@@ -35,14 +40,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border/60 bg-background/70 px-4 backdrop-blur sm:px-6">
+          <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-border/60 bg-background/70 px-4 backdrop-blur-xl sm:px-6">
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger render={<Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open navigation" />}>
                 <Menu className="size-5" />
               </SheetTrigger>
               <SheetContent side="left" className="w-72 bg-sidebar p-0">
                 <SheetTitle className="sr-only">Navigation</SheetTitle>
-                <div className="flex h-14 items-center px-4">
+                <div className="flex h-16 items-center px-4">
                   <Logo href="/overview" />
                 </div>
                 {/* Close the drawer when any link inside it is followed. */}
@@ -61,7 +66,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </div>
               </SheetContent>
             </Sheet>
-            <div className="min-w-0 flex-1 truncate text-sm font-medium">
+            {/* The page's name, in the display face: the one piece of chrome that tells you where you are. */}
+            <div className="min-w-0 flex-1 truncate font-heading text-base font-semibold">
               <Suspense fallback="EDGEWISE">
                 <PageTitle />
               </Suspense>
@@ -74,7 +80,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               <MobileAccount />
             </div>
           </header>
-          <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
+          {/* Vertical air is the cheapest luxury signal there is: 32px top, 48px bottom. */}
+          <main className="mx-auto w-full max-w-7xl flex-1 px-4 pt-8 pb-12 sm:px-6 lg:px-8">
             {/* Route changes crossfade (240ms) instead of flashing; reduced motion swaps instantly. */}
             <ViewTransition name="app-page">{children}</ViewTransition>
           </main>

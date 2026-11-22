@@ -154,7 +154,7 @@ export function SplitCard({ sides, rank, id, className }: { sides: ConsensusHold
               <SidePill outcome={s.outcome} />
             </span>
             <span className="mt-1.5 block">
-              <span className="tabular text-2xl font-semibold">{s.holders}</span> <span className="text-xs text-muted-foreground">traders</span>
+              <span className="figure text-2xl font-semibold">{s.holders}</span> <span className="text-xs text-muted-foreground">traders</span>
             </span>
             <span className="tabular block text-xs text-muted-foreground">
               ${compact(s.totalValue)} invested · now {Math.round(s.currentPrice * 100)}¢
@@ -209,7 +209,7 @@ export function SignalCard({ h, rank, href, featured = false, tiered = false, pr
 
       <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
         <span className="flex items-baseline gap-1.5">
-          <span className={cn("tabular font-semibold tracking-tight", featured ? "text-4xl" : "text-2xl")}>{h.holders}</span>
+          <span className={cn("figure font-semibold", featured ? "text-4xl" : "text-2xl")}>{h.holders}</span>
           <span className="text-sm text-muted-foreground">top traders bet</span>
         </span>
         <SidePill outcome={h.outcome} size={featured ? "lg" : "md"} />
@@ -227,7 +227,7 @@ export function SignalCard({ h, rank, href, featured = false, tiered = false, pr
 
       {featured && h.topHolders?.length ? (
         <div className="mt-5">
-          <div className="mb-2 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Biggest traders in this bet</div>
+          <div className="label-micro mb-2">Biggest traders in this bet</div>
           <ul className="grid gap-2 sm:grid-cols-3">
             {h.topHolders.slice(0, 3).map((t) => (
               <li key={t.wallet} className="flex min-w-0 items-center gap-2 rounded-lg bg-surface-2/60 px-2.5 py-2">
@@ -247,7 +247,7 @@ export function SignalCard({ h, rank, href, featured = false, tiered = false, pr
       <div className="min-h-4 flex-1" aria-hidden="true" />
       <div className="flex items-center justify-between gap-3 border-t border-border/70 pt-3 text-xs">
         <span className={cn(tier !== "small" && "flex flex-col")}>
-          <span className={cn("tabular font-semibold tracking-tight", TIER_MONEY[tier])}>${compact(h.totalValue)}</span>{" "}
+          <span className={cn("figure font-semibold", TIER_MONEY[tier])}>${compact(h.totalValue)}</span>{" "}
           <span className="text-muted-foreground">invested</span>
         </span>
         {href && <span className="text-muted-foreground">See details →</span>}
@@ -289,7 +289,7 @@ export function HeroSignal({ h, href }: { h: ConsensusHolding; href: string }) {
           </h2>
           <div className="mt-4 flex flex-wrap items-end gap-x-3 gap-y-2">
             <span className="flex items-baseline gap-2">
-              <CountUp value={h.holders} id={`hero-holders-${h.tokenId}`} className="text-5xl font-semibold leading-none tracking-tight" />
+              <CountUp value={h.holders} id={`hero-holders-${h.tokenId}`} className="figure text-5xl font-semibold leading-none sm:text-6xl" />
               <span className="text-base text-muted-foreground">top traders bet</span>
             </span>
             <SidePill outcome={h.outcome} size="lg" />
@@ -305,8 +305,8 @@ export function HeroSignal({ h, href }: { h: ConsensusHolding; href: string }) {
         <div className="relative z-10 flex min-w-0 flex-col gap-4">
           <PriceTrack entry={h.avgEntry} now={h.currentPrice} />
           <div>
-            <div className="text-xs text-muted-foreground">Invested on this side</div>
-            <CountUp value={h.totalValue} format="usd" id={`hero-value-${h.tokenId}`} className="mt-1 block text-2xl font-semibold tracking-tight" />
+            <div className="label-micro">Invested on this side</div>
+            <CountUp value={h.totalValue} format="usd" id={`hero-value-${h.tokenId}`} className="figure mt-1 block text-3xl font-semibold" />
           </div>
           {h.topHolders?.length ? (
             <ul className="grid gap-2 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
