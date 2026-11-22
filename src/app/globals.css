@@ -126,12 +126,16 @@
  * so the app reads the same in greyscale and for colorblind users.
  *   --primary (blue)        The thing to click: buttons, links, the focus ring. Nothing else.
  *   --foreground (white)    "You are here": active nav item, selected filter chips, switches on.
- *                           Also neutral data: "bought" (white) vs "sold" (grey), with arrows.
  *   --status-good (green)   Price went UP (▲ / up-right arrow). Also the live-data pulse.
- *   --chart-2 (orange)      Price went DOWN (▼ / down-right arrow). Never "sold", never "No".
+ *   --chart-2 (orange)      Price went DOWN (▼ / down-right arrow). Reserved: never volume, never "sold".
+ *                           (--chart-6 shares status-good's hex, so it is reserved with it.)
  *   --brand-cyan            Agreement: many top traders on one side (signal badges, clusters).
  *   --status-warning        Caution: mostly one trader, traders split, data older than 6 hours.
- *   --chart-1 … --chart-8   Identity only (trader avatar tints, chart series); never meaning.
+ *   --chart-1 … --chart-8   CATEGORY identity: which series is which (bought vs sold, avatar tints).
+ *                           Categories are not moods, so they DO get color: take slots in palette
+ *                           order (the order is the colorblind-safety mechanism), skipping the
+ *                           reserved ones. Bought = --chart-1, sold = --chart-3.
+ * Reserved-meaning colors are only: up / down (status-good, chart-2) and caution (status-warning).
  * YES / NO / team names are neutral pills: a side is a word, not a mood.
  */
 

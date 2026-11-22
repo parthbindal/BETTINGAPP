@@ -48,7 +48,7 @@ function RangeSelector({ active }: { active: string }) {
 /** One plain-language number with what it means underneath; delta only against a real earlier scan. */
 function Glance({ value, format, label, sub, change, id }: { value: number; format: CountFormat; label: string; sub?: string; change?: { pct: number } | null; id: string }) {
   return (
-    <div className="px-5 py-4 first:pl-0 sm:first:pl-5 lg:first:pl-0">
+    <div className="py-4 sm:px-5 lg:first:pl-0">
       <div className="flex items-baseline gap-2">
         <CountUp value={value} format={format} id={id} className="text-2xl font-semibold tracking-tight" />
         {change && Math.abs(change.pct) >= 0.005 && (

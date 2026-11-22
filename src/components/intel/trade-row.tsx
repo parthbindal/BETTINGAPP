@@ -30,7 +30,7 @@ export function TradeRow({ m, fresh = false, showTx = false, action = false, tie
       <div className="relative">
         <TraderAvatar wallet={m.wallet ?? m.trader} name={m.trader} size={34} />
         <span
-          className={cn("absolute -bottom-1 -right-1 inline-flex size-4 items-center justify-center rounded-full ring-2 ring-card", buy ? "bg-foreground text-background" : "bg-muted-foreground text-background")}
+          className={cn("absolute -bottom-1 -right-1 inline-flex size-4 items-center justify-center rounded-full ring-2 ring-card", buy ? "bg-chart-1 text-background" : "bg-chart-3 text-background")}
           aria-hidden="true"
         >
           <Icon className="size-3" strokeWidth={2.5} />
@@ -53,7 +53,7 @@ export function TradeRow({ m, fresh = false, showTx = false, action = false, tie
             m.title
           )}
         </p>
-        <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground/80">
+        <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground/80 [&>*]:whitespace-nowrap">
           {fresh && <span className="inline-flex items-center gap-1 font-medium text-foreground"><span className="size-1.5 rounded-full bg-foreground" aria-hidden="true" />New</span>}
           <span>Rank #{m.rank}</span>
           <span aria-hidden="true">·</span>
@@ -71,7 +71,7 @@ export function TradeRow({ m, fresh = false, showTx = false, action = false, tie
       </div>
       {action && (
         <OpenOnPolymarket
-          variant="icon"
+          variant="ghost-icon"
           title={m.title}
           outcome={m.outcome}
           eventSlug={m.eventSlug}

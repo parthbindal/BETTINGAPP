@@ -114,7 +114,7 @@ async function ConsensusPreview() {
                 {h.category} · {(h.pctOfField * 100).toFixed(1)}% of tracked field · ${compact(h.totalValue)} held
               </div>
             </div>
-            <OpenOnPolymarket variant="icon" className="shrink-0" title={h.title} outcome={h.outcome} eventSlug={h.slug} marketSlug={h.marketSlug} />
+            <OpenOnPolymarket variant="ghost-icon" className="shrink-0" title={h.title} outcome={h.outcome} eventSlug={h.slug} marketSlug={h.marketSlug} />
             <div className="shrink-0 text-right">
               <div className="rounded-md border border-border bg-surface-2 px-2 py-0.5 text-xs font-medium">{h.outcome}</div>
               <div className="tabular mt-1 text-[11px] text-muted-foreground">at {cents(h.currentPrice)}</div>

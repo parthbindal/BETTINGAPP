@@ -141,6 +141,7 @@ export default async function ConsensusPage({ searchParams }: { searchParams: Pr
     }
   }
 
+  const firstOne = items.find((it) => it.kind === "one");
   const hiddenActive = [sp.dir, sp.kind, sp.min, sp.settled].filter(Boolean).length;
 
   return (
@@ -222,7 +223,7 @@ export default async function ConsensusPage({ searchParams }: { searchParams: Pr
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {items.slice(0, PAGE).map((it, i) =>
               it.kind === "one" ? (
-                <SignalCard key={it.h.tokenId} id={`sig-${it.h.tokenId}`} h={it.h} rank={i + 1} tiered className="scroll-mt-20 target:border-primary/60 target:ring-2 target:ring-primary/40" footer={<WhoIsIn h={it.h} />} />
+                <SignalCard key={it.h.tokenId} id={`sig-${it.h.tokenId}`} h={it.h} rank={i + 1} tiered primaryCta={it === firstOne} className="scroll-mt-20 target:border-primary/60 target:ring-2 target:ring-primary/40" footer={<WhoIsIn h={it.h} />} />
               ) : (
                 <SplitCard key={it.sides[0]!.conditionId} id={`sig-${it.sides[0]!.tokenId}`} sides={it.sides} rank={i + 1} className="scroll-mt-20 target:border-primary/60 target:ring-2 target:ring-primary/40" />
               ),

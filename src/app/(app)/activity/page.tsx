@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowDownLeft, ArrowUpRight, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import { requireUser, getEntitlements } from "@/lib/session";
 import { getWhaleWatch, type RecentMove } from "@/lib/whales";
 import { Section, EmptyState } from "@/components/shared/page-header";
@@ -121,21 +121,21 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
           <div className="grid grid-cols-2 gap-3">
             <div>
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <ArrowUpRight className="size-3.5 text-foreground" aria-hidden="true" /> Bought
+                <span className="size-2.5 rounded-sm bg-chart-1" aria-hidden="true" /> Bought
               </div>
               <div className="tabular mt-1 text-2xl font-semibold">${compact(bought)}</div>
             </div>
             <div>
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <ArrowDownLeft className="size-3.5 text-muted-foreground" aria-hidden="true" /> Sold
+                <span className="size-2.5 rounded-sm bg-chart-3" aria-hidden="true" /> Sold
               </div>
               <div className="tabular mt-1 text-2xl font-semibold">${compact(sold)}</div>
             </div>
           </div>
           <div className="mt-4">
             <div className="flex h-2.5 overflow-hidden rounded-full bg-surface-3" role="img" aria-label={`${Math.round(buyShare * 100)}% of the dollars were buys`}>
-              <span className="bg-foreground/80" style={{ width: `${buyShare * 100}%` }} />
-              <span className="bg-muted-foreground/50" style={{ width: `${(1 - buyShare) * 100}%` }} />
+              <span className="bg-chart-1" style={{ width: `${buyShare * 100}%` }} />
+              <span className="bg-chart-3" style={{ width: `${(1 - buyShare) * 100}%` }} />
             </div>
             <p className="mt-2 text-sm">
               <span className="tabular font-semibold">{Math.round(buyShare * 100)}%</span> <span className="text-muted-foreground">of the money was buying, across {day.length.toLocaleString("en-US")} trades.</span>
@@ -172,7 +172,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
                   </span>
                   <span className="text-[11px] text-muted-foreground">latest {relative(c.lastIso)}</span>
                 </div>
-                <OpenOnPolymarket className="mt-4 self-start" variant="compact" title={c.title} outcome={c.outcome} eventSlug={c.eventSlug} marketSlug={c.marketSlug} />
+                <OpenOnPolymarket className="mt-4 self-start" variant="ghost" title={c.title} outcome={c.outcome} eventSlug={c.eventSlug} marketSlug={c.marketSlug} />
               </article>
             ))}
           </div>

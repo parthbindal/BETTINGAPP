@@ -53,7 +53,7 @@ function EarnerCard({ h, rank, field }: { h: ConsensusHolding; rank: number; fie
         <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
           <Trophy className="size-3" /> #{rank} biggest profit
         </span>
-        <OpenOnPolymarket variant="icon" title={h.title} outcome={h.outcome} eventSlug={h.slug} marketSlug={h.marketSlug} inPlay={isInPlay(h)} />
+        <OpenOnPolymarket variant="ghost-icon" title={h.title} outcome={h.outcome} eventSlug={h.slug} marketSlug={h.marketSlug} inPlay={isInPlay(h)} />
       </div>
       <p className="mt-2 text-[15px] font-semibold leading-snug">
         <span className={cn("mr-1.5 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-bold", yes ? "bg-status-good/15 text-status-good" : no ? "bg-status-critical/15 text-status-critical" : "bg-primary/15 text-primary")}>
@@ -196,7 +196,7 @@ export default async function WhalesPage({ searchParams }: { searchParams: Promi
                 <span className="tabular shrink-0 font-medium">{usd(m.usd, 0)}</span>
                 <span className="tabular shrink-0 text-xs text-muted-foreground">at {m.pricePct}¢</span>
                 <span className="shrink-0 text-[11px] text-muted-foreground inline-flex items-center gap-1"><Clock className="size-3" />{relative(m.tsIso)}</span>
-                <OpenOnPolymarket variant="icon" title={m.title} outcome={m.outcome} eventSlug={m.eventSlug} marketSlug={m.marketSlug} inPlay={isInPlay({ currentPrice: m.pricePct / 100 })} />
+                <OpenOnPolymarket variant="ghost-icon" title={m.title} outcome={m.outcome} eventSlug={m.eventSlug} marketSlug={m.marketSlug} inPlay={isInPlay({ currentPrice: m.pricePct / 100 })} />
               </li>
             ))}
           </ul>
@@ -277,7 +277,7 @@ export default async function WhalesPage({ searchParams }: { searchParams: Promi
                       <td className="tabular px-2 py-2.5 text-right">{h.holders} <span className="text-[11px] text-muted-foreground">({pct(h.pctOfField, 1)})</span></td>
                       <td className="tabular px-2 py-2.5 text-right text-muted-foreground">{Math.round(h.avgEntry * 100)}¢ → {Math.round(h.currentPrice * 100)}¢</td>
                       <td className="tabular px-2 py-2.5 text-right">{usd(h.totalValue, 0)}</td>
-                      <td className="px-2 py-2.5 text-right"><OpenOnPolymarket variant="icon" title={h.title} outcome={h.outcome} eventSlug={h.slug} marketSlug={h.marketSlug} inPlay={isInPlay(h)} /></td>
+                      <td className="px-2 py-2.5 text-right"><OpenOnPolymarket variant="ghost-icon" title={h.title} outcome={h.outcome} eventSlug={h.slug} marketSlug={h.marketSlug} inPlay={isInPlay(h)} /></td>
                     </tr>
                   );
                 })}

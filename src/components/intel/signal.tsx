@@ -159,10 +159,12 @@ export function SplitCard({ sides, rank, id, className }: { sides: ConsensusHold
             <span className="tabular block text-xs text-muted-foreground">
               ${compact(s.totalValue)} invested · now {Math.round(s.currentPrice * 100)}¢
             </span>
-            <OpenOnPolymarket className={cn("mt-2.5", i === 1 && "ml-auto")} variant="compact" short title={s.title} outcome={s.outcome} eventSlug={s.slug} marketSlug={s.marketSlug} inPlay={isInPlay(s)} />
           </li>
         ))}
       </ul>
+      {/* One link to the market, never a button per side: the sentence above says which side leads. */}
+      <div className="min-h-3 flex-1" aria-hidden="true" />
+      <OpenOnPolymarket className="relative z-10 mt-3 self-start" variant="ghost" market title={a.title} outcome={a.outcome} eventSlug={a.slug} marketSlug={a.marketSlug} inPlay={isInPlay(a)} />
     </div>
   );
 }
@@ -180,7 +182,7 @@ const fmtEnd = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("
  * top to bottom as a sentence: what the market is, who agrees and on which
  * side, how the trade has gone, and how much money is behind it.
  */
-export function SignalCard({ h, rank, href, featured = false, tiered = false, className, id, footer }: { h: ConsensusHolding; rank?: number; href?: string; featured?: boolean; tiered?: boolean; className?: string; id?: string; footer?: React.ReactNode }) {
+export function SignalCard({ h, rank, href, featured = false, tiered = false, primaryCta = false, className, id, footer }: { h: ConsensusHolding; rank?: number; href?: string; featured?: boolean; tiered?: boolean; /** The page's one solid CTA. */ primaryCta?: boolean; className?: string; id?: string; footer?: React.ReactNode }) {
   const end = fmtEnd(h.endDate);
   // Size on screen tracks size in dollars, in three steps (never a continuous ramp).
   const tier = tiered ? moneyTier(h.totalValue) : "mid";
@@ -250,7 +252,7 @@ export function SignalCard({ h, rank, href, featured = false, tiered = false, cl
         </span>
         {href && <span className="text-muted-foreground">See details →</span>}
       </div>
-      <OpenOnPolymarket className={cn("relative z-10 mt-3", !featured && "self-start")} variant={featured ? "full" : "compact"} title={h.title} outcome={h.outcome} eventSlug={h.slug} marketSlug={h.marketSlug} inPlay={isInPlay(h)} />
+      <OpenOnPolymarket className={cn("relative z-10 mt-3", !(featured || primaryCta) && "self-start")} variant={featured || primaryCta ? "full" : "ghost"} title={h.title} outcome={h.outcome} eventSlug={h.slug} marketSlug={h.marketSlug} inPlay={isInPlay(h)} />
       {footer && <div className="relative z-10">{footer}</div>}
     </>
   );
