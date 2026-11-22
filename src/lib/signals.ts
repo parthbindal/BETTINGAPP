@@ -24,6 +24,7 @@ import { db } from "@/lib/db";
 import { fetchMarketResolutions } from "@/lib/data/providers/polymarket-whales";
 import { readConsensus } from "@/lib/intel";
 import { logError } from "@/lib/ops";
+import { admissible } from "@/lib/signal-rules";
 import type { ConsensusHolding } from "@/lib/whales";
 
 /** Markets resolve on their own schedule, so re-check a while past endDate too. */
@@ -46,30 +47,11 @@ async function inParallel<T>(items: T[], limit: number, fn: (item: T) => Promise
 export type SignalStatus = "open" | "won" | "lost" | "void";
 
 /**
- * A signal is only admissible if it was called while the market was genuinely
- * undecided. Two ways that fails, both of which quietly inflate the record:
- *
- *  1. The market has already ended. Polymarket positions persist after
- *     settlement until the holder redeems them, so a scan happily reports a
- *     decided position at $1.00 as current conviction. Recording those books
- *     free wins at ~0% return and walks the hit rate toward 100%.
- *  2. The price is already at an extreme. A side trading at 0.99 is not a call,
- *     it is a formality, and it carries no information about whether following
- *     these traders is worth anything.
- *
- * Excluding both is the difference between a track record and a sales pitch.
+ * The admissibility rule -- which consensuses may enter the ledger at all -- is
+ * in lib/signal-rules.ts so it can be unit tested without a database. It is
+ * re-exported here because this is where callers expect to find it.
  */
-const MIN_ENTRY_PRICE = 0.02;
-const MAX_ENTRY_PRICE = 0.98;
-
-export function admissible(h: ConsensusHolding, now: number): boolean {
-  if (!(h.currentPrice > MIN_ENTRY_PRICE && h.currentPrice < MAX_ENTRY_PRICE)) return false;
-  if (h.endDate) {
-    const end = Date.parse(h.endDate);
-    if (Number.isFinite(end) && end <= now) return false;
-  }
-  return true;
-}
+export { admissible, MIN_ENTRY_PRICE, MAX_ENTRY_PRICE } from "@/lib/signal-rules";
 
 /**
  * Upsert the current consensus set into the ledger.
@@ -197,6 +179,14 @@ export async function scoreSignals(): Promise<{ checked: number; won: number; lo
   return { checked: open.length, ...tally };
 }
 
+/**
+ * Below this many graded calls, a hit rate is noise dressed as evidence: one
+ * lucky run of five reads as "100%". The record still reports the number, but
+ * flags itself `provisional` so the UI can say so instead of implying a track
+ * record exists before it does.
+ */
+export const MEANINGFUL_SAMPLE = 20;
+
 export interface SignalRecord {
   settled: number; // won + lost; the honest denominator
   won: number;
@@ -205,37 +195,124 @@ export interface SignalRecord {
   open: number;
   hitRate: number | null; // null until there is anything to divide by
   avgReturn: number | null; // mean per-signal return at entry price, settled only
+  /**
+   * Mean entry price of the graded calls, i.e. how often an efficient market
+   * says these should have won. This is the number that makes the hit rate mean
+   * anything: calls entered at an average of 0.83 are *expected* to win 83% of
+   * the time, so "83% hit rate" would be the market's opinion reported as our
+   * achievement.
+   */
+  baseline: number | null;
+  /** hitRate - baseline. The only figure here that is evidence of skill. */
+  edge: number | null;
+  /**
+   * The same idea over the calls still running. Available from day one, where
+   * `baseline` needs settlements, so the public page can show what the market
+   * thinks of the current book instead of a row of dashes.
+   */
+  openBaseline: number | null;
+  /** True while `settled` is too small for the rates above to mean anything. */
+  provisional: boolean;
 }
 
 /** Overall record. `null` rates where the sample is empty, never 0 or 100%. */
 export async function getSignalRecord(opts: { kind?: string; category?: string } = {}): Promise<SignalRecord> {
   const where = { ...(opts.kind ? { entryKind: opts.kind } : {}), ...(opts.category ? { category: opts.category } : {}) };
-  const [won, lost, voided, open, settled] = await Promise.all([
+  const [won, lost, voided, openRows, settled] = await Promise.all([
     db.signal.count({ where: { ...where, status: "won" } }),
     db.signal.count({ where: { ...where, status: "lost" } }),
     db.signal.count({ where: { ...where, status: "void" } }),
-    db.signal.count({ where: { ...where, status: "open" } }),
+    db.signal.findMany({ where: { ...where, status: "open" }, select: { entryPrice: true } }),
     db.signal.findMany({ where: { ...where, status: { in: ["won", "lost"] } }, select: { entryPrice: true, settlePrice: true } }),
   ]);
+  const open = openRows.length;
   const n = won + lost;
   const returns = settled
     .filter((s) => s.settlePrice !== null && s.entryPrice > 0)
     .map((s) => (s.settlePrice! - s.entryPrice) / s.entryPrice);
+  const hitRate = n > 0 ? won / n : null;
+  const baseline = settled.length ? settled.reduce((a, s) => a + s.entryPrice, 0) / settled.length : null;
   return {
     settled: n,
     won,
     lost,
     voided,
     open,
-    hitRate: n > 0 ? won / n : null,
+    hitRate,
     avgReturn: returns.length ? returns.reduce((a, b) => a + b, 0) / returns.length : null,
+    baseline,
+    edge: hitRate !== null && baseline !== null ? hitRate - baseline : null,
+    openBaseline: openRows.length ? openRows.reduce((a, s) => a + s.entryPrice, 0) / openRows.length : null,
+    provisional: n < MEANINGFUL_SAMPLE,
   };
 }
 
 /** The record split by signal type, so four different claims are not pooled into one. */
 export async function getRecordByKind(): Promise<Array<{ kind: string; record: SignalRecord }>> {
   const kinds = await db.signal.findMany({ distinct: ["entryKind"], select: { entryKind: true } });
-  return Promise.all(kinds.map(async (k) => ({ kind: k.entryKind, record: await getSignalRecord({ kind: k.entryKind }) })));
+  const rows = await Promise.all(kinds.map(async (k) => ({ kind: k.entryKind, record: await getSignalRecord({ kind: k.entryKind }) })));
+  // Most-tested kinds first; a kind with 40 open calls and none graded is less
+  // interesting than one with a real settled sample.
+  return rows.sort((a, b) => b.record.settled - a.record.settled || b.record.open - a.record.open);
+}
+
+export interface LedgerRow {
+  id: string;
+  title: string;
+  outcome: string;
+  category: string;
+  entryKind: string;
+  entryPrice: number;
+  endDate: Date | null;
+  firstSeenAt: Date;
+  status: SignalStatus;
+  settlePrice: number | null;
+  resolvedAt: Date | null;
+  eventSlug: string | null;
+  marketSlug: string | null;
+}
+
+const LEDGER_FIELDS = {
+  id: true,
+  title: true,
+  outcome: true,
+  category: true,
+  entryKind: true,
+  entryPrice: true,
+  endDate: true,
+  firstSeenAt: true,
+  status: true,
+  settlePrice: true,
+  resolvedAt: true,
+  eventSlug: true,
+  marketSlug: true,
+} as const;
+
+/**
+ * The public ledger.
+ *
+ * Open calls are the point of publishing this at all: they are on the record at
+ * a stated price *before* anyone knows the answer, which is the one claim a
+ * screenshot cannot fake. Settled calls are ordered newest-first and include
+ * the losses, which is the other half of the same claim.
+ */
+export async function getLedger(opts: { openLimit?: number; settledLimit?: number } = {}): Promise<{ open: LedgerRow[]; settled: LedgerRow[] }> {
+  const [open, settled] = await Promise.all([
+    db.signal.findMany({
+      where: { status: "open" },
+      select: LEDGER_FIELDS,
+      // Soonest to settle first: those are the ones a reader can check fastest.
+      orderBy: [{ endDate: "asc" }, { firstSeenAt: "desc" }],
+      take: opts.openLimit ?? 50,
+    }),
+    db.signal.findMany({
+      where: { status: { in: ["won", "lost", "void"] } },
+      select: LEDGER_FIELDS,
+      orderBy: [{ resolvedAt: "desc" }],
+      take: opts.settledLimit ?? 50,
+    }),
+  ]);
+  return { open: open as LedgerRow[], settled: settled as LedgerRow[] };
 }
 
 function parseDate(iso: string | null): Date | null {

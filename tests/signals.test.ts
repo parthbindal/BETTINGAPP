@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { admissible } from "@/lib/signals";
+import { admissible } from "@/lib/signal-rules";
 import type { ConsensusHolding } from "@/lib/whales";
 
 /*

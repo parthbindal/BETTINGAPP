@@ -21,30 +21,16 @@ function createClient(): PrismaClient {
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-function client(): PrismaClient {
-  const existing = globalForPrisma.prisma;
-  if (existing) return existing;
-  const created = createClient();
-  // Dev reuses the instance across hot reloads; prod gets one per process anyway.
-  if (!config.isProd) globalForPrisma.prisma = created;
-  return created;
-}
-
-/**
- * Built on first use, not on import.
+/*
+ * Eager, and deliberately kept that way.
  *
- * Modules that talk to the database also export pure helpers -- scoring rules,
- * formatters, predicates -- and those have to be importable by tests and
- * scripts without a reachable DATABASE_URL. Constructing the client at import
- * time turned every such import into a connection-config dependency, so a unit
- * test of a pure function failed on adapter/provider mismatch before it ran a
- * single assertion. Methods are bound to the real client because Prisma's
- * internals use private fields, which throw when `this` is a proxy.
+ * A lazy Proxy here looks like an upgrade: it would let tests import modules
+ * that query the database without a reachable DATABASE_URL. It was tried and
+ * reverted, because the testability problem has a plainer answer -- a pure
+ * helper worth testing belongs in a module that does not import this one (see
+ * lib/signal-rules.ts). Indirection on every query in the app is a steep price
+ * for a convenience that a file split buys outright.
  */
-export const db: PrismaClient = new Proxy({} as PrismaClient, {
-  get(_target, prop) {
-    const real = client();
-    const value = Reflect.get(real, prop) as unknown;
-    return typeof value === "function" ? value.bind(real) : value;
-  },
-});
+export const db: PrismaClient = globalForPrisma.prisma ?? createClient();
+
+if (!config.isProd) globalForPrisma.prisma = db;
