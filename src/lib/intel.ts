@@ -34,17 +34,17 @@ export interface ConsensusRead {
 export function readConsensus(h: ConsensusHolding): ConsensusRead {
   const share = h.topHolderShare;
   if (share !== undefined && share >= 0.5) {
-    return { label: "Whale-led", tone: "warning", detail: `One wallet holds ${Math.round(share * 100)}% of the money on this side, so the wallet count overstates how broad the agreement is.` };
+    return { label: "Whale-led", tone: "warning", detail: `One trader holds ${Math.round(share * 100)}% of the money on this side, so fewer people are really behind it than the trader count suggests.` };
   }
   const recent = h.recentEntrants;
   if (recent !== undefined && recent >= Math.max(3, Math.ceil(h.holders * 0.3))) {
-    return { label: "Converging now", tone: "primary", detail: `${recent} of ${h.holders} wallets first entered in the last 7 days.` };
+    return { label: "Converging now", tone: "primary", detail: `${recent} of these ${h.holders} traders made their first purchase in the last 7 days.` };
   }
   if (h.firstEntry && h.lastEntry) {
     const days = (Date.parse(h.lastEntry) - Date.parse(h.firstEntry)) / 86_400_000;
-    if (days >= 30) return { label: "Long-held", tone: "neutral", detail: `Entries span ${Math.round(days)} days: established positioning rather than a fresh move.` };
+    if (days >= 30) return { label: "Long-held", tone: "neutral", detail: `These traders have been buying for ${Math.round(days)} days, so this is a long-running bet rather than a new move.` };
   }
-  return { label: "Broad", tone: "neutral", detail: share !== undefined ? `Spread across ${h.holders} wallets; the largest holds ${Math.round(share * 100)}% of the money.` : `Held by ${h.holders} tracked wallets.` };
+  return { label: "Broad", tone: "neutral", detail: share !== undefined ? `The money is spread across ${h.holders} traders; the biggest holds only ${Math.round(share * 100)}% of it.` : `Held by ${h.holders} of the top traders.` };
 }
 
 /** Change between the last two same-method scans, or null when there is no earlier scan to compare. */

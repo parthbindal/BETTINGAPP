@@ -52,7 +52,7 @@ function WhoIsIn({ h }: { h: ConsensusHolding }) {
   return (
     <details className="group mt-3 border-t border-border/70 pt-3">
       <summary className="flex cursor-pointer list-none items-center justify-between text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <span>See who&apos;s in</span>
+        <span>See which traders</span>
         <span aria-hidden="true" className="transition-transform group-open:rotate-180">▾</span>
       </summary>
       <ul className="mt-2.5 space-y-2">
@@ -168,6 +168,17 @@ export default async function ConsensusPage({ searchParams }: { searchParams: Pr
           </Chip>
         ))}
       </div>
+
+      <dl className="grid gap-x-6 gap-y-2 text-xs sm:grid-cols-2">
+        {SIGNAL_KINDS.map((k) => (
+          <div key={k.key} className="flex gap-2">
+            <dt className="inline-flex shrink-0 items-center gap-1 font-medium text-foreground">
+              <k.icon className="size-3.5 text-muted-foreground" aria-hidden="true" /> {k.label}:
+            </dt>
+            <dd className="text-muted-foreground">{k.meaning}</dd>
+          </div>
+        ))}
+      </dl>
 
       {/* Refine */}
       <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface-1 p-3 2xl:flex-row 2xl:items-center 2xl:gap-6">

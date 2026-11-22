@@ -51,7 +51,7 @@ function EarnerCard({ h, rank, field }: { h: ConsensusHolding; rank: number; fie
     <div className="card-surface p-4">
       <div className="flex items-start justify-between gap-2">
         <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
-          <Trophy className="size-3" /> #{rank} moneymaker
+          <Trophy className="size-3" /> #{rank} biggest profit
         </span>
         <OpenOnPolymarket variant="icon" title={h.title} outcome={h.outcome} eventSlug={h.slug} marketSlug={h.marketSlug} inPlay={isInPlay(h)} />
       </div>

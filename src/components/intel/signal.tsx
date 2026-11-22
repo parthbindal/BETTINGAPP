@@ -1,6 +1,6 @@
 import type React from "react";
 import Link from "next/link";
-import { ArrowDownRight, ArrowUpRight, Clock3, Crown, Flame, Users } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Clock3, Flame, UserRound, Users } from "lucide-react";
 import type { ConsensusHolding } from "@/lib/whales";
 import { isInPlay, readConsensus } from "@/lib/intel";
 import { OpenOnPolymarket } from "./open-on-polymarket";
@@ -16,11 +16,11 @@ import { TraderAvatar } from "./trader-identity";
 
 type SignalKind = "now" | "held" | "whale" | "broad";
 
-const KIND: Record<SignalKind, { label: string; icon: typeof Flame; cls: string }> = {
-  now: { label: "Piling in now", icon: Flame, cls: "border-primary/40 bg-primary/12 text-primary" },
-  held: { label: "Held for weeks", icon: Clock3, cls: "border-border bg-surface-2 text-foreground/85" },
-  whale: { label: "One big whale", icon: Crown, cls: "border-status-warning/40 bg-status-warning/10 text-status-warning" },
-  broad: { label: "Wide agreement", icon: Users, cls: "border-brand-cyan/35 bg-brand-cyan/10 text-brand-cyan" },
+const KIND: Record<SignalKind, { label: string; meaning: string; icon: typeof Flame; cls: string }> = {
+  now: { label: "New money this week", meaning: "Many of these traders bought in the last 7 days.", icon: Flame, cls: "border-primary/40 bg-primary/12 text-primary" },
+  held: { label: "Long-term bet", meaning: "They have held this side for a month or more.", icon: Clock3, cls: "border-border bg-surface-2 text-foreground/85" },
+  whale: { label: "Mostly one trader", meaning: "One trader holds over half the money, so agreement is thinner than it looks.", icon: UserRound, cls: "border-status-warning/40 bg-status-warning/10 text-status-warning" },
+  broad: { label: "Many traders agree", meaning: "The money is spread across many traders, not one big one.", icon: Users, cls: "border-brand-cyan/35 bg-brand-cyan/10 text-brand-cyan" },
 };
 
 export const SIGNAL_KINDS = (Object.keys(KIND) as SignalKind[]).map((k) => ({ key: k, ...KIND[k] }));
@@ -142,6 +142,8 @@ export function SignalCard({ h, rank, href, featured = false, className, id, foo
         <SidePill outcome={h.outcome} size={featured ? "lg" : "md"} />
       </div>
 
+      <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{readConsensus(h).detail}</p>
+
       {h.topHolders?.length ? (
         <div className="mt-3">
           <AvatarStack holders={h.topHolders} total={h.holders} size={featured ? 28 : 22} />
@@ -172,7 +174,7 @@ export function SignalCard({ h, rank, href, featured = false, className, id, foo
       <div className="min-h-4 flex-1" aria-hidden="true" />
       <div className="flex items-center justify-between gap-3 border-t border-border/70 pt-3 text-xs">
         <span>
-          <span className="tabular text-sm font-semibold">${compact(h.totalValue)}</span> <span className="text-muted-foreground">on the line</span>
+          <span className="tabular text-sm font-semibold">${compact(h.totalValue)}</span> <span className="text-muted-foreground">invested</span>
         </span>
         {href && <span className="text-muted-foreground">See details →</span>}
       </div>

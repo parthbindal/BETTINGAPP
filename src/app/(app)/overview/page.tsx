@@ -137,7 +137,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
           <div className="divide-y divide-border/70">
             <Glance value={signals.length.toLocaleString("en-US")} label="bets the top traders agree on" sub={`${CONSENSUS_MIN_WALLETS}+ traders on the same side`} change={scanChange(history, "consensusOutcomes")} />
             <Glance value={`$${compact(volume)}`} label="traded by the top 100" sub={`${trades.toLocaleString("en-US")} trades of $300 or more`} />
-            <Glance value={active.toLocaleString("en-US")} label="traders with money on the line" sub={`of the ${p.tradersScanned.toLocaleString("en-US")} we track`} change={scanChange(history, "activeWallets")} />
+            <Glance value={active.toLocaleString("en-US")} label="traders holding open bets" sub={`of the ${p.tradersScanned.toLocaleString("en-US")} we track`} change={scanChange(history, "activeWallets")} />
             <Glance value={`$${compact(combinedPnl)}`} label="profit these traders have made" sub="Polymarket leaderboard" />
           </div>
         </Section>
