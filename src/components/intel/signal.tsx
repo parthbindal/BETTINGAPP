@@ -171,7 +171,7 @@ export function SplitCard({ sides, rank, id, className }: { sides: ConsensusHold
 export type MoneyTier = "big" | "mid" | "small";
 export const moneyTier = (usd: number): MoneyTier => (usd >= 1_000_000 ? "big" : usd >= 100_000 ? "mid" : "small");
 // The page's three type sizes: hero figure, card figure, body.
-const TIER_MONEY: Record<MoneyTier, string> = { big: "text-5xl", mid: "text-3xl", small: "text-sm" };
+const TIER_MONEY: Record<MoneyTier, string> = { big: "text-3xl", mid: "text-2xl", small: "text-sm" };
 
 const fmtEnd = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null);
 
@@ -207,13 +207,13 @@ export function SignalCard({ h, rank, href, featured = false, tiered = false, cl
 
       <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
         <span className="flex items-baseline gap-1.5">
-          <span className={cn("tabular font-semibold tracking-tight", featured ? "text-5xl" : "text-3xl")}>{h.holders}</span>
+          <span className={cn("tabular font-semibold tracking-tight", featured ? "text-4xl" : "text-2xl")}>{h.holders}</span>
           <span className="text-sm text-muted-foreground">top traders bet</span>
         </span>
         <SidePill outcome={h.outcome} size={featured ? "lg" : "md"} />
       </div>
 
-      <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{readConsensus(h).detail}</p>
+      <p className="mt-1.5 line-clamp-2 text-xs text-muted-foreground">{readConsensus(h).detail}</p>
 
       {h.topHolders?.length ? (
         <div className="mt-3">
@@ -255,7 +255,7 @@ export function SignalCard({ h, rank, href, featured = false, tiered = false, cl
     </>
   );
   return (
-    <div id={id} className={cn("card-surface lift group relative flex flex-col p-4", (featured || tier === "big") && "p-6", tier === "big" && "ring-1 ring-foreground/12 md:col-span-2", href && "hover:border-primary/40", className)}>
+    <div id={id} className={cn("card-surface lift group relative flex flex-col p-4", featured && "p-6", tier === "big" && "ring-1 ring-foreground/15", href && "hover:border-primary/40", className)}>
       {inner}
     </div>
   );
@@ -269,7 +269,7 @@ export function SignalCard({ h, rank, href, featured = false, tiered = false, cl
 export function HeroSignal({ h, href }: { h: ConsensusHolding; href: string }) {
   const end = fmtEnd(h.endDate);
   return (
-    <article className="card-surface relative overflow-hidden p-6 sm:p-8">
+    <article className="card-surface relative overflow-hidden p-5 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs text-muted-foreground">
           {h.category}
@@ -278,16 +278,16 @@ export function HeroSignal({ h, href }: { h: ConsensusHolding; href: string }) {
         <SignalBadge h={h} />
       </div>
 
-      <div className="mt-5 grid gap-8 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:gap-12">
+      <div className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:gap-10">
         <div className="min-w-0">
-          <h2 className="text-balance text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">
+          <h2 className="text-balance text-xl font-semibold leading-tight tracking-tight sm:text-2xl">
             <Link href={href} className="after:absolute after:inset-0 after:content-[''] hover:text-primary focus-visible:outline-none">
               {h.title}
             </Link>
           </h2>
-          <div className="mt-6 flex flex-wrap items-end gap-x-4 gap-y-3">
+          <div className="mt-4 flex flex-wrap items-end gap-x-3 gap-y-2">
             <span className="flex items-baseline gap-2">
-              <CountUp value={h.holders} id={`hero-holders-${h.tokenId}`} className="text-6xl font-semibold leading-none tracking-tight" />
+              <CountUp value={h.holders} id={`hero-holders-${h.tokenId}`} className="text-5xl font-semibold leading-none tracking-tight" />
               <span className="text-base text-muted-foreground">top traders bet</span>
             </span>
             <SidePill outcome={h.outcome} size="lg" />
@@ -295,16 +295,16 @@ export function HeroSignal({ h, href }: { h: ConsensusHolding; href: string }) {
           <p className="mt-3 max-w-xl text-sm text-muted-foreground">{readConsensus(h).detail}</p>
           {h.topHolders?.length ? (
             <div className="mt-5">
-              <AvatarStack holders={h.topHolders} total={h.holders} size={32} max={7} stagger />
+              <AvatarStack holders={h.topHolders} total={h.holders} size={28} max={7} stagger />
             </div>
           ) : null}
         </div>
 
-        <div className="relative z-10 flex min-w-0 flex-col gap-6">
+        <div className="relative z-10 flex min-w-0 flex-col gap-4">
           <PriceTrack entry={h.avgEntry} now={h.currentPrice} />
           <div>
             <div className="text-xs text-muted-foreground">Invested on this side</div>
-            <CountUp value={h.totalValue} format="usd" id={`hero-value-${h.tokenId}`} className="mt-1 block text-3xl font-semibold tracking-tight" />
+            <CountUp value={h.totalValue} format="usd" id={`hero-value-${h.tokenId}`} className="mt-1 block text-2xl font-semibold tracking-tight" />
           </div>
           {h.topHolders?.length ? (
             <ul className="grid gap-2 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">

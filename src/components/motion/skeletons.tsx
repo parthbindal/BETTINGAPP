@@ -26,7 +26,7 @@ export function PageHeaderSkeleton({ action = true }: { action?: boolean }) {
 
 export function SignalCardSkeleton({ big = false }: { big?: boolean }) {
   return (
-    <div className={cn("card-surface flex flex-col gap-4 p-4", big && "p-6 md:col-span-2")} aria-hidden="true">
+    <div className={cn("card-surface flex flex-col gap-4 p-4", big && "ring-1 ring-foreground/15")} aria-hidden="true">
       <div className="flex justify-between">
         <Bone className="h-3 w-32" />
         <Bone className="h-5 w-24 rounded-full" />

@@ -15,7 +15,7 @@ export default function Loading() {
       </div>
       <div className="space-y-4">
         <Bone className="h-3 w-72" />
-        <div className="grid grid-flow-row-dense gap-6 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <SignalCardSkeleton big />
           {[0, 1, 2, 3].map((i) => (
             <SignalCardSkeleton key={i} />

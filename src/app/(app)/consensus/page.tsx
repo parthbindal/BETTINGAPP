@@ -219,7 +219,7 @@ export default async function ConsensusPage({ searchParams }: { searchParams: Pr
           {items.length > PAGE ? ` · showing the top ${PAGE}` : ""}
         </p>
         {items.length ? (
-          <div className="grid grid-flow-row-dense gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {items.slice(0, PAGE).map((it, i) =>
               it.kind === "one" ? (
                 <SignalCard key={it.h.tokenId} id={`sig-${it.h.tokenId}`} h={it.h} rank={i + 1} tiered className="scroll-mt-20 target:border-primary/60 target:ring-2 target:ring-primary/40" footer={<WhoIsIn h={it.h} />} />

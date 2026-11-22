@@ -68,8 +68,8 @@ export function OpenOnPolymarket({
 
   if (variant === "compact") {
     return (
-      <a href={url} target="_blank" rel="noopener noreferrer" aria-label={aria} title="Opens Polymarket. EDGEWISE does not place or hold bets." className={cn(buttonVariants({ variant: "default", size: "sm" }), "max-w-full font-semibold", className)}>
-        <span className="truncate">{short ? `Back ${side}` : label}</span>
+      <a href={url} target="_blank" rel="noopener noreferrer" aria-label={aria} title="Opens Polymarket. EDGEWISE does not place or hold bets." className={cn(buttonVariants({ variant: "default", size: "sm" }), "max-w-full font-semibold", short && "h-auto min-h-7 whitespace-normal py-1 text-left leading-tight", className)}>
+        <span className={short ? "" : "truncate"}>{short ? `Back ${side}` : label}</span>
         <ExternalLink aria-hidden="true" />
       </a>
     );

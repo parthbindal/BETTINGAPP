@@ -48,9 +48,9 @@ function RangeSelector({ active }: { active: string }) {
 /** One plain-language number with what it means underneath; delta only against a real earlier scan. */
 function Glance({ value, format, label, sub, change, id }: { value: number; format: CountFormat; label: string; sub?: string; change?: { pct: number } | null; id: string }) {
   return (
-    <div className="px-5 py-5 first:pl-0 sm:first:pl-5 lg:first:pl-0">
+    <div className="px-5 py-4 first:pl-0 sm:first:pl-5 lg:first:pl-0">
       <div className="flex items-baseline gap-2">
-        <CountUp value={value} format={format} id={id} className="text-3xl font-semibold tracking-tight" />
+        <CountUp value={value} format={format} id={id} className="text-2xl font-semibold tracking-tight" />
         {change && Math.abs(change.pct) >= 0.005 && (
           <span className={cn("tabular text-xs font-medium", change.pct >= 0 ? "text-status-good" : "text-chart-2")}>
             {change.pct >= 0 ? "▲" : "▼"} {pct(Math.abs(change.pct), 0)}
@@ -118,14 +118,14 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const sigHref = (tokenId: string) => `/consensus#sig-${tokenId}`;
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-10">
       <div className="space-y-4">
         {header}
         <ScanFreshness generatedAt={p.generatedAt} note={`${p.tradersScanned.toLocaleString("en-US")} traders`} />
       </div>
 
       {/* The hero opens the page; every later block enters after it (.stagger-in, 40ms apart). */}
-      <div className="stagger-in space-y-12">
+      <div className="stagger-in space-y-10">
         <section style={staggerIndex(0)}>
           <div className="mb-3 flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
             <Sparkles className="size-3.5" aria-hidden="true" /> Biggest bet the top traders agree on
