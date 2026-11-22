@@ -21,6 +21,30 @@ function createClient(): PrismaClient {
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-export const db: PrismaClient = globalForPrisma.prisma ?? createClient();
+function client(): PrismaClient {
+  const existing = globalForPrisma.prisma;
+  if (existing) return existing;
+  const created = createClient();
+  // Dev reuses the instance across hot reloads; prod gets one per process anyway.
+  if (!config.isProd) globalForPrisma.prisma = created;
+  return created;
+}
 
-if (!config.isProd) globalForPrisma.prisma = db;
+/**
+ * Built on first use, not on import.
+ *
+ * Modules that talk to the database also export pure helpers -- scoring rules,
+ * formatters, predicates -- and those have to be importable by tests and
+ * scripts without a reachable DATABASE_URL. Constructing the client at import
+ * time turned every such import into a connection-config dependency, so a unit
+ * test of a pure function failed on adapter/provider mismatch before it ran a
+ * single assertion. Methods are bound to the real client because Prisma's
+ * internals use private fields, which throw when `this` is a proxy.
+ */
+export const db: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    const real = client();
+    const value = Reflect.get(real, prop) as unknown;
+    return typeof value === "function" ? value.bind(real) : value;
+  },
+});
