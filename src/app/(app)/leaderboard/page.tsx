@@ -3,6 +3,7 @@ import { HOT_PERIODS, HotTradersBoard } from "@/components/intel/hot-traders";
 import { getHotTradersCached } from "@/lib/data/public-cache";
 import { requireUser, getEntitlements } from "@/lib/session";
 import { keepScanFresh, getWhaleWatch } from "@/lib/whales";
+import { keepAlertsFlowing } from "@/lib/smart-alerts";
 import { PageHeader, Section, EmptyState } from "@/components/shared/page-header";
 import { UpgradeGate } from "@/components/shared/badges";
 import { ScanFreshness } from "@/components/intel/scan-freshness";
@@ -103,6 +104,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
   const hotPeriod = HOT_PERIODS.find((h) => h.key === sp.hot) ?? HOT_PERIODS[1]!;
   const [ent, whale, hot] = await Promise.all([getEntitlements(session.user.id), getWhaleWatch(), getHotTradersCached(hotPeriod.api)]);
   keepScanFresh(whale?.ageMs);
+  keepAlertsFlowing();
   trackUsage("leaderboard.view", session.user.id);
   const pro = ent.limits.scanner;
 

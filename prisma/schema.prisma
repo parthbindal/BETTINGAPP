@@ -16,18 +16,18 @@ datasource db {
 // ───────────────────────── Auth (Better Auth) ─────────────────────────
 
 model User {
-  id            String    @id
-  name          String
-  email         String
-  emailVerified Boolean   @default(false)
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                  String    @id
+  name                String
+  email               String
+  emailVerified       Boolean   @default(false)
+  image               String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
   // admin plugin
-  role          String?   @default("user")
-  banned        Boolean?  @default(false)
-  banReason     String?
-  banExpires    DateTime?
+  role                String?   @default("user")
+  banned              Boolean?  @default(false)
+  banReason           String?
+  banExpires          DateTime?
   // EDGEWISE compliance + profile fields
   dateOfBirth         DateTime?
   region              String?
@@ -36,28 +36,29 @@ model User {
   referralCode        String?   @unique
   referredById        String?
   onboardingStep      Int       @default(0)
-  experienceLevel     String?   // beginner | intermediate | advanced
+  experienceLevel     String? // beginner | intermediate | advanced
 
-  sessions          Session[]
-  accounts          Account[]
-  subscription      Subscription?
-  watchlist         WatchlistItem[]
-  predictions       Prediction[]
-  conversations     AiConversation[]
-  aiUsage           AiUsage[]
-  reports           ResearchReport[]
-  lessonProgress    LessonProgress[]
-  quizAttempts      QuizAttempt[]
-  achievements      Achievement[]
-  notifications     Notification[]
-  notificationPrefs NotificationPreference?
-  threads           CommunityThread[]
-  posts             CommunityPost[]
-  votes             CommunityVote[]
-  referralsMade     Referral[]       @relation("Referrer")
-  referralReceived  Referral?        @relation("Referred")
-  emailSequence     EmailSequenceState?
-  usageEvents       UsageEvent[]
+  sessions             Session[]
+  accounts             Account[]
+  subscription         Subscription?
+  watchlist            WatchlistItem[]
+  predictions          Prediction[]
+  conversations        AiConversation[]
+  aiUsage              AiUsage[]
+  reports              ResearchReport[]
+  lessonProgress       LessonProgress[]
+  quizAttempts         QuizAttempt[]
+  achievements         Achievement[]
+  notifications        Notification[]
+  notificationPrefs    NotificationPreference?
+  threads              CommunityThread[]
+  posts                CommunityPost[]
+  votes                CommunityVote[]
+  referralsMade        Referral[]              @relation("Referrer")
+  referralReceived     Referral?               @relation("Referred")
+  emailSequence        EmailSequenceState?
+  usageEvents          UsageEvent[]
+  smartAlertDeliveries SmartAlertDelivery[]
 
   @@unique([email])
   @@map("user")
@@ -159,34 +160,34 @@ model MarketEvent {
 }
 
 model Market {
-  ticker          String      @id
-  eventTicker     String
-  event           MarketEvent @relation(fields: [eventTicker], references: [eventTicker], onDelete: Cascade)
-  seriesTicker    String
-  title           String
-  subtitle        String?
-  yesSubTitle     String?
-  category        String
-  status          String
-  yesBid          Float?
-  yesAsk          Float?
-  lastPrice       Float?
-  previousPrice   Float?
-  volume          Float       @default(0)
-  volume24h       Float       @default(0)
-  openInterest    Float       @default(0)
-  openTime        DateTime?
-  closeTime       DateTime?
-  expirationTime  DateTime?
-  rulesPrimary    String?
-  rulesSecondary  String?
-  result          String?
-  source          String      @default("kalshi")
-  freshness       String      @default("live") // live | delayed | historical | demo
-  fetchedAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  snapshots       MarketSnapshot[]
-  estimates       ModelEstimate[]
+  ticker         String           @id
+  eventTicker    String
+  event          MarketEvent      @relation(fields: [eventTicker], references: [eventTicker], onDelete: Cascade)
+  seriesTicker   String
+  title          String
+  subtitle       String?
+  yesSubTitle    String?
+  category       String
+  status         String
+  yesBid         Float?
+  yesAsk         Float?
+  lastPrice      Float?
+  previousPrice  Float?
+  volume         Float            @default(0)
+  volume24h      Float            @default(0)
+  openInterest   Float            @default(0)
+  openTime       DateTime?
+  closeTime      DateTime?
+  expirationTime DateTime?
+  rulesPrimary   String?
+  rulesSecondary String?
+  result         String?
+  source         String           @default("kalshi")
+  freshness      String           @default("live") // live | delayed | historical | demo
+  fetchedAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  snapshots      MarketSnapshot[]
+  estimates      ModelEstimate[]
 
   @@index([category, status])
   @@index([status, volume24h])
@@ -245,39 +246,39 @@ model Team {
 }
 
 model Player {
-  id           String   @id
+  id           String          @id
   sport        String
   teamId       String
-  team         Team     @relation(fields: [teamId], references: [id])
+  team         Team            @relation(fields: [teamId], references: [id])
   name         String
   position     String
   jersey       String?
   injuryStatus String? // healthy | questionable | doubtful | out | unknown
   injuryNote   String?
-  isDemo       Boolean  @default(true)
-  source       String   @default("demo")
+  isDemo       Boolean         @default(true)
+  source       String          @default("demo")
   gameLogs     PlayerGameLog[]
   projections  Projection[]
-  updatedAt    DateTime @updatedAt
+  updatedAt    DateTime        @updatedAt
 
   @@index([sport, teamId])
 }
 
 model Game {
-  id         String   @id
-  sport      String
-  homeTeamId String
-  awayTeamId String
-  homeTeam   Team     @relation("HomeTeam", fields: [homeTeamId], references: [id])
-  awayTeam   Team     @relation("AwayTeam", fields: [awayTeamId], references: [id])
-  startsAt   DateTime
-  status     String // scheduled | live | final
-  homeScore  Int?
-  awayScore  Int?
-  venue      String?
-  isDemo     Boolean  @default(true)
-  source     String   @default("demo")
-  logs       PlayerGameLog[]
+  id          String          @id
+  sport       String
+  homeTeamId  String
+  awayTeamId  String
+  homeTeam    Team            @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam    Team            @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  startsAt    DateTime
+  status      String // scheduled | live | final
+  homeScore   Int?
+  awayScore   Int?
+  venue       String?
+  isDemo      Boolean         @default(true)
+  source      String          @default("demo")
+  logs        PlayerGameLog[]
   projections Projection[]
 
   @@index([sport, startsAt])
@@ -470,15 +471,25 @@ model Notification {
 }
 
 model NotificationPreference {
-  userId            String  @id
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  marketMoves       Boolean @default(true)
-  moveThresholdPts  Int     @default(5)
-  projectionUpdates Boolean @default(true)
-  news              Boolean @default(false)
-  upcomingEvents    Boolean @default(true)
-  dataAvailability  Boolean @default(true)
-  emailDigest       String  @default("weekly") // none | daily | weekly
+  userId                String    @id
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  marketMoves           Boolean   @default(true)
+  moveThresholdPts      Int       @default(5)
+  projectionUpdates     Boolean   @default(true)
+  news                  Boolean   @default(false)
+  upcomingEvents        Boolean   @default(true)
+  dataAvailability      Boolean   @default(true)
+  emailDigest           String    @default("weekly") // none | daily | weekly
+  // Smart-money alerts (Pro): big trades by the tracked top traders, in the app and on Telegram.
+  smartAlerts           Boolean   @default(true)
+  smartMinUsd           Int       @default(25000)
+  smartMaxRank          Int       @default(250)
+  followAlerts          Boolean   @default(true) // every $1K+ trade by a trader this user follows
+  telegramChatId        String?   @unique
+  telegramUsername      String?
+  telegramLinkedAt      DateTime?
+  telegramLinkToken     String?   @unique // one-time, short-lived: proves the Telegram chat belongs to this user
+  telegramLinkExpiresAt DateTime?
 }
 
 model CommunityThread {
@@ -617,11 +628,11 @@ model PlatformUpdate {
 }
 
 model WhaleSnapshot {
-  id             String   @id @default(cuid())
-  tradersScanned Int      @default(0)
-  positionsScanned Int    @default(0)
-  payload        Json
-  generatedAt    DateTime @default(now())
+  id               String   @id @default(cuid())
+  tradersScanned   Int      @default(0)
+  positionsScanned Int      @default(0)
+  payload          Json
+  generatedAt      DateTime @default(now())
 
   @@index([generatedAt])
 }
@@ -681,4 +692,52 @@ model Signal {
   @@index([firstSeenAt])
   @@index([conditionId])
   @@index([entryKind, status])
+}
+
+/// One alert-worthy burst: a tracked trader buying or selling one outcome, with
+/// fills inside the same 30-minute window merged (big orders arrive as many
+/// fills). `key` is deterministic, so re-reading the same trades on the next
+/// poll updates the burst instead of creating a second alert.
+model SmartAlert {
+  id              String               @id @default(cuid())
+  key             String               @unique // wallet:tokenId:side:30-minute bucket
+  wallet          String
+  traderName      String
+  rank            Int? // all-time rank when seen; null for a followed trader outside the tracked 1,000
+  side            String // BUY | SELL
+  outcome         String
+  title           String
+  tokenId         String
+  conditionId     String
+  eventSlug       String?
+  marketSlug      String?
+  category        String
+  usd             Float
+  avgPrice        Float
+  fills           Json // [{ id, usd, price, ts }], one per on-chain fill, deduped by id
+  firstTradeAt    DateTime
+  lastTradeAt     DateTime
+  channelPostedAt DateTime? // posted to the public (delayed) Telegram channel
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  deliveries      SmartAlertDelivery[]
+
+  @@index([lastTradeAt])
+  @@index([createdAt])
+  @@index([wallet, lastTradeAt])
+}
+
+/// Who was told about an alert, and where. Unique per alert, user and channel,
+/// so overlapping polls can never notify anyone twice.
+model SmartAlertDelivery {
+  id        String     @id @default(cuid())
+  alertId   String
+  alert     SmartAlert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel   String // inapp | telegram
+  createdAt DateTime   @default(now())
+
+  @@unique([alertId, userId, channel])
+  @@index([userId, createdAt])
 }

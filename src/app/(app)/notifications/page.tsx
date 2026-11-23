@@ -18,7 +18,7 @@ export default async function NotificationsPage() {
     <div className="space-y-5">
       <PageHeader
         title="Notifications"
-        description="Updates about the markets, players and teams you follow."
+        description="Smart-money alerts, and updates about the markets, players and teams you follow."
         actions={
           <>
             <Link href="/settings/notifications" className="text-xs text-primary hover:underline">

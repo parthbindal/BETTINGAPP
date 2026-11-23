@@ -197,3 +197,31 @@ export function moneyByMove(items: Array<{ avgEntry: number; currentPrice: numbe
   }
   return out;
 }
+
+/** How many signals Free members see in full (cards and deep dives). */
+export const FREE_SIGNALS = 3;
+
+/**
+ * The free preview: the biggest few live signals in the order Signals lists
+ * them (dollars first), one per market, with both sides when top traders are
+ * split. Signals and the deep-dive page both use this, so a free member can
+ * open exactly the signals they were shown.
+ */
+export function freePreviewTokens(
+  holdings: Array<{ tokenId: string; conditionId: string; holders: number; totalValue: number; currentPrice: number }>,
+  minHolders: number,
+  n = FREE_SIGNALS,
+): Set<string> {
+  const base = holdings.filter((h) => h.holders >= minHolders && isInPlay(h)).sort((a, b) => b.totalValue - a.totalValue || b.holders - a.holders);
+  const splits = splitSides(base, minHolders);
+  const out = new Set<string>();
+  const markets = new Set<string>();
+  for (const h of base) {
+    if (markets.size >= n) break;
+    if (markets.has(h.conditionId)) continue;
+    markets.add(h.conditionId);
+    for (const side of splits.get(h.conditionId) ?? [h]) out.add(side.tokenId);
+  }
+  return out;
+}
+

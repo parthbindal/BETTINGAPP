@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { PLANS, isTier, type Tier, type PlanLimits } from "@/lib/subscriptions/plans";
+import { PLANS, effectiveTier, type Tier, type PlanLimits } from "@/lib/subscriptions/plans";
 
 export const getSession = cache(async () => {
   return auth.api.getSession({ headers: await headers() });
@@ -34,13 +34,8 @@ export interface Entitlements {
 export const getEntitlements = cache(async (userId: string): Promise<Entitlements> => {
   const sub = await db.subscription.findUnique({ where: { userId } });
   const overrides = await db.featureLimitOverride.findMany();
-  const activeStatuses = new Set(["active", "trialing", "past_due"]);
-  let tier: Tier = "free";
-  if (sub && isTier(sub.tier) && activeStatuses.has(sub.status)) {
-    // Complimentary grants end exactly at their expiry; Stripe plans follow Stripe's status.
-    const expired = sub.source === "complimentary" && sub.currentPeriodEnd !== null && sub.currentPeriodEnd.getTime() < Date.now();
-    tier = expired ? "free" : sub.tier;
-  }
+  // Complimentary grants end exactly at their expiry; Stripe plans follow Stripe's status.
+  const tier: Tier = effectiveTier(sub);
   const limits: PlanLimits = { ...PLANS[tier].limits };
   for (const o of overrides) {
     const [t, key] = o.key.split(".");

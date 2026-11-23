@@ -65,7 +65,7 @@ Try it: ${url("/research/new")}`,
     subject: "What Pro adds",
     text: (name) => `Hi ${name},
 
-Pro ($${PLANS.pro.priceMonthly}/month) adds 90 days of history, the Opportunity Scanner, full sports analytics with matchup reports, 50 AI queries a day, a 50-item watchlist with alerts, and the full Academy.
+Pro ($${PLANS.pro.priceMonthly}/month) adds alerts when Polymarket's top traders make big moves, every smart-money signal with a deep dive on who holds what, ${Math.round(PLANS.pro.limits.marketHistoryDays / 365)} years of history, the Opportunity Scanner, full sports analytics, ${PLANS.pro.limits.aiQueriesPerDay} AI queries a day, a ${PLANS.pro.limits.watchlistMax}-item watchlist, and the full Academy.
 
 Compare plans: ${url("/pricing")}
 

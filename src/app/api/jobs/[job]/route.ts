@@ -10,6 +10,7 @@ import { resolveMarketPredictions, resolveSportsPredictions } from "@/lib/tracke
 import { generateBrief } from "@/lib/briefs";
 import { syncWhaleWatch } from "@/lib/whales";
 import { scoreSignals } from "@/lib/signals";
+import { runSmartAlerts } from "@/lib/smart-alerts";
 
 export const maxDuration = 300;
 
@@ -22,6 +23,9 @@ const JOBS: Record<string, () => Promise<unknown>> = {
   // whale-watch itself; this only grades them.
   "score-signals": () => scoreSignals(),
   "watchlist-alerts": () => checkWatchlistAlerts(),
+  // Big trades by the tracked top traders, delivered in the app and on Telegram. Every 2 minutes on paid
+  // hosting; on Vercel Hobby it runs after page views instead (keepAlertsFlowing), see README.
+  "smart-alerts": () => runSmartAlerts(),
   "onboarding-emails": () => runOnboardingSequence(),
   "resolve-predictions": async () => ({
     markets: await resolveMarketPredictions({ maxFetches: 60 }),

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Waves, TrendingUp, TrendingDown, Users, Check, X, Trophy, Clock, ArrowLeftRight } from "lucide-react";
 import { requireUser, getEntitlements } from "@/lib/session";
 import { getWhaleWatch, keepScanFresh, type ConsensusHolding, type WhalePayload } from "@/lib/whales";
+import { keepAlertsFlowing } from "@/lib/smart-alerts";
 import { PageHeader, Section, EmptyState } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { UpgradeGate } from "@/components/shared/badges";
@@ -94,6 +95,7 @@ export default async function WhalesPage({ searchParams }: { searchParams: Promi
 
   const data = await getWhaleWatch();
   keepScanFresh(data?.ageMs);
+  keepAlertsFlowing();
   trackUsage("whales.view", session.user.id);
 
   if (!data) {

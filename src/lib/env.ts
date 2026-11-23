@@ -20,6 +20,11 @@ const env = {
   resendApiKey: process.env.RESEND_API_KEY ?? "",
   emailFrom: process.env.EMAIL_FROM ?? "EDGEWISE <hello@example.com>",
   cronSecret: process.env.CRON_SECRET ?? "",
+  // Smart-money alerts on Telegram. The bot comes from @BotFather; the channel is the public, delayed feed.
+  telegramBotToken: process.env.TELEGRAM_BOT_TOKEN ?? "",
+  telegramBotUsername: (process.env.TELEGRAM_BOT_USERNAME ?? "").replace(/^@/, ""),
+  telegramChannelId: process.env.TELEGRAM_CHANNEL_ID ?? "", // @channelname or -100… id
+  telegramWebhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET ?? "",
   adminEmails: (process.env.ADMIN_EMAILS ?? "")
     .split(",")
     .map((s) => s.trim().toLowerCase())
@@ -33,6 +38,8 @@ export const config = {
   isStripeConfigured: Boolean(env.stripeSecretKey && env.stripePriceProMonthly),
   isStripeWebhookConfigured: Boolean(env.stripeWebhookSecret),
   isEmailConfigured: Boolean(env.resendApiKey),
+  isTelegramConfigured: Boolean(env.telegramBotToken && env.telegramBotUsername && env.telegramWebhookSecret),
+  isTelegramChannelConfigured: Boolean(env.telegramBotToken && env.telegramChannelId),
   isSportsLiveConfigured: Boolean(env.balldontlieApiKey), // balldontlie live NBA adapter; demo fallback when empty
   isPostgres: env.databaseUrl.startsWith("postgres"),
 };

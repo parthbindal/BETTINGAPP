@@ -78,6 +78,7 @@ To make yourself an admin, set `ADMIN_EMAILS` in `.env` to your sign-up email
 | `npm run db:migrate` · `db:seed` · `db:studio` · `db:reset` | Prisma workflows |
 | `npm run sync:markets` | Full Kalshi market scan from the CLI |
 | `npm run stripe:setup` | Create the Pro product/price in your Stripe account |
+| `npm run telegram:setup -- --url https://your-site` | Check the alert bot, register its webhook, check the public channel |
 | `npm run db:use-postgres` / `db:use-sqlite` | Switch the datasource provider |
 
 ---
@@ -97,6 +98,8 @@ relevant service is genuinely configured.
 | `RESEND_API_KEY`, `EMAIL_FROM` | **Email** onboarding + digests | Messages are **logged as skipped**, never silently lost |
 | `BALLDONTLIE_API_KEY` | Reserved for a future live sports adapter | Sports stays labeled **demo data** (the adapter isn't built yet) |
 | `CRON_SECRET` | Authorizes the scheduled-job endpoints | Jobs run only via an admin session |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET` | **Smart-money alerts on Telegram** (Pro members connect a chat) | Alerts still arrive in the app; Settings says Telegram is not switched on |
+| `TELEGRAM_CHANNEL_ID` | The **free public alert channel** (`@name`): the biggest moves, an hour late | No public channel |
 | `ADMIN_EMAILS` | Grants the admin role on sign-up | No admins |
 | `BETTER_AUTH_SECRET` | Session signing (pre-filled in dev `.env`) | Required in production |
 
@@ -136,6 +139,7 @@ project is on Pro.
 | `resolve-predictions` | Score forecasts from exchange results | daily 09:38 |
 | `refresh-hot` | Re-quote the most liquid + all watched markets | daily 10:44 |
 | `watchlist-alerts` | Notify on watched-market moves and upcoming events | daily 11:52 |
+| `smart-alerts` | Big trades by the tracked traders → in-app + Telegram alerts, public channel | not scheduled on Hobby (see below) |
 | `daily-brief` / `weekly-brief` | Build the research summary and send opted-in digests | daily / weekly |
 | `onboarding-emails` | Advance the 6-step onboarding sequence | daily 15:19 |
 
@@ -144,6 +148,32 @@ Live Trades, Top Traders, Smart Money) start a background rescan with `after()`
 whenever the stored scan is older than 15 minutes, so the data is as fresh as
 the last visit. The cron is the floor for days nobody visits. On Pro, tighten
 `whale-watch` to `2-59/15 * * * *` and `refresh-hot` to `*/5 * * * *`.
+
+### Smart-money alerts
+
+`smart-alerts` (src/lib/smart-alerts.ts) reads the newest $5K+ trades across all
+of Polymarket in one call (`/v2/trades` with `filterType=CASH`, both sides of
+every fill), keeps the tracked top 1,000 and anyone a member follows, merges a
+trader's fills on one outcome within 30 minutes into one alert, and tells each
+Pro member whose settings match (Settings → Notifications: size, rank, followed
+traders) in the app and, once they connect it, on Telegram. The biggest moves
+($50K+) go to the public channel an hour later. Every write is idempotent
+(`SmartAlert.key`, `SmartAlertDelivery` unique per alert/member/channel), so
+overlapping runs never alert anyone twice.
+
+- **On Vercel Hobby** it is not in `vercel.json` (a sub-daily cron would fail
+  every deploy). It runs in the background after page views instead
+  (`keepAlertsFlowing`, at most every 90 seconds per server), so alerts only
+  flow while someone has the app open.
+- **On Vercel Pro**, add `{ "path": "/api/jobs/smart-alerts", "schedule": "*/2 * * * *" }`
+  to `vercel.json` for alerts within about two minutes, around the clock.
+
+**Telegram setup:** create a bot with @BotFather; create a public channel and
+add the bot as an admin with "Post messages"; put `TELEGRAM_BOT_TOKEN`,
+`TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET` (`openssl rand -hex 24`) and
+`TELEGRAM_CHANNEL_ID` in `.env` and in the Vercel project; redeploy; then run
+`npm run telegram:setup -- --url https://your-site`. Members connect from
+Settings → Notifications (a one-time link, valid 15 minutes).
 
 `whale-watch` crawls a thousand wallets and is declared `maxDuration = 300`
 (available on Hobby with Fluid compute). There is no Polymarket feed that pushes

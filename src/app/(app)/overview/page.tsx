@@ -4,6 +4,7 @@ import { getHotTradersCached } from "@/lib/data/public-cache";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { requireUser, getEntitlements } from "@/lib/session";
 import { keepScanFresh, getWhaleWatch, getWhaleHistory } from "@/lib/whales";
+import { keepAlertsFlowing } from "@/lib/smart-alerts";
 import { CONSENSUS_MIN_WALLETS } from "@/lib/data/public-cache";
 import { listWatchlist } from "@/lib/watchlist";
 import { Section, EmptyState } from "@/components/shared/page-header";
@@ -76,6 +77,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const range = RANGES.find((r) => r.key === sp.range) ?? RANGES[1];
   const [ent, whale, history, watchlist, hotToday] = await Promise.all([getEntitlements(userId), getWhaleWatch(), getWhaleHistory(CONSENSUS_MIN_WALLETS), listWatchlist(userId), getHotTradersCached("DAY")]);
   keepScanFresh(whale?.ageMs);
+  keepAlertsFlowing();
   trackUsage("overview.view", userId);
   const pro = ent.limits.scanner;
   const firstName = session.user.name?.split(" ")[0];

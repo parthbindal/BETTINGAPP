@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Users } from "lucide-react";
 import { requireUser, getEntitlements } from "@/lib/session";
 import { keepScanFresh, getWhaleWatch, type RecentMove } from "@/lib/whales";
+import { keepAlertsFlowing } from "@/lib/smart-alerts";
 import { Section, EmptyState } from "@/components/shared/page-header";
 import { UpgradeGate } from "@/components/shared/badges";
 import { ScanFreshness } from "@/components/intel/scan-freshness";
@@ -54,6 +55,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
   const session = await requireUser("/activity");
   const [ent, whale, sp] = await Promise.all([getEntitlements(session.user.id), getWhaleWatch(), searchParams]);
   keepScanFresh(whale?.ageMs);
+  keepAlertsFlowing();
   trackUsage("activity.view", session.user.id);
   const pro = ent.limits.scanner;
   const header = (

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarClock, Crown, ScrollText, Sparkles, Users } from "lucide-react";
 import { requireUser, getEntitlements } from "@/lib/session";
 import { getWhaleWatch, keepScanFresh } from "@/lib/whales";
+import { keepAlertsFlowing } from "@/lib/smart-alerts";
 import { db } from "@/lib/db";
 import { Section, EmptyState } from "@/components/shared/page-header";
 import { UpgradeGate } from "@/components/shared/badges";
@@ -14,7 +15,8 @@ import { OpenOnPolymarket } from "@/components/intel/open-on-polymarket";
 import { OwnershipBar } from "@/components/intel/ownership";
 import { EntryTimeline } from "@/components/charts/entry-timeline";
 import { compact, dateShort, relative } from "@/lib/format";
-import { ageMs, explainSplit, isInPlay, kindLabel, readConsensus, walletHref } from "@/lib/intel";
+import { ageMs, explainSplit, freePreviewTokens, isInPlay, kindLabel, readConsensus, walletHref } from "@/lib/intel";
+import { CONSENSUS_MIN_WALLETS } from "@/lib/data/public-cache";
 import { trackUsage } from "@/lib/ops";
 
 /** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
@@ -48,6 +50,7 @@ export default async function SignalPage({ params }: { params: Promise<{ tokenId
     db.signal.findUnique({ where: { tokenId }, select: { firstSeenAt: true, entryPrice: true, entryHolders: true, entryKind: true, status: true } }),
   ]);
   keepScanFresh(whale?.ageMs);
+  keepAlertsFlowing();
   trackUsage("signal.view", session.user.id);
 
   const back = (
@@ -55,13 +58,21 @@ export default async function SignalPage({ params }: { params: Promise<{ tokenId
       <ArrowLeft className="size-3.5" aria-hidden="true" /> All signals
     </Link>
   );
-  if (!ent.limits.scanner) {
+  // Free members can open the signals the free preview showed them; every other deep dive is Pro.
+  const freePreview = !ent.limits.scanner && whale ? freePreviewTokens(whale.payload.holdings, CONSENSUS_MIN_WALLETS).has(tokenId) : false;
+  if (!ent.limits.scanner && !freePreview) {
     return (
       <div className="space-y-6">
         {back}
         <UpgradeGate locked feature="Signal deep dives from Polymarket's top 1,000 traders" requiredTier="pro">
           <span />
         </UpgradeGate>
+        <p className="text-xs text-muted-foreground">
+          The three biggest signals are open on every plan.{" "}
+          <Link href="/consensus" className="font-medium text-primary hover:underline">
+            See them on Signals
+          </Link>
+        </p>
       </div>
     );
   }
@@ -102,6 +113,15 @@ export default async function SignalPage({ params }: { params: Promise<{ tokenId
         {back}
         <ScanFreshness generatedAt={p!.generatedAt} note={`${p!.tradersScanned.toLocaleString("en-US")} traders`} />
       </div>
+      {freePreview && (
+        <p className="-mt-6 rounded-lg border border-border bg-surface-1 px-3.5 py-2.5 text-xs text-muted-foreground">
+          One of your free signals: the three biggest are open on every plan.{" "}
+          <Link href="/pricing" className="font-medium text-primary hover:underline">
+            Pro opens every signal and sends alerts when top traders move
+          </Link>
+          .
+        </p>
+      )}
 
       {/* Hero: the claim, its size, and the one action */}
       <section className="card-surface hero-glow relative overflow-hidden p-6 sm:p-8">

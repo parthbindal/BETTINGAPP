@@ -1,16 +1,18 @@
 import Link from "next/link";
 import { MoneyMap } from "@/components/intel/money-map";
-import { Filter } from "lucide-react";
+import { Filter, Lock } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 import { requireUser, getEntitlements } from "@/lib/session";
 import { keepScanFresh, getWhaleWatch, type ConsensusHolding } from "@/lib/whales";
+import { keepAlertsFlowing } from "@/lib/smart-alerts";
 import { Section, EmptyState } from "@/components/shared/page-header";
-import { UpgradeGate } from "@/components/shared/badges";
 import { ScanFreshness } from "@/components/intel/scan-freshness";
 import { TraderAvatar } from "@/components/intel/trader-identity";
 import { SIGNAL_KINDS, SignalCard, SplitCard, signalKind, type SignalKind } from "@/components/intel/signal";
 import { WhaleRefreshButton } from "@/components/whales/refresh-button";
 import { compact, dateShort } from "@/lib/format";
-import { isInPlay, readConsensus, splitSides, walletHref } from "@/lib/intel";
+import { FREE_SIGNALS, isInPlay, readConsensus, splitSides, walletHref } from "@/lib/intel";
+import { channelUrl } from "@/lib/telegram";
 import { trackUsage } from "@/lib/ops";
 import { cn } from "@/lib/utils";
 
@@ -85,10 +87,13 @@ function WhoIsIn({ h }: { h: ConsensusHolding }) {
 
 export default async function ConsensusPage({ searchParams }: { searchParams: Promise<Params> }) {
   const session = await requireUser("/consensus");
-  const [ent, whale, sp] = await Promise.all([getEntitlements(session.user.id), getWhaleWatch(), searchParams]);
+  const [ent, whale, query] = await Promise.all([getEntitlements(session.user.id), getWhaleWatch(), searchParams]);
   keepScanFresh(whale?.ageMs);
+  keepAlertsFlowing();
   trackUsage("consensus.view", session.user.id);
   const pro = ent.limits.scanner;
+  // Free members see the default view (no filters): the map and the biggest FREE_SIGNALS signals.
+  const sp: Params = pro ? query : {};
 
   const header = (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -99,22 +104,12 @@ export default async function ConsensusPage({ searchParams }: { searchParams: Pr
       {pro && <WhaleRefreshButton />}
     </div>
   );
-  if (!pro) {
-    return (
-      <div className="space-y-6">
-        {header}
-        <UpgradeGate locked feature="Signals from Polymarket's top 1,000 traders" requiredTier="pro">
-          <span />
-        </UpgradeGate>
-      </div>
-    );
-  }
   if (!whale) {
     return (
       <div className="space-y-6">
         {header}
         <Section>
-          <EmptyState title="Getting the first scan ready" description="Signals appear after the first scan of Polymarket's top traders." action={<WhaleRefreshButton />} />
+          <EmptyState title="Getting the first scan ready" description="Signals appear after the first scan of Polymarket's top traders." action={pro ? <WhaleRefreshButton /> : undefined} />
         </Section>
       </div>
     );
@@ -158,6 +153,64 @@ export default async function ConsensusPage({ searchParams }: { searchParams: Pr
   mapSignals.sort((a, b) => b.totalValue - a.totalValue);
   const hiddenActive = [sp.dir, sp.kind, sp.min, sp.settled].filter(Boolean).length;
 
+  const card = (it: (typeof items)[number], i: number) =>
+    it.kind === "one" ? (
+      <SignalCard key={it.h.tokenId} id={`sig-${it.h.tokenId}`} href={`/consensus/${it.h.tokenId}`} h={it.h} rank={i + 1} tiered primaryCta={pro && it === firstOne} className="scroll-mt-20 target:border-primary/60 target:ring-2 target:ring-primary/40" footer={<WhoIsIn h={it.h} />} />
+    ) : (
+      <SplitCard key={it.sides[0]!.conditionId} id={`sig-${it.sides[0]!.tokenId}`} href={`/consensus/${it.sides[0]!.tokenId}`} sides={it.sides} rank={i + 1} className="scroll-mt-20 target:border-primary/60 target:ring-2 target:ring-primary/40" />
+    );
+  const mapSection = mapSignals.length >= 3 && (
+    <Section title="The smart money map" description="Where top traders have the most money right now. A bigger tile means more money; the tint shows how the price has moved since they bought.">
+      <MoneyMap signals={mapSignals} />
+    </Section>
+  );
+
+  if (!pro) {
+    const rest = Math.max(0, items.length - FREE_SIGNALS);
+    const channel = channelUrl();
+    return (
+      <div className="space-y-10">
+        <div className="space-y-4">
+          {header}
+          <ScanFreshness generatedAt={whale.payload.generatedAt} note={`${whale.payload.tradersScanned.toLocaleString("en-US")} traders`} />
+        </div>
+        {mapSection}
+        <section id="all-signals" className="scroll-mt-20">
+          <p className="tabular mb-4 text-xs text-muted-foreground">
+            The {Math.min(FREE_SIGNALS, items.length)} biggest of {items.length} signal{items.length === 1 ? "" : "s"}, free
+          </p>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">{items.slice(0, FREE_SIGNALS).map(card)}</div>
+        </section>
+        {rest > 0 && (
+          <div className="card-surface flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="max-w-2xl">
+              <p className="flex items-center gap-2 text-sm font-medium">
+                <Lock className="size-4 text-muted-foreground" aria-hidden="true" />
+                {rest} more signal{rest === 1 ? "" : "s"} {rest === 1 ? "is" : "are"} in Pro
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                Pro shows every market where Polymarket&apos;s top traders agree, a deep dive on who holds what in each, filters by topic and type, and alerts when top traders make big moves.
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <Link href="/pricing" className={buttonVariants()}>
+                See Pro
+              </Link>
+              {channel && (
+                <a href={channel} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "outline" })}>
+                  Free alert channel
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          A trader counts toward a side only when at least 60% of their money in that market is on it; traders betting both sides evenly are left out. Agreement between strong traders is a starting point for your own research, not a tip to copy.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-10">
       <div className="space-y-4">
@@ -165,11 +218,7 @@ export default async function ConsensusPage({ searchParams }: { searchParams: Pr
         <ScanFreshness generatedAt={whale.payload.generatedAt} note={`${whale.payload.tradersScanned.toLocaleString("en-US")} traders`} />
       </div>
 
-      {mapSignals.length >= 3 && (
-        <Section title="The smart money map" description="Where top traders have the most money right now. A bigger tile means more money; the tint shows how the price has moved since they bought.">
-          <MoneyMap signals={mapSignals} />
-        </Section>
-      )}
+      {mapSection}
 
       {/* Two visible controls: topic, and everything else behind "More filters". */}
       <div className="space-y-3">
@@ -241,13 +290,7 @@ export default async function ConsensusPage({ searchParams }: { searchParams: Pr
         </p>
         {items.length ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {items.slice(0, PAGE).map((it, i) =>
-              it.kind === "one" ? (
-                <SignalCard key={it.h.tokenId} id={`sig-${it.h.tokenId}`} href={`/consensus/${it.h.tokenId}`} h={it.h} rank={i + 1} tiered primaryCta={it === firstOne} className="scroll-mt-20 target:border-primary/60 target:ring-2 target:ring-primary/40" footer={<WhoIsIn h={it.h} />} />
-              ) : (
-                <SplitCard key={it.sides[0]!.conditionId} id={`sig-${it.sides[0]!.tokenId}`} href={`/consensus/${it.sides[0]!.tokenId}`} sides={it.sides} rank={i + 1} className="scroll-mt-20 target:border-primary/60 target:ring-2 target:ring-primary/40" />
-              ),
-            )}
+            {items.slice(0, PAGE).map(card)}
           </div>
         ) : (
           <Section>

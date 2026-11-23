@@ -20,6 +20,8 @@ export interface PlanLimits {
   matchupIntelligence: boolean;
   advancedModels: boolean;
   customNotifications: boolean;
+  /** Smart-money alerts (in the app, and on Telegram where configured). Free members get the public channel, an hour later. */
+  smartAlerts: boolean;
   customReports: boolean;
   earlyAccess: boolean;
 }
@@ -33,6 +35,9 @@ export interface Plan {
   limits: PlanLimits;
   highlights: string[];
 }
+
+/** Completed per deployment by planHighlights(): where alerts are delivered depends on what is switched on. */
+const ALERTS_LINE = "Alerts when top traders make big moves";
 
 export const PLANS: Record<Tier, Plan> = {
   free: {
@@ -55,10 +60,12 @@ export const PLANS: Record<Tier, Plan> = {
       matchupIntelligence: false,
       advancedModels: false,
       customNotifications: false,
+      smartAlerts: false,
       customReports: false,
       earlyAccess: false,
     },
     highlights: [
+      "The 3 biggest smart-money signals and the money map",
       "Dashboard with live market overview",
       "Browse 40 markets per category",
       "Basic player statistics",
@@ -89,11 +96,15 @@ export const PLANS: Record<Tier, Plan> = {
       matchupIntelligence: true,
       advancedModels: true,
       customNotifications: true,
+      smartAlerts: true,
       customReports: true,
       earlyAccess: true,
     },
     highlights: [
       "Everything in Free",
+      ALERTS_LINE,
+      "Every signal, with deep dives on who holds what",
+      "Follow traders and hear about their $1K+ trades",
       "150 AI Analyst queries per day",
       "Full market intelligence (2,000 markets per category)",
       "2 years of historical charts",
@@ -120,6 +131,40 @@ export function isTier(x: unknown): x is Tier {
   return x === "free" || x === "pro";
 }
 
+/** What this deployment has switched on. Telegram copy appears only when it is real, never as a promise. */
+export interface DeliveryChannels {
+  telegram: boolean; // members can connect a chat
+  channel: boolean; // the free public channel exists
+}
+
+/** A plan's highlights for this deployment: Telegram lines only where Telegram is configured. */
+export function planHighlights(tier: Tier, on: DeliveryChannels): string[] {
+  const out = PLANS[tier].highlights.map((h) => (h === ALERTS_LINE ? `${ALERTS_LINE}, ${on.telegram ? "in the app and on Telegram" : "in the app"}` : h));
+  if (tier === "free" && on.channel) out.splice(1, 0, "Public whale-alert channel on Telegram, an hour after Pro");
+  return out;
+}
+
+/** The comparison table for this deployment (see planHighlights). */
+export function featureMatrix(on: DeliveryChannels): typeof FEATURE_MATRIX {
+  return FEATURE_MATRIX.map((row) =>
+    row.label === "Whale alerts" ? { ...row, free: on.channel ? "Public Telegram channel, an hour later" : "—", pro: on.telegram ? "In the app and on Telegram" : "In the app" } : row,
+  );
+}
+
+/** Subscription statuses that still carry the plan's features. */
+export const ACTIVE_STATUSES: ReadonlySet<string> = new Set(["active", "trialing", "past_due"]);
+
+/**
+ * The plan a subscription row actually grants right now: a paid tier while its
+ * status is active, until a complimentary grant's end date. One definition,
+ * shared by page gating (getEntitlements) and background jobs (alert fan-out).
+ */
+export function effectiveTier(sub: { tier: string; status: string; source: string; currentPeriodEnd: Date | null } | null | undefined, now = Date.now()): Tier {
+  if (!sub || !isTier(sub.tier) || !ACTIVE_STATUSES.has(sub.status)) return "free";
+  const expired = sub.source === "complimentary" && sub.currentPeriodEnd !== null && sub.currentPeriodEnd.getTime() < now;
+  return expired ? "free" : sub.tier;
+}
+
 /** Feature comparison rows for the pricing page. */
 export const FEATURE_MATRIX: Array<{ label: string; free: string; pro: string }> = [
   { label: "AI Analyst queries / day", free: "5", pro: "150" },
@@ -127,6 +172,8 @@ export const FEATURE_MATRIX: Array<{ label: string; free: string; pro: string }>
   { label: "Market history", free: "7 days", pro: "2 years" },
   { label: "Markets per category", free: "40", pro: "2,000" },
   { label: "Watchlist items", free: "5", pro: "250" },
+  { label: "Smart-money signals", free: "Top 3 + money map", pro: "All, with deep dives" },
+  { label: "Whale alerts", free: "—", pro: "In the app" },
   { label: "Opportunity scanner", free: "—", pro: "Enhanced filters" },
   { label: "Price Lab (cross-venue best odds)", free: "—", pro: "Included" },
   { label: "Whale Watch (top-trader tracking)", free: "—", pro: "Included" },

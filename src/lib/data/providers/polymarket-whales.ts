@@ -244,6 +244,7 @@ export interface RawTrade {
   marketSlug: string | null;
   category: string;
   txHash: string | null; // Polygon transaction, for verification
+  name?: string; // the trader's Polymarket display name, when the feed carries it
 }
 
 /** Coarse market category from its title and event slug (no extra API calls). */
@@ -267,30 +268,51 @@ export async function fetchRecentTrades(wallet: string, limit = 40, sinceSec?: n
   const since = sinceSec ? `&start=${Math.floor(sinceSec)}` : "";
   const res = await getJson<Array<Record<string, unknown>> | { data?: Array<Record<string, unknown>> }>(`${DATA}/v2/trades?user=${wallet}&limit=${Math.min(1000, limit)}${since}`);
   const arr = Array.isArray(res) ? res : (res?.data ?? []);
-  const out: RawTrade[] = [];
-  for (const t of arr) {
-    const side = String(t.side ?? "").toUpperCase();
-    if (side !== "BUY" && side !== "SELL") continue;
-    const price = Number(t.price) || 0;
-    const shares = Number(t.size) || 0;
-    const usd = Number(t.usdc_size) || shares * price;
-    const title = String(t.title ?? "");
-    const eventSlug = String(t.event_slug ?? "");
-    out.push({
-      wallet,
-      ts: Number(t.timestamp) || 0,
-      side: side as "BUY" | "SELL",
-      outcome: String(t.outcome ?? ""),
-      title,
-      usd,
-      price,
-      conditionId: String(t.condition_id ?? ""),
-      tokenId: String(t.token_id ?? ""),
-      eventSlug,
-      marketSlug: t.slug ? String(t.slug) : null,
-      category: classifyMarket(title, eventSlug),
-      txHash: t.transaction_hash ? String(t.transaction_hash) : null,
-    });
-  }
-  return out;
+  return arr.map((t) => toRawTrade(t, wallet)).filter((t): t is RawTrade => t !== null);
+}
+
+/**
+ * The newest trades of at least `minUsd`, across all of Polymarket or for one
+ * wallet, both sides of every fill (makers too: a whale filling resting limit
+ * orders never shows up as a taker). The size filter runs on Polymarket's
+ * side, which is what makes polling the whole market cheap, but with it the
+ * API ignores `start`, so callers filter by time themselves. One call returns
+ * at most 1,000 rows, roughly half a day of $10K+ trades.
+ */
+export async function fetchBigTrades(minUsd: number, opts: { wallet?: string; limit?: number } = {}): Promise<RawTrade[]> {
+  const user = opts.wallet ? `&user=${opts.wallet}` : "";
+  const res = await getJson<Array<Record<string, unknown>> | { data?: Array<Record<string, unknown>> }>(
+    `${DATA}/v2/trades?limit=${Math.min(1000, opts.limit ?? 1000)}&takerOnly=false&filterType=CASH&filterAmount=${Math.round(minUsd)}${user}`,
+  );
+  const arr = Array.isArray(res) ? res : (res?.data ?? []);
+  return arr.map((t) => toRawTrade(t)).filter((t): t is RawTrade => t !== null);
+}
+
+/** One v2 trade record, or null when it is not a buy or a sell. `wallet` overrides the record's own proxy wallet. */
+function toRawTrade(t: Record<string, unknown>, wallet?: string): RawTrade | null {
+  const side = String(t.side ?? "").toUpperCase();
+  if (side !== "BUY" && side !== "SELL") return null;
+  const price = Number(t.price) || 0;
+  const shares = Number(t.size) || 0;
+  const usd = Number(t.usdc_size) || shares * price;
+  const title = String(t.title ?? "");
+  const eventSlug = String(t.event_slug ?? "");
+  const name = String(t.name ?? "") || String(t.pseudonym ?? "");
+  return {
+    wallet: wallet ?? String(t.proxy_wallet ?? ""),
+    ts: Number(t.timestamp) || 0,
+    side: side as "BUY" | "SELL",
+    outcome: String(t.outcome ?? ""),
+    title,
+    usd,
+    price,
+    conditionId: String(t.condition_id ?? ""),
+    tokenId: String(t.token_id ?? ""),
+    eventSlug,
+    marketSlug: t.slug ? String(t.slug) : null,
+    // The v2 feed often leaves event_slug empty; the market slug carries the same league prefix.
+    category: classifyMarket(title, eventSlug || String(t.slug ?? "")),
+    txHash: t.transaction_hash ? String(t.transaction_hash) : null,
+    ...(name ? { name } : {}),
+  };
 }

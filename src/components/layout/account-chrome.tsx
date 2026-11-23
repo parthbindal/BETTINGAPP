@@ -7,7 +7,7 @@ import { UserMenu } from "./user-menu";
 import { TierBadge } from "@/components/shared/badges";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { Tier } from "@/lib/subscriptions/plans";
+import { PLANS, type Tier } from "@/lib/subscriptions/plans";
 
 /** Member chrome data returned by GET /api/me. */
 export interface Me {
@@ -83,7 +83,7 @@ export function AccountFooter() {
           <div className="flex items-center gap-1.5 font-medium text-primary">
             <Sparkles className="size-3.5" /> Upgrade to Pro
           </div>
-          <p className="mt-1 text-muted-foreground">90-day history, scanner, full sports analytics and 50 AI queries a day.</p>
+          <p className="mt-1 text-muted-foreground">Alerts when top traders make big moves, every signal with deep dives, and {PLANS.pro.limits.aiQueriesPerDay} AI questions a day.</p>
         </Link>
       ) : (
         <div className="mb-3 flex items-center justify-between px-1 text-xs text-muted-foreground">

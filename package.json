@@ -21,6 +21,7 @@
     "sync:sports": "tsx scripts/sync-sports.ts",
     "test": "tsx --test tests/*.test.ts",
     "stripe:setup": "tsx scripts/setup-stripe.ts",
+    "telegram:setup": "tsx scripts/setup-telegram.ts",
     "sync:whales": "tsx scripts/sync-whales.ts"
   },
   "dependencies": {

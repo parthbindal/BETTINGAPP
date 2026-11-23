@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { Check } from "lucide-react";
-import { PLANS, FEATURE_MATRIX, type Tier } from "@/lib/subscriptions/plans";
+import { PLANS, featureMatrix, planHighlights, type Tier } from "@/lib/subscriptions/plans";
 import { config } from "@/lib/env";
 import { getSession, getEntitlements } from "@/lib/session";
 import { CheckoutButton } from "@/components/billing/checkout-button";
@@ -10,6 +10,9 @@ import { LinkButton } from "@/components/ui/link-button";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Pricing", description: "Free and Pro plans for EDGEWISE." };
+
+/** Telegram appears in the plan copy only on a deployment where it is switched on. */
+const delivery = { telegram: config.isTelegramConfigured, channel: config.isTelegramChannelConfigured };
 
 /** Session- and config-dependent call to action; streams in behind a boundary. */
 async function PlanCta({ tier }: { tier: Tier }) {
@@ -54,7 +57,7 @@ export default function PricingPage() {
               </div>
               <p className="mt-2 text-sm text-muted-foreground">{p.tagline}</p>
               <ul className="mt-5 flex-1 space-y-2 text-sm">
-                {p.highlights.map((h) => (
+                {planHighlights(p.tier, delivery).map((h) => (
                   <li key={h} className="flex gap-2">
                     <Check className="mt-0.5 size-4 shrink-0 text-primary" /> <span>{h}</span>
                   </li>
@@ -88,7 +91,7 @@ export default function PricingPage() {
               </tr>
             </thead>
             <tbody>
-              {FEATURE_MATRIX.map((row) => (
+              {featureMatrix(delivery).map((row) => (
                 <tr key={row.label} className="border-b border-border/60 last:border-0">
                   <td className="px-4 py-2.5">{row.label}</td>
                   <td className="tabular px-4 py-2.5 text-muted-foreground">{row.free}</td>
