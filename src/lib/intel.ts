@@ -166,3 +166,34 @@ export function standingLabel(p: number): string {
   if (p >= 0.5) return `Top ${Math.max(1, Math.round((1 - p) * 100))}%`;
   return `Bottom ${Math.max(1, Math.round((p + 1 / 1000) * 100))}%`;
 }
+
+/** Price change since the traders' value-weighted average entry, as a fraction (0.7 = +70%). */
+export function sinceEntry(h: { avgEntry: number; currentPrice: number }): number {
+  return h.avgEntry > 0 ? (h.currentPrice - h.avgEntry) / h.avgEntry : 0;
+}
+
+/** Up, down, or no real change: under half a percent reads as "no change", the rule PriceTrack uses. */
+export function moveDirection(change: number): "up" | "down" | "flat" {
+  return Math.abs(change) < 0.005 ? "flat" : change > 0 ? "up" : "down";
+}
+
+/**
+ * The map's tint tier for a move: 0 under 2%, then 2-8%, 8-20% and 20%+.
+ * Named buckets rather than a continuous ramp, so a reader can say which one a
+ * tile is in and the legend can list them.
+ */
+export function moveTier(change: number): 0 | 1 | 2 | 3 {
+  const a = Math.abs(change);
+  return a < 0.02 ? 0 : a < 0.08 ? 1 : a < 0.2 ? 2 : 3;
+}
+
+/** How much of the money (by dollars, not by count) sits on prices that are up, down, or unchanged since entry. */
+export function moneyByMove(items: Array<{ avgEntry: number; currentPrice: number; totalValue: number }>): { total: number; up: number; down: number; flat: number } {
+  const out = { total: 0, up: 0, down: 0, flat: 0 };
+  for (const h of items) {
+    if (!(h.totalValue > 0)) continue;
+    out.total += h.totalValue;
+    out[moveDirection(sinceEntry(h))] += h.totalValue;
+  }
+  return out;
+}

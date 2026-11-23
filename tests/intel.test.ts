@@ -115,3 +115,46 @@ test("walletDailyFlow keeps a single partial day instead of returning nothing", 
   assert.equal(rows[0]!.buys, 3000);
   assert.equal(rows[0]!.partial, true);
 });
+
+import { legibleTreemap, takeLargest } from "../src/lib/treemap";
+import { moneyByMove, moveDirection, moveTier, sinceEntry } from "../src/lib/intel";
+
+test("takeLargest keeps the biggest items down to a minimum share, within a cap", () => {
+  const items = [450, 100, 80, 70, 40, 9, 8, 5, 3]; // 9 of 765 is 1.2%, under a 2% floor
+  assert.deepEqual(takeLargest(items, (v) => v, { minShare: 0.02, max: 10 }), [450, 100, 80, 70, 40]);
+  assert.deepEqual(takeLargest(items, (v) => v, { minShare: 0, max: 3 }), [450, 100, 80]);
+  assert.deepEqual(takeLargest(items, (v) => v, { minShare: 0.5, max: 10, min: 3 }), [450, 100, 80], "never fewer than min");
+  assert.deepEqual(takeLargest([0, 5, 0, 2], (v) => v, { minShare: 0, max: 10 }), [5, 2], "zero weights dropped");
+});
+
+test("legibleTreemap drops the smallest items until no tile is thinner than minSide", () => {
+  const items = [500, 200, 100, 50, 20, 10, 5, 2, 1];
+  const bounds = { x: 0, y: 0, w: 240, h: 100 };
+  assert.equal(legibleTreemap(items, (v) => v, bounds, { minSide: 0 }).length, items.length, "minSide 0 keeps everything");
+  const out = legibleTreemap(items, (v) => v, bounds, { minSide: 14 });
+  assert.ok(out.length >= 3 && out.length < items.length);
+  for (const t of out) assert.ok(Math.min(t.rect.w, t.rect.h) >= 14, "every tile wide enough to label");
+  assert.deepEqual(
+    out.map((t) => t.item),
+    items.slice(0, out.length),
+    "drops from the small end",
+  );
+  assert.equal(legibleTreemap([100, 1, 1], (v) => v, { x: 0, y: 0, w: 10, h: 10 }, { minSide: 5 }).length, 3, "never below min");
+});
+
+test("price moves: under half a percent is no change, and tiers are named buckets", () => {
+  assert.ok(Math.abs(sinceEntry({ avgEntry: 0.5, currentPrice: 0.85 }) - 0.7) < 1e-9);
+  assert.equal(sinceEntry({ avgEntry: 0, currentPrice: 0.4 }), 0, "no entry price, no move");
+  assert.deepEqual([0.004, -0.004, 0.006, -0.03].map(moveDirection), ["flat", "flat", "up", "down"]);
+  assert.deepEqual([0.019, 0.02, 0.079, 0.08, 0.199, 0.2, 0.7, -0.05, -0.25].map(moveTier), [0, 1, 1, 2, 2, 3, 3, 1, 3]);
+});
+
+test("moneyByMove weighs by dollars, not by count", () => {
+  const m = moneyByMove([
+    { avgEntry: 0.5, currentPrice: 0.85, totalValue: 9_000_000 },
+    { avgEntry: 0.6, currentPrice: 0.5, totalValue: 1_000_000 },
+    { avgEntry: 0.4, currentPrice: 0.401, totalValue: 500_000 }, // +0.25%: no real change
+    { avgEntry: 0.3, currentPrice: 0.2, totalValue: 0 },
+  ]);
+  assert.deepEqual(m, { total: 10_500_000, up: 9_000_000, down: 1_000_000, flat: 500_000 });
+});

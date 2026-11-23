@@ -183,7 +183,7 @@ export const moneyTier = (usd: number): MoneyTier => (usd >= 1_000_000 ? "big" :
 // The page's three type sizes: hero figure, card figure, body.
 const TIER_MONEY: Record<MoneyTier, string> = { big: "text-3xl", mid: "text-2xl", small: "text-sm" };
 
-const fmtEnd = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null);
+export const fmtEnd = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null);
 
 /**
  * One signal: N of the top traders hold the same side of a market. Reads

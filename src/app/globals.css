@@ -569,36 +569,163 @@
   }
 }
 
-/* Kept OUTSIDE @layer utilities: these class names are built at runtime
-   (map-${hue}-N), so they must not depend on Tailwind's class detection. */
 /*
- * Smart-money map tiles. Three tiers per direction, mixed into the page
- * background so white type keeps contrast; up and down use ONLY the reserved
- * meaning colours (status-good, chart-2). Each tile is a size container so its
- * labels appear only when they fit: a tiny tile shows colour alone.
+ * SMART-MONEY MAP. Tiles speak the app's tinted-chip language (TraderAvatar,
+ * .cell-won): a faint wash of the meaning colour over an elevated surface, a
+ * hairline in the same hue, and figures in that hue lifted toward white. The
+ * wash mixes in sRGB, like an alpha overlay: oklch would swing green toward
+ * teal and orange toward purple on the way to the navy surface. Up =
+ * status-good, down = chart-2 (the reserved pair), under 2% either way =
+ * neutral; three named tiers each way, set by data-dir / data-tier. Colour
+ * never works alone: every tile big enough prints the signed move.
+ * Kept OUTSIDE @layer utilities on purpose: rules keyed on data attributes
+ * must not depend on Tailwind's class detection, and unlayered rules beat the
+ * utility layer, which the container-query show/hide below relies on.
  */
-.map-status-good-1 { background: color-mix(in oklch, var(--status-good) 26%, var(--background)); color: var(--foreground); }
-.map-status-good-2 { background: color-mix(in oklch, var(--status-good) 42%, var(--background)); color: var(--foreground); }
-.map-status-good-3 { background: color-mix(in oklch, var(--status-good) 58%, var(--background)); color: var(--foreground); }
-.map-chart-2-1 { background: color-mix(in oklch, var(--chart-2) 26%, var(--background)); color: var(--foreground); }
-.map-chart-2-2 { background: color-mix(in oklch, var(--chart-2) 42%, var(--background)); color: var(--foreground); }
-.map-chart-2-3 { background: color-mix(in oklch, var(--chart-2) 58%, var(--background)); color: var(--foreground); }
+.map-tint {
+  --tone: var(--muted-foreground);
+  --tint: 3%;
+  --edge: 10%;
+  --lift: 0%;
+  background-color: color-mix(in srgb, var(--tone) calc(var(--tint) + var(--lift)), var(--surface-2));
+  background-image: linear-gradient(180deg, oklch(1 0 0 / 3%) 0%, oklch(1 0 0 / 0%) 45%);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--tone) calc(var(--edge) + var(--lift) * 3), transparent);
+}
+.map-tint[data-dir="up"] { --tone: var(--status-good); }
+.map-tint[data-dir="down"] { --tone: var(--chart-2); }
+.map-tint[data-tier="1"] { --tint: 6%; --edge: 22%; }
+.map-tint[data-tier="2"] { --tint: 11%; --edge: 34%; }
+.map-tint[data-tier="3"] { --tint: 16%; --edge: 46%; }
+
+/* Figures in the up/down hue, lifted toward white so they hold contrast on a tinted tile. */
+.map-ink { color: var(--muted-foreground); }
+.map-ink[data-ink="up"] { color: color-mix(in oklch, var(--status-good) 72%, white); }
+.map-ink[data-ink="down"] { color: color-mix(in oklch, var(--chart-2) 72%, white); }
+
+/*
+ * Each tile is a size container, so labels appear only when they fit. The
+ * container is the whole tile (padding lives on .map-body), so every
+ * threshold below is a tile size. Smallest tiles print the signed move only;
+ * the +/- sign still says which way without colour.
+ */
 .map-tile {
   container-type: size;
+  transition:
+    background-color var(--dur-fast) var(--ease-out-soft),
+    box-shadow var(--dur-fast) var(--ease-out-soft);
 }
+.map-tile:hover { --lift: 5%; }
+.map-tile:focus-visible {
+  --lift: 5%;
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+.map-tile .map-body { padding: 6px; }
+.map-tile .map-chg,
 .map-tile .map-title,
 .map-tile .map-side,
-.map-tile .map-chg {
+.map-tile .map-who,
+.map-tile .map-chg svg {
   display: none;
 }
-@container (min-width: 3.25rem) and (min-height: 1.75rem) {
-  .map-tile .map-chg { display: block; }
+.map-tile .map-title {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-size: 0.75rem;
+  line-height: 1.35;
 }
-@container (min-width: 5.25rem) and (min-height: 4.25rem) {
+.map-tile .map-chg { font-size: 0.75rem; line-height: 1; }
+@container (min-width: 2.5rem) and (min-height: 1.75rem) {
+  .map-tile .map-chg { display: inline-flex; }
+}
+@container (min-width: 3.75rem) {
+  .map-tile .map-chg svg { display: block; }
+}
+@container (min-width: 6rem) and (min-height: 4.5rem) {
+  .map-tile .map-body { padding: 10px; }
+  .map-tile .map-title { display: -webkit-box; }
+  .map-tile .map-chg { font-size: 0.8125rem; }
+}
+@container (min-width: 5rem) and (min-height: 9rem) {
+  .map-tile .map-body { padding: 10px; }
   .map-tile .map-title { display: -webkit-box; }
 }
-@container (min-width: 8.5rem) and (min-height: 4.75rem) {
-  .map-tile .map-side { display: block; }
+@container (min-height: 6.25rem) {
+  .map-tile .map-title { -webkit-line-clamp: 3; }
+}
+@container (min-height: 9rem) {
+  .map-tile .map-title { -webkit-line-clamp: 5; }
+}
+@container (min-width: 10rem) and (min-height: 5.75rem) {
+  .map-tile .map-side { display: inline-flex; }
+}
+@container (min-width: 10.5rem) and (min-height: 9.25rem) {
+  .map-tile .map-title { font-size: 0.875rem; -webkit-line-clamp: 4; }
+  .map-tile .map-chg { font-size: 1rem; }
+  .map-tile .map-who { display: block; }
+}
+
+/* The hero tile: type sized by the tile itself (container units). */
+.map-hero .hero-cat,
+.map-hero .hero-badge,
+.map-hero .hero-who,
+.map-hero .hero-holders,
+.map-hero .hero-paid {
+  display: none;
+}
+.map-hero .hero-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  font-size: clamp(0.95rem, 0.55rem + 2.2cqw, 1.5rem);
+}
+.map-hero .hero-figure { font-size: clamp(1.75rem, 0.9rem + 5.5cqw, 3.5rem); }
+.map-hero .hero-chg { font-size: clamp(1.125rem, 0.7rem + 2.6cqw, 2rem); }
+@container (min-width: 15rem) {
+  .map-hero .hero-paid { display: block; }
+}
+@container (min-width: 16rem) and (min-height: 10.5rem) {
+  .map-hero .hero-who { display: flex; }
+}
+@container (min-width: 18rem) and (min-height: 12.5rem) {
+  .map-hero .hero-cat { display: flex; }
+}
+@container (min-width: 24rem) {
+  .map-hero .hero-badge { display: inline-flex; }
+}
+@container (min-width: 20rem) and (min-height: 21rem) {
+  .map-hero .hero-holders { display: flex; }
+}
+
+/* Hover card: lifts its cell above the neighbours, never takes the pointer, and stays off touch screens. */
+.map-cell:hover,
+.map-cell:focus-within {
+  z-index: 10;
+}
+.map-card {
+  pointer-events: none;
+  opacity: 0;
+  translate: 0 3px;
+  transition:
+    opacity var(--dur-fast) var(--ease-out-soft),
+    translate var(--dur-fast) var(--ease-out-soft);
+}
+.map-cell:hover .map-card,
+.map-cell:focus-within .map-card {
+  opacity: 1;
+  translate: 0 0;
+}
+@media (hover: none) {
+  .map-card { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-tile,
+  .map-card {
+    transition: none;
+  }
+  .map-card { translate: none; }
 }
 
 /* Charts: the line draws itself once when the chart mounts (~600ms), never on data redraws. */

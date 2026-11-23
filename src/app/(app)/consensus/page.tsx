@@ -166,8 +166,8 @@ export default async function ConsensusPage({ searchParams }: { searchParams: Pr
       </div>
 
       {mapSignals.length >= 3 && (
-        <Section title="The smart money map" description="Every live signal, sized by the money behind it and coloured by how it has moved since the traders bought. Tap a tile to open it.">
-          <MoneyMap signals={mapSignals.slice(0, 36)} />
+        <Section title="The smart money map" description="Where top traders have the most money right now. A bigger tile means more money; the tint shows how the price has moved since they bought.">
+          <MoneyMap signals={mapSignals} />
         </Section>
       )}
 
@@ -233,7 +233,7 @@ export default async function ConsensusPage({ searchParams }: { searchParams: Pr
         </details>
       </div>
 
-      <section>
+      <section id="all-signals" className="scroll-mt-20">
         <p className="tabular mb-4 text-xs text-muted-foreground">
           {items.length} signal{items.length === 1 ? "" : "s"}, biggest money first
           {seen.size > 0 ? ` · ${seen.size} where top traders are split` : ""}

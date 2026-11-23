@@ -57,3 +57,35 @@ export function squarify<T>(items: T[], weight: (item: T) => number, bounds: Rec
   }
   return out;
 }
+
+/**
+ * The items worth a tile: largest first, while each still holds at least
+ * `minShare` of the total, capped at `max` and never fewer than `min`. Past
+ * that point tiles shrink into unlabelled confetti, so the rest are left to
+ * the list beside the map instead of being drawn too small to read.
+ */
+export function takeLargest<T>(items: T[], weight: (item: T) => number, { minShare, max, min = 3 }: { minShare: number; max: number; min?: number }): T[] {
+  const sorted = items.filter((i) => weight(i) > 0).sort((a, b) => weight(b) - weight(a));
+  const total = sorted.reduce((s, i) => s + weight(i), 0);
+  const out: T[] = [];
+  for (const item of sorted) {
+    if (out.length >= max) break;
+    if (out.length >= min && weight(item) / total < minShare) break;
+    out.push(item);
+  }
+  return out;
+}
+
+/**
+ * Squarified layout of the largest items, dropping the smallest until every
+ * tile's shorter side is at least `minSide` layout units, so no tile is drawn
+ * too thin to print its figure. Never drops below `min` items.
+ */
+export function legibleTreemap<T>(items: T[], weight: (item: T) => number, bounds: Rect, { minSide, min = 3 }: { minSide: number; min?: number }): Array<{ item: T; rect: Rect }> {
+  let kept = items.filter((i) => weight(i) > 0).sort((a, b) => weight(b) - weight(a));
+  for (;;) {
+    const tiles = squarify(kept, weight, bounds);
+    if (kept.length <= min || tiles.every((t) => Math.min(t.rect.w, t.rect.h) >= minSide)) return tiles;
+    kept = kept.slice(0, -1);
+  }
+}
