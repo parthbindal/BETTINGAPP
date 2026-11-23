@@ -41,27 +41,50 @@ const JOBS: Record<string, () => Promise<unknown>> = {
   },
 };
 
-function secretMatches(provided: string | null): boolean {
-  if (!config.cronSecret || !provided) return false;
+function secretMatches(provided: string | null, expected: string = config.cronSecret): boolean {
+  if (!expected || !provided) return false;
   const a = Buffer.from(provided);
-  const b = Buffer.from(config.cronSecret);
+  const b = Buffer.from(expected);
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-/** Authorized by the CRON_SECRET bearer token (schedulers) or an admin session (admin console). */
-async function authorize(req: Request): Promise<boolean> {
+/**
+ * Jobs an outside scheduler may start with ALERTS_CRON_SECRET. Vercel Hobby
+ * cannot run sub-daily crons, so a free external scheduler calls
+ * smart-alerts; its secret starts nothing else, so a leak cannot be used to
+ * run the heavy jobs and burn the free-tier quotas.
+ */
+const ALERTS_SECRET_JOBS = new Set(["smart-alerts"]);
+
+/** Authorized by CRON_SECRET (Vercel cron), ALERTS_CRON_SECRET (alerts only), or an admin session (admin console). */
+async function authorize(req: Request, job: string): Promise<boolean> {
   const header = req.headers.get("authorization");
   const bearer = header?.startsWith("Bearer ") ? header.slice(7) : null;
-  if (secretMatches(bearer) || secretMatches(req.headers.get("x-cron-secret"))) return true;
+  const alt = req.headers.get("x-cron-secret");
+  if (secretMatches(bearer) || secretMatches(alt)) return true;
+  if (ALERTS_SECRET_JOBS.has(job) && (secretMatches(bearer, config.alertsCronSecret) || secretMatches(alt, config.alertsCronSecret))) return true;
   const ctx = await getApiContext();
   return ctx?.user.role === "admin";
 }
 
+/**
+ * Each smart-alerts run wakes the database, and Neon Free bills every wake as
+ * at least five minutes of compute (100 compute-hours a month). A scheduler
+ * set too eagerly would drain that and get the database suspended, so a
+ * server instance ignores repeat calls within this window.
+ */
+const ALERTS_MIN_GAP_MS = 5 * 60_000;
+let lastAlertsRun = 0;
+
 async function run(req: Request, params: Promise<{ job: string }>) {
-  if (!(await authorize(req))) return apiError("Not authorized.", 401);
   const { job } = await params;
+  if (!(await authorize(req, job))) return apiError("Not authorized.", 401);
   const fn = JOBS[job];
   if (!fn) return apiError(`Unknown job. Available: ${Object.keys(JOBS).join(", ")}`, 404);
+  if (job === "smart-alerts") {
+    if (Date.now() - lastAlertsRun < ALERTS_MIN_GAP_MS) return json({ ok: true, job, skipped: "ran less than 5 minutes ago on this server" });
+    lastAlertsRun = Date.now();
+  }
   const started = Date.now();
   try {
     const result = await fn();

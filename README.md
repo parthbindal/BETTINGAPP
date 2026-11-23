@@ -98,6 +98,7 @@ relevant service is genuinely configured.
 | `RESEND_API_KEY`, `EMAIL_FROM` | **Email** onboarding + digests | Messages are **logged as skipped**, never silently lost |
 | `BALLDONTLIE_API_KEY` | Reserved for a future live sports adapter | Sports stays labeled **demo data** (the adapter isn't built yet) |
 | `CRON_SECRET` | Authorizes the scheduled-job endpoints | Jobs run only via an admin session |
+| `ALERTS_CRON_SECRET` | Lets an outside scheduler start `smart-alerts` (and nothing else) | Alerts run only after page views |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET` | **Smart-money alerts on Telegram** (Pro members connect a chat) | Alerts still arrive in the app; Settings says Telegram is not switched on |
 | `TELEGRAM_CHANNEL_ID` | The **free public alert channel** (`@name`): the biggest moves, an hour late | No public channel |
 | `ADMIN_EMAILS` | Grants the admin role on sign-up | No admins |
@@ -139,7 +140,7 @@ project is on Pro.
 | `resolve-predictions` | Score forecasts from exchange results | daily 09:38 |
 | `refresh-hot` | Re-quote the most liquid + all watched markets | daily 10:44 |
 | `watchlist-alerts` | Notify on watched-market moves and upcoming events | daily 11:52 |
-| `smart-alerts` | Big trades by the tracked traders → in-app + Telegram alerts, public channel | not scheduled on Hobby (see below) |
+| `smart-alerts` | Big trades by the tracked traders → in-app + Telegram alerts, public channel | every 20 min from cron-job.org (see below) |
 | `daily-brief` / `weekly-brief` | Build the research summary and send opted-in digests | daily / weekly |
 | `onboarding-emails` | Advance the 6-step onboarding sequence | daily 15:19 |
 
@@ -161,12 +162,22 @@ traders) in the app and, once they connect it, on Telegram. The biggest moves
 (`SmartAlert.key`, `SmartAlertDelivery` unique per alert/member/channel), so
 overlapping runs never alert anyone twice.
 
-- **On Vercel Hobby** it is not in `vercel.json` (a sub-daily cron would fail
-  every deploy). It runs in the background after page views instead
-  (`keepAlertsFlowing`, at most every 90 seconds per server), so alerts only
-  flow while someone has the app open.
-- **On Vercel Pro**, add `{ "path": "/api/jobs/smart-alerts", "schedule": "*/2 * * * *" }`
-  to `vercel.json` for alerts within about two minutes, around the clock.
+How often it runs is set by two free tiers, not one:
+
+- **Vercel Hobby** cannot run sub-daily crons (they fail every deploy), so the
+  schedule comes from outside: a free [cron-job.org](https://cron-job.org) job
+  calls `https://<site>/api/jobs/smart-alerts` every **20 minutes** with the
+  header `Authorization: Bearer $ALERTS_CRON_SECRET`. That secret can start
+  this job only. Between calls, alerts also run after page views
+  (`keepAlertsFlowing`), when the database is awake anyway.
+- **Neon Free** is the real limit. Every run wakes the database, Neon bills
+  each wake as at least 5 minutes of compute, and Free includes 100
+  compute-hours a month; running out suspends the database, and so the
+  site, until the next month. Every 20 minutes is about 45 of those hours;
+  every 10 is about 90 (too close); every 2 would never let it sleep. The
+  route ignores calls less than 5 minutes apart as a safety net.
+- **Alerts within about 2 minutes** need a database that may stay awake (a
+  paid Neon plan). Vercel Pro alone does not fix this.
 
 **Telegram setup:** create a bot with @BotFather; create a public channel and
 add the bot as an admin with "Post messages"; put `TELEGRAM_BOT_TOKEN`,

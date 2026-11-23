@@ -20,6 +20,8 @@ const env = {
   resendApiKey: process.env.RESEND_API_KEY ?? "",
   emailFrom: process.env.EMAIL_FROM ?? "EDGEWISE <hello@example.com>",
   cronSecret: process.env.CRON_SECRET ?? "",
+  // For an outside scheduler: starts the smart-alerts job and nothing else, so a leak cannot run the heavy jobs.
+  alertsCronSecret: process.env.ALERTS_CRON_SECRET ?? "",
   // Smart-money alerts on Telegram. The bot comes from @BotFather; the channel is the public, delayed feed.
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN ?? "",
   telegramBotUsername: (process.env.TELEGRAM_BOT_USERNAME ?? "").replace(/^@/, ""),
