@@ -1,6 +1,9 @@
 import { cacheLife } from "next/cache";
+import { db } from "@/lib/db";
 import { getFeaturedMarkets } from "@/lib/data/markets";
-import { getWhaleWatch } from "@/lib/whales";
+import { getWhaleWatch, type ConsensusHolding } from "@/lib/whales";
+import { freePreviewTokens, isInPlay, splitSides } from "@/lib/intel";
+import { CHANNEL_DELAY_MS } from "@/lib/smart-alerts-core";
 import { fetchLeaderboard, type LeaderEntry, type LeaderboardPeriod } from "@/lib/data/providers/polymarket-whales";
 import { getLedger, getRecordByKind, getSignalRecord, type LedgerRow, type SignalRecord } from "@/lib/signals";
 
@@ -20,19 +23,21 @@ export interface TrackRecordView {
   byKind: Array<{ kind: string; record: SignalRecord }>;
   open: LedgerRow[];
   settled: LedgerRow[];
+  /** When this view was read, so pages can compare dates without reading the clock during a prerender. */
+  readAt: number;
 }
 
 /**
  * The public signal ledger, cached for a few minutes. Anonymous traffic lands
  * on this page straight from the nav, and it runs seven aggregate queries, so
  * it must not hit Postgres per view. Minutes is the right window: the scan that
- * feeds it only runs every 15.
+ * feeds it runs hourly.
  */
 export async function getTrackRecordCached(): Promise<TrackRecordView> {
   "use cache";
   cacheLife("minutes");
   const [record, byKind, ledger] = await Promise.all([getSignalRecord(), getRecordByKind(), getLedger({ openLimit: 40, settledLimit: 40 })]);
-  return { record, byKind, open: ledger.open, settled: ledger.settled };
+  return { record, byKind, open: ledger.open, settled: ledger.settled, readAt: Date.now() };
 }
 
 /** Tracked wallets that must hold the same outcome before public pages call it consensus. */
@@ -57,6 +62,11 @@ export interface SmartMoneyPreview {
     slug: string | null;
     marketSlug: string | null;
   }>;
+  /** The biggest clear agreements still in play (no split markets), picked as the app's Home picks its hero. */
+  signals: ConsensusHolding[];
+  /** Outcomes a Free member can open (split markets count both sides); the rest of the signals are Pro. */
+  freeTokenCount: number;
+  topTraders: Array<{ wallet: string; name: string; rank: number; pnl: number }>;
 }
 
 /**
@@ -72,6 +82,7 @@ export async function getSmartMoneyPreviewCached(): Promise<SmartMoneyPreview | 
   if (!w) return null;
   const p = w.payload;
   const consensus = p.holdings.filter((h) => h.holders >= CONSENSUS_MIN_WALLETS);
+  const free = freePreviewTokens(p.holdings, CONSENSUS_MIN_WALLETS);
   return {
     generatedAt: p.generatedAt,
     trackedWallets: p.tradersScanned,
@@ -79,6 +90,15 @@ export async function getSmartMoneyPreviewCached(): Promise<SmartMoneyPreview | 
     consensusOutcomes: consensus.length,
     consensusCapped: consensus.length > 0 && consensus.length === p.holdings.length,
     consensusCapital: consensus.reduce((sum, h) => sum + h.totalValue, 0),
+    freeTokenCount: free.size,
+    signals: (() => {
+      const split = splitSides(p.holdings, CONSENSUS_MIN_WALLETS);
+      return consensus.filter((h) => isInPlay(h) && !split.has(h.conditionId)).sort((a, b) => b.totalValue - a.totalValue).slice(0, 3);
+    })(),
+    topTraders: [...(p.wallets ?? [])]
+      .sort((a, b) => a.rank - b.rank)
+      .slice(0, 6)
+      .map((w) => ({ wallet: w.wallet, name: w.name, rank: w.rank, pnl: w.pnl })),
     top: [...p.holdings]
       .sort((a, b) => b.holders - a.holders || b.totalValue - a.totalValue)
       .slice(0, 4)
@@ -110,4 +130,49 @@ export async function getHotTradersCached(period: Exclude<LeaderboardPeriod, "AL
   } catch {
     return [];
   }
+}
+
+export interface PublicMove {
+  id: string;
+  wallet: string;
+  traderName: string;
+  rank: number;
+  side: string;
+  outcome: string;
+  title: string;
+  usd: number;
+  avgPrice: number;
+  lastTradeAt: string;
+  eventSlug: string | null;
+  marketSlug: string | null;
+}
+
+/** Public pages show big moves at least this big. */
+const PUBLIC_MOVE_MIN_USD = 10_000;
+
+/**
+ * Recent big moves by the tracked top traders for public pages: one per
+ * trader, $10K+, from markets still in play, and only once they are
+ * CHANNEL_DELAY_MS old, the same delay as the free Telegram channel. Pro
+ * members are alerted first; this is the free, delayed view of the same feed.
+ */
+export async function getPublicBigMovesCached(limit = 8): Promise<PublicMove[]> {
+  "use cache";
+  cacheLife("minutes");
+  const now = Date.now();
+  const rows = await db.smartAlert.findMany({
+    where: { lastTradeAt: { lte: new Date(now - CHANNEL_DELAY_MS), gte: new Date(now - 24 * 3_600_000) }, usd: { gte: PUBLIC_MOVE_MIN_USD }, rank: { not: null } },
+    orderBy: { lastTradeAt: "desc" },
+    take: 80,
+    select: { id: true, wallet: true, traderName: true, rank: true, side: true, outcome: true, title: true, usd: true, avgPrice: true, lastTradeAt: true, eventSlug: true, marketSlug: true },
+  });
+  const seen = new Set<string>();
+  const out: PublicMove[] = [];
+  for (const r of rows) {
+    if (out.length >= limit) break;
+    if (seen.has(r.wallet) || r.avgPrice <= 0.03 || r.avgPrice >= 0.97) continue;
+    seen.add(r.wallet);
+    out.push({ ...r, rank: r.rank ?? 0, lastTradeAt: r.lastTradeAt.toISOString() });
+  }
+  return out;
 }

@@ -33,7 +33,10 @@ export interface Plan {
   tagline: string;
   purpose: string;
   limits: PlanLimits;
+  /** What the plan is for, in a few lines: the smart-money features people pay for. Pricing cards lead with these. */
   highlights: string[];
+  /** The rest of the research toolkit, listed smaller under the highlights. */
+  toolkit: string[];
 }
 
 /** Completed per deployment by planHighlights(): where alerts are delivered depends on what is switched on. */
@@ -44,7 +47,7 @@ export const PLANS: Record<Tier, Plan> = {
     tier: "free",
     name: "Free",
     priceMonthly: 0,
-    tagline: "Learn the fundamentals and explore real markets.",
+    tagline: "See where the top traders agree.",
     purpose: "Acquire users and demonstrate value.",
     limits: {
       aiQueriesPerDay: 5,
@@ -64,8 +67,8 @@ export const PLANS: Record<Tier, Plan> = {
       customReports: false,
       earlyAccess: false,
     },
-    highlights: [
-      "The 3 biggest smart-money signals and the money map",
+    highlights: ["The 3 biggest smart-money signals, with who holds them", "The smart money map", "The top 25 traders, ranked live", "Polymarket's hottest traders today, this week and this month"],
+    toolkit: [
       "Dashboard with live market overview",
       "Browse 40 markets per category",
       "Basic player statistics",
@@ -80,7 +83,7 @@ export const PLANS: Record<Tier, Plan> = {
     tier: "pro",
     name: "Pro",
     priceMonthly: 19.99,
-    tagline: "The complete analyst toolkit.",
+    tagline: "Every signal and every big move by the top traders.",
     purpose: "The subscription product — the full platform.",
     limits: {
       aiQueriesPerDay: 150,
@@ -100,17 +103,13 @@ export const PLANS: Record<Tier, Plan> = {
       customReports: true,
       earlyAccess: true,
     },
-    highlights: [
-      "Everything in Free",
-      ALERTS_LINE,
-      "Every signal, with deep dives on who holds what",
-      "Follow traders and hear about their $1K+ trades",
+    highlights: ["Every signal, with deep dives on who holds what", ALERTS_LINE, "Follow traders and hear about their $1K+ trades", "All 1,000 top traders, ranked live, with their open bets", "Everything in Free"],
+    toolkit: [
       "150 AI Analyst queries per day",
       "Full market intelligence (2,000 markets per category)",
       "2 years of historical charts",
       "Opportunity Scanner with enhanced filters",
       "Price Lab — cross-venue line shopping & +EV",
-      "Whale Watch — top-trader position tracking",
       "Full sports analytics with matchup reports",
       "50 saved research reports per month",
       "Advanced performance tracker (Brier, calibration, skill vs market)",
@@ -167,16 +166,18 @@ export function effectiveTier(sub: { tier: string; status: string; source: strin
 
 /** Feature comparison rows for the pricing page. */
 export const FEATURE_MATRIX: Array<{ label: string; free: string; pro: string }> = [
+  // What people pay for comes first; the research toolkit follows.
+  { label: "Smart-money signals", free: "Top 3 + money map", pro: "All, with deep dives" },
+  { label: "Whale alerts", free: "—", pro: "In the app" },
+  { label: "Top traders leaderboard", free: "Top 25, ranked live", pro: "All 1,000, with their open bets" },
+  { label: "Whale Watch (top-trader tracking)", free: "—", pro: "Included" },
   { label: "AI Analyst queries / day", free: "5", pro: "150" },
   { label: "Saved research reports / month", free: "1", pro: "50" },
   { label: "Market history", free: "7 days", pro: "2 years" },
   { label: "Markets per category", free: "40", pro: "2,000" },
   { label: "Watchlist items", free: "5", pro: "250" },
-  { label: "Smart-money signals", free: "Top 3 + money map", pro: "All, with deep dives" },
-  { label: "Whale alerts", free: "—", pro: "In the app" },
   { label: "Opportunity scanner", free: "—", pro: "Enhanced filters" },
   { label: "Price Lab (cross-venue best odds)", free: "—", pro: "Included" },
-  { label: "Whale Watch (top-trader tracking)", free: "—", pro: "Included" },
   { label: "Sports analytics", free: "Basic stats", pro: "Advanced + matchups" },
   { label: "Performance tracker", free: "Accuracy only", pro: "Brier, calibration, skill" },
   { label: "Learning Academy", free: "Beginner", pro: "All levels" },

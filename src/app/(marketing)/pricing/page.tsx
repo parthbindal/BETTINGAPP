@@ -37,7 +37,7 @@ export default function PricingPage() {
     <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6">
       <div className="text-center">
         <h1 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">Simple pricing. Honest limits.</h1>
-        <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">The Free plan is genuinely useful. Paid plans add depth, history and volume, never basic transparency. Cancel any time.</p>
+        <p className="mx-auto mt-3 max-w-xl text-pretty text-muted-foreground">Start free with the biggest signals. Go Pro for every signal and every big move by Polymarket&apos;s top traders. Cancel any time.</p>
         <Suspense fallback={null}>
           <BillingNotice />
         </Suspense>
@@ -46,23 +46,32 @@ export default function PricingPage() {
       <div className="mx-auto mt-10 grid max-w-3xl gap-5 md:grid-cols-2">
         {(Object.keys(PLANS) as Tier[]).map((tier) => {
           const p = PLANS[tier];
+          // Highlighted because it is the full product, not because of sales figures: never claim popularity we cannot show.
           const popular = tier === "pro";
           return (
             <div key={tier} className={cn("card-surface relative flex flex-col p-6", popular && "glow-primary border-primary/40")}>
-              {popular && <span className="absolute -top-2.5 left-6 rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground">Most popular</span>}
+              {popular && <span className="absolute -top-2.5 left-6 rounded-full border border-primary/40 bg-card px-2 py-0.5 text-[11px] font-medium text-foreground">Full access</span>}
               <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">{p.name}</h2>
               <div className="mt-2 flex items-baseline gap-1">
                 <span className="tabular text-4xl font-semibold tracking-tight">{p.priceMonthly === 0 ? "$0" : `$${p.priceMonthly}`}</span>
                 <span className="text-sm text-muted-foreground">/month</span>
               </div>
               <p className="mt-2 text-sm text-muted-foreground">{p.tagline}</p>
-              <ul className="mt-5 flex-1 space-y-2 text-sm">
+              <ul className="mt-5 space-y-2.5 text-[15px]">
                 {planHighlights(p.tier, delivery).map((h) => (
-                  <li key={h} className="flex gap-2">
-                    <Check className="mt-0.5 size-4 shrink-0 text-primary" /> <span>{h}</span>
+                  <li key={h} className="flex gap-2.5">
+                    <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" /> <span>{h}</span>
                   </li>
                 ))}
               </ul>
+              <div className="mt-5 flex-1 border-t border-border/70 pt-4">
+                <div className="label-micro">{tier === "free" ? "Also included" : "Plus the full research toolkit"}</div>
+                <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                  {p.toolkit.map((t) => (
+                    <li key={t}>{t}</li>
+                  ))}
+                </ul>
+              </div>
               <div className="mt-6">
                 <Suspense
                   fallback={

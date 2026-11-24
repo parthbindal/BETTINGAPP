@@ -42,7 +42,7 @@ export function TradeRow({ m, fresh = false, showTx = false, action = false, tie
             {who} <span className="text-muted-foreground">{buy ? "bought" : "sold"}</span> <SidePill outcome={m.outcome} />{" "}
             <span className="tabular text-muted-foreground">at {m.pricePct}¢</span>
           </p>
-          <span className={cn("tabular shrink-0 font-semibold", tier === "big" ? "text-xl" : tier === "small" ? "text-sm text-muted-foreground" : "text-base")}>${compact(m.usd)}</span>
+          <span className={cn("tabular shrink-0 font-semibold", tier === "big" ? "text-xl" : tier === "small" ? "text-sm text-muted-foreground" : "text-base")}>${compact(Math.round(m.usd))}</span>
         </div>
         <p className="mt-1 truncate text-xs text-muted-foreground">
           {url ? (

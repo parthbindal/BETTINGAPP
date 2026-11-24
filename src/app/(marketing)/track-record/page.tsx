@@ -81,7 +81,9 @@ function Stat({ label, value, foot, accent }: { label: string; value: string; fo
   );
 }
 
-function Hero({ record, nextSettlement }: { record: SignalRecord; nextSettlement: Date | null }) {
+function Hero({ record, nextSettlement, readAt }: { record: SignalRecord; nextSettlement: Date | null; readAt: number }) {
+  // Once the earliest close date has passed, "the first resolves <date>" would be a stale promise.
+  const due = nextSettlement !== null && nextSettlement.getTime() <= readAt;
   const graded = record.settled > 0;
   return (
     <section className="hero-glow relative isolate overflow-hidden border-b border-border/60">
@@ -90,7 +92,7 @@ function Hero({ record, nextSettlement }: { record: SignalRecord; nextSettlement
         <div className="rise-in">
           <div className="flex items-center gap-2">
             <span className="pulse-live" aria-hidden />
-            <span className="label-micro">Public ledger · re-scanned up to every 15 minutes</span>
+            <span className="label-micro">Public ledger · re-scanned every hour</span>
           </div>
           <h1 className="mt-5 max-w-3xl text-balance text-4xl font-semibold leading-[1.05] sm:text-5xl md:text-6xl">
             Every call on the record, <span className="text-muted-foreground">before the result.</span>
@@ -121,7 +123,12 @@ function Hero({ record, nextSettlement }: { record: SignalRecord; nextSettlement
                 <span className="figure-unit"> live</span>
               </div>
               <div className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
-                None have settled yet{nextSettlement ? <> — the first resolves <span className="font-medium text-foreground">{dateShort(nextSettlement)}</span></> : null}. Every one is listed below at the price it was called. Come back and check us.
+                {due ? (
+                  <>None have been graded yet. The first markets closed <span className="font-medium text-foreground">{dateShort(nextSettlement)}</span> and are graded as Polymarket settles them.</>
+                ) : (
+                  <>None have settled yet{nextSettlement ? <> — the first resolves <span className="font-medium text-foreground">{dateShort(nextSettlement)}</span></> : null}.</>
+                )}{" "}
+                Every one is listed below at the price it was called. Come back and check us.
               </div>
             </div>
           )}
@@ -359,13 +366,13 @@ function Method() {
 }
 
 export default async function TrackRecordPage() {
-  const { record, byKind, open, settled } = await getTrackRecordCached();
+  const { record, byKind, open, settled, readAt } = await getTrackRecordCached();
   // Soonest real close date among open calls; the ledger is sorted that way already.
   const nextSettlement = open.find((r) => r.endDate !== null)?.endDate ?? null;
 
   return (
     <div className="pb-4">
-      <Hero record={record} nextSettlement={nextSettlement} />
+      <Hero record={record} nextSettlement={nextSettlement} readAt={readAt} />
       <StatBand record={record} />
       <ProvisionalNote record={record} />
       <OpenBoard rows={open} />

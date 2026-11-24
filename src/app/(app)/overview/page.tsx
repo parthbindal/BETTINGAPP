@@ -124,6 +124,18 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const more = live.slice(1, 4);
   const since = windowStart(range.days);
   const moves = p.recentMoves.filter((m) => Date.parse(m.tsIso) >= since);
+  // "Just traded" headlines big moves: one per trader (a busy bot otherwise fills every row), $1K+,
+  // and not 97¢+ / 3¢- fills on markets that are already decided.
+  const seenTraders = new Set<string>();
+  const bigMoves = moves
+    .filter((m) => m.usd >= 1_000 && m.pricePct > 3 && m.pricePct < 97)
+    .filter((m) => {
+      const who = m.wallet ?? m.trader;
+      if (seenTraders.has(who)) return false;
+      seenTraders.add(who);
+      return true;
+    })
+    .slice(0, 5);
   const flow = dailyActivity(p, range.days);
   const volume = flow.reduce((s, d) => s + d.buys + d.sells, 0);
   const trades = flow.reduce((s, d) => s + d.trades, 0);
@@ -184,14 +196,14 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
             <ActivityChart data={flow} height={300} />
           </Section>
           <Section title="Just traded" description="Latest big moves by top traders" right={<Link href="/activity" className="text-xs font-medium text-primary hover:underline">Live trades →</Link>} className="xl:col-span-2">
-            {moves.length ? (
+            {bigMoves.length ? (
               <div className="-my-3 divide-y divide-border/70">
-                {moves.slice(0, 5).map((m, i) => (
+                {bigMoves.map((m, i) => (
                   <TradeRow key={`${m.txHash ?? m.tsIso}-${i}`} m={m} fresh={ageMs(m.tsIso) < DAY_MS / 4} action />
                 ))}
               </div>
             ) : (
-              <EmptyState title="Quiet stretch" description={`No trades of $300+ from top traders in the last ${range.label}.`} />
+              <EmptyState title="Quiet stretch" description={`No trades of $1,000+ from top traders in the last ${range.label}.`} />
             )}
           </Section>
         </div>

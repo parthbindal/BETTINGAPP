@@ -274,9 +274,10 @@ export function SignalCard({ h, rank, href, featured = false, tiered = false, pr
 /**
  * The one signal that opens Home: full width, the headline count and the money
  * counting up once, the avatars arriving one by one. Everything else on the
- * page enters after it.
+ * page enters after it. `action` replaces the Polymarket button (the homepage
+ * sends visitors to sign up instead).
  */
-export function HeroSignal({ h, href }: { h: ConsensusHolding; href: string }) {
+export function HeroSignal({ h, href, action }: { h: ConsensusHolding; href: string; action?: React.ReactNode }) {
   const end = fmtEnd(h.endDate);
   return (
     <article className="card-surface relative overflow-hidden p-5 sm:p-6">
@@ -331,7 +332,7 @@ export function HeroSignal({ h, href }: { h: ConsensusHolding; href: string }) {
               ))}
             </ul>
           ) : null}
-          <OpenOnPolymarket title={h.title} outcome={h.outcome} eventSlug={h.slug} marketSlug={h.marketSlug} inPlay={isInPlay(h)} />
+          {action ?? <OpenOnPolymarket title={h.title} outcome={h.outcome} eventSlug={h.slug} marketSlug={h.marketSlug} inPlay={isInPlay(h)} />}
         </div>
       </div>
     </article>
