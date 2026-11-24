@@ -741,3 +741,16 @@ model SmartAlertDelivery {
   @@unique([alertId, userId, channel])
   @@index([userId, createdAt])
 }
+
+/// When each background job last started, shared by every server instance.
+/// Vercel runs several instances at once and each one used to decide on its
+/// own, so three full scans could start within seconds of each other. A job
+/// claims its row atomically before running (see claimRun in job-runs.ts),
+/// which also caps how often it can run on free-tier compute.
+model JobRun {
+  name       String    @id
+  startedAt  DateTime
+  finishedAt DateTime?
+  ok         Boolean?
+  note       String?
+}

@@ -48,8 +48,26 @@ function run(el: HTMLElement, from: number, to: number, kind: CountFormat): () =
  * and sheens + counts between values when a refresh changes it. The server
  * renders the final value, so the number is correct before any script runs,
  * with reduced motion, and for screen readers (aria-label holds it too).
+ *
+ * `intro={false}` skips the first count (rows of a table should be readable at
+ * once); `animate={false}` lets a change land silently, for the first live read
+ * that replaces every scanned figure at once.
  */
-export function CountUp({ value, format: kind = "int", id, className }: { value: number; format?: CountFormat; id?: string; className?: string }) {
+export function CountUp({
+  value,
+  format: kind = "int",
+  id,
+  className,
+  intro = true,
+  animate = true,
+}: {
+  value: number;
+  format?: CountFormat;
+  id?: string;
+  className?: string;
+  intro?: boolean;
+  animate?: boolean;
+}) {
   const ref = useRef<HTMLSpanElement>(null);
   const shown = useRef<number | null>(null);
 
@@ -61,13 +79,13 @@ export function CountUp({ value, format: kind = "int", id, className }: { value:
 
     // A later value: shimmer once and count from the old figure (Stage 4 "never flash-replace").
     if (previous !== null && previous !== value) {
-      if (reducedMotion()) return;
+      if (!animate || reducedMotion()) return;
       el.classList.remove("shimmer");
       void el.offsetWidth; // restart the one-shot sheen
       el.classList.add("shimmer");
       return run(el, previous, value, kind);
     }
-    if (previous !== null) return;
+    if (previous !== null || !intro) return;
 
     // First observation only.
     const key = id ? `${id}:${value}` : null;
@@ -87,7 +105,7 @@ export function CountUp({ value, format: kind = "int", id, className }: { value:
       io.disconnect();
       stop?.();
     };
-  }, [value, kind, id]);
+  }, [value, kind, id, intro, animate]);
 
   return (
     <span ref={ref} className={cn("count-up", className)}>

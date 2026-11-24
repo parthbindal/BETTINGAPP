@@ -18,6 +18,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { after } from "next/server";
 import { fetchLeaderboard, fetchPositions, fetchRecentTrades, type LeaderEntry, type RawPosition } from "@/lib/data/providers/polymarket-whales";
 import { logError } from "@/lib/ops";
+import { getRun, isBuildPhase, runClaimed } from "@/lib/job-runs";
 // Safe despite signals.ts referencing ConsensusHolding: that direction is
 // `import type`, so it is erased and there is no runtime cycle.
 import { recordSignals } from "@/lib/signals";
@@ -28,8 +29,24 @@ import { recordSignals } from "@/lib/signals";
  *    API without a period and silently got the 1-day board (today's winners).
  */
 export const WHALE_METHOD = 3;
-/** Smart-money pages rescan in the background when the stored scan is older than this. */
-export const SCAN_FRESH_MS = 15 * 60_000;
+/**
+ * The scan runs about hourly: started by the alerts scheduler (every 20 min,
+ * see the jobs route) or a page view, whichever first finds it due. One scan
+ * is ~1,100 Polymarket calls and about 5 s of CPU on Vercel; hourly is about
+ * 1 of Hobby's 4 CPU-hours a month. Ranks and profit do not wait for it: the
+ * leaderboard reads them live from Polymarket in the browser.
+ */
+export const SCAN_EVERY_MS = 60 * 60_000;
+/**
+ * A scan is due, and may be claimed, this long after the last one started. A
+ * little under the hour on purpose: a scan starts a few seconds after its
+ * scheduler tick, so at the tick an hour later it is 59 min 57 s old, and an
+ * exact hour would always slip to the tick after (80 minutes).
+ */
+const SCAN_DUE_MS = SCAN_EVERY_MS - 5 * 60_000;
+/** How soon a Pro member's "Refresh now" may rescan after the last scan. */
+export const MANUAL_SCAN_GAP_MS = 30 * 60_000;
+const SCAN_JOB = "whale-scan";
 const POSITION_CONCURRENCY = 6;
 const POSITION_PAUSE_MS = 120;
 const KEEP_HOLDINGS = 120; // most-held outcomes stored
@@ -221,7 +238,7 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
 
   const fetched = await mapPool(leaders, POSITION_CONCURRENCY, async (l) => {
     try {
-      return { ok: true, positions: await fetchPositions(l.wallet, 200) };
+      return { ok: true, positions: await fetchPositions(l.wallet) };
     } catch (e) {
       await logError("whales.positions", e, { wallet: l.wallet.slice(0, 10) });
       return { ok: false, positions: [] as RawPosition[] };
@@ -255,12 +272,14 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
     // Wallet figures over its whole open book.
     let openValue = 0;
     let openCost = 0;
+    let entryCost = 0;
     let unrealized = 0;
     let lastActive = 0;
     const byCategory = new Map<string, number>();
     for (const p of positions) {
       openValue += p.currentValue;
       openCost += p.totalCost;
+      entryCost += p.entryCost;
       unrealized += p.unrealizedPnl;
       if (p.lastEventAt && p.lastEventAt > lastActive) lastActive = p.lastEventAt;
       byCategory.set(p.category, (byCategory.get(p.category) ?? 0) + p.currentValue);
@@ -276,7 +295,9 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
       openValue,
       openCost,
       unrealizedPnl: unrealized,
-      openRoi: openCost > 0 ? unrealized / openCost : null,
+      // Polymarket's own % P&L divides by the entry cost without fees; matching it means the
+      // figure can be checked on the trader's profile.
+      openRoi: entryCost > 0 ? unrealized / entryCost : null,
       avgPosition: positions.length ? openValue / positions.length : 0,
       lastActive: iso(lastActive || null),
       topCategory: [...byCategory.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null,
@@ -412,6 +433,15 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
     }
   });
 
+  // "Last active" counts trades as well as open bets wherever trades were read: a trader who
+  // sold out of everything yesterday was active yesterday, not "never". bestTraders is
+  // leaders' prefix, so index i is the same trader in wallets.
+  tradesByTrader.forEach((trades, i) => {
+    const newest = trades.reduce((m, t) => Math.max(m, t.ts * 1000), 0);
+    const w = wallets[i];
+    if (w && newest && (!w.lastActive || newest > Date.parse(w.lastActive))) w.lastActive = iso(newest);
+  });
+
   const dailyFlow = new Map<string, { buys: number; sells: number; trades: number }>();
   for (let d = 0; d < RECENT_DAYS; d++) dailyFlow.set(new Date(windowStart.getTime() + d * 86_400_000).toISOString().slice(0, 10), { buys: 0, sells: 0, trades: 0 });
   for (const [i, trades] of tradesByTrader.entries()) {
@@ -541,22 +571,46 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
   return { tradersScanned: leaders.length, positionsScanned, holdings: holdings.length };
 }
 
-let lastBackgroundScan = 0;
+type ScanResult = Awaited<ReturnType<typeof syncWhaleWatch>>;
+
+/**
+ * Scan unless any server instance started one within `minGapMs`. The shared
+ * claim is what stops several instances scanning at once, and it caps how
+ * often scans run however many visitors, schedulers or refresh buttons ask.
+ */
+export function scanIfDue(minGapMs: number = SCAN_DUE_MS): Promise<{ ran: true; result: ScanResult } | { ran: false }> {
+  return runClaimed(SCAN_JOB, minGapMs, () => syncWhaleWatch({ topN: 1000 }), (r) => `${r.tradersScanned} traders, ${r.positionsScanned} positions`);
+}
+
+/** The state of the latest scan run, for the refresh button's reply. */
+export function getScanRun() {
+  return getRun(SCAN_JOB);
+}
+
+/** Age of the stored scan without loading its payload (about 1 MB of JSON). */
+export async function getScanAgeMs(): Promise<number | null> {
+  const row = await db.whaleSnapshot.findFirst({ orderBy: { generatedAt: "desc" }, select: { generatedAt: true } });
+  return row ? Date.now() - row.generatedAt.getTime() : null;
+}
+
+let lastBackgroundCheck = 0;
+/** Per instance, so a busy page does not issue a claim on every view. */
+const BACKGROUND_CHECK_MS = 5 * 60_000;
 
 /**
  * Keep the scan fresh without a frequent cron (Vercel Hobby allows daily crons
- * only). Call from a smart-money page after reading the scan: when it is older
- * than SCAN_FRESH_MS, a rescan runs after the response is sent, so the visitor
- * never waits and the next visit sees fresh data. One background scan per
- * instance per window; concurrent scans in one instance already coalesce.
+ * only). Called by the alerts scheduler and by smart-money pages after reading
+ * the scan: once it is due (SCAN_DUE_MS), a rescan runs after the response is
+ * sent, so nobody waits for it.
  */
 export function keepScanFresh(ageMs: number | null | undefined): void {
-  if (ageMs != null && ageMs < SCAN_FRESH_MS) return;
-  if (Date.now() - lastBackgroundScan < SCAN_FRESH_MS) return;
-  lastBackgroundScan = Date.now();
+  if (isBuildPhase()) return;
+  if (ageMs != null && ageMs < SCAN_DUE_MS) return;
+  if (Date.now() - lastBackgroundCheck < BACKGROUND_CHECK_MS) return;
+  lastBackgroundCheck = Date.now();
   after(async () => {
     try {
-      await syncWhaleWatch({ topN: 1000 });
+      await scanIfDue();
     } catch (e) {
       await logError("whales.background", e);
     }

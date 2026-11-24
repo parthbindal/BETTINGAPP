@@ -17,7 +17,7 @@ export interface WalletLive {
 export async function getWalletLive(address: string): Promise<WalletLive> {
   "use cache";
   cacheLife("minutes");
-  const [positions, trades] = await Promise.all([fetchPositions(address, 300), fetchRecentTrades(address, WALLET_TRADES_LIMIT)]);
+  const [positions, trades] = await Promise.all([fetchPositions(address), fetchRecentTrades(address, WALLET_TRADES_LIMIT)]);
   return { positions, trades, fetchedAt: new Date().toISOString() };
 }
 

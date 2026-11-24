@@ -4,8 +4,12 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpRight, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { TraderIdentity } from "@/components/intel/trader-identity";
-import { compact, pct } from "@/lib/format";
+import { compact, pct, relative } from "@/lib/format";
+import { withLive } from "@/lib/live-board";
 import { cn } from "@/lib/utils";
+import { useLiveBoard } from "./live-board";
+import { RankMove } from "./trader-profit-list";
+import { CountUp } from "@/components/motion/count-up";
 
 export interface LeaderRow {
   wallet: string;
@@ -20,6 +24,8 @@ export interface LeaderRow {
   lastActiveMs: number | null;
   lastActiveLabel: string | null;
   topCategory: string | null;
+  /** New to the top since the last scan; its open bets have not been read. */
+  unscanned?: boolean;
 }
 
 type SortKey = "rank" | "pnl" | "openRoi" | "positions" | "avgPosition" | "openValue" | "lastActive";
@@ -28,7 +34,7 @@ const PRESETS: Array<{ label: string; sort: SortKey; title: string }> = [
   { label: "Highest profit", sort: "pnl", title: "All-time profit on Polymarket's leaderboard" },
   { label: "Highest open ROI", sort: "openRoi", title: "Unrealized return on open positions, among wallets with at least $5,000 deployed" },
   { label: "Most active", sort: "positions", title: "Most open positions right now" },
-  { label: "Recently active", sort: "lastActive", title: "Most recent activity on an open position" },
+  { label: "Recently active", sort: "lastActive", title: "Newest trade we can see: on an open bet, or for the top 100, any trade in the last 10 days" },
 ];
 const PAGE_SIZE = 25;
 const MIN_ROI_COST = 5_000; // open ROI ranking ignores tiny books, where a few dollars swing the percentage
@@ -57,12 +63,19 @@ function SortHeader({ label, k, sort, dir, onSort, align = "right", sup }: { lab
   );
 }
 
-/** The tracked-wallet leaderboard: search, ranking presets, sortable columns and pages, all on real scan figures. */
-export function LeaderboardTable({ rows }: { rows: LeaderRow[] }) {
+/**
+ * The tracked-wallet leaderboard: search, ranking presets, sortable columns and
+ * pages. Inside a LiveBoardProvider, rank and all-time profit are Polymarket's
+ * live figures; every other column is from the scan.
+ */
+export function LeaderboardTable({ rows: scanned }: { rows: LeaderRow[] }) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("rank");
   const [dir, setDir] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(0);
+  const live = useLiveBoard();
+  const board = live?.board ?? null;
+  const rows = useMemo(() => withLive(scanned, board), [scanned, board]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -141,27 +154,39 @@ export function LeaderboardTable({ rows }: { rows: LeaderRow[] }) {
             </tr>
           </thead>
           <tbody>
-            {shown.map((r) => (
+            {shown.map((r) => {
+              const w = r.wallet.toLowerCase();
+              // The server's label until live data arrives (so hydration matches), then kept current.
+              const lastActive = live?.checkedAt && r.lastActiveMs ? relative(new Date(r.lastActiveMs)) : r.lastActiveLabel;
+              return (
               <tr key={r.wallet} className="border-b border-border/60 transition-colors last:border-0 hover:bg-surface-2/40">
-                <td className="tabular px-2 py-2.5 font-mono text-xs text-muted-foreground">{r.rank}</td>
+                <td className="px-2 py-2.5">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="tabular font-mono text-xs text-muted-foreground">{r.rank}</span>
+                    <RankMove places={live?.moved.get(w)} />
+                  </span>
+                </td>
                 <td className="max-w-[260px] px-2 py-2.5">
                   <TraderIdentity wallet={r.wallet} name={r.name} size={26} />
                 </td>
-                <td className="tabular px-2 py-2.5 text-right font-medium">${compact(r.pnl)}</td>
+                <td className="px-2 py-2.5 text-right">
+                  <CountUp value={r.pnl} format="usd" intro={false} animate={!live?.quiet} className="tabular font-medium" />
+                </td>
                 <td className={cn("tabular px-2 py-2.5 text-right", r.openRoi === null ? "text-muted-foreground" : r.openRoi < 0 ? "text-chart-2" : "")}>
                   {r.openRoi === null ? "—" : `${r.openRoi >= 0 ? "+" : ""}${pct(r.openRoi, 1)}`}
                 </td>
                 <td className="tabular px-2 py-2.5 text-right">{r.positions}</td>
                 <td className="tabular px-2 py-2.5 text-right">{r.positions ? `$${compact(r.avgPosition)}` : "—"}</td>
                 <td className="tabular px-2 py-2.5 text-right">{r.openValue ? `$${compact(r.openValue)}` : "—"}</td>
-                <td className="px-2 py-2.5 text-right text-xs text-muted-foreground">{r.lastActiveLabel ?? "—"}</td>
+                <td className="px-2 py-2.5 text-right text-xs text-muted-foreground">{lastActive ?? "—"}</td>
                 <td className="px-2 py-2.5 text-right">
                   <Link href={`/wallets/${r.wallet}`} className="inline-flex items-center gap-0.5 text-xs font-medium text-primary hover:underline" aria-label={`Open ${r.name} in Wallet Explorer`}>
                     View <ArrowUpRight className="size-3" aria-hidden="true" />
                   </Link>
                 </td>
               </tr>
-            ))}
+              );
+            })}
             {!shown.length && (
               <tr>
                 <td colSpan={10} className="px-2 py-12 text-center text-sm text-muted-foreground">

@@ -39,19 +39,38 @@ export interface LeaderEntry {
 type RawLeader = { rank: number; user_id: string; user_name?: string; pnl: number; volume: number; x_username?: string; verified?: boolean };
 /** Polymarket's leaderboard windows. `ALL` is all-time; the API default (no param) is `DAY`. */
 export type LeaderboardPeriod = "ALL" | "MONTH" | "WEEK" | "DAY";
-export async function fetchLeaderboard(topN: number, period: LeaderboardPeriod = "ALL"): Promise<LeaderEntry[]> {
-  const limit = Math.min(1000, Math.max(1, topN));
-  const res = await getJson<RawLeader[] | { data?: RawLeader[] }>(`${DATA}/v2/leaderboard?timePeriod=${period}&limit=${limit}`);
-  const raw: RawLeader[] = Array.isArray(res) ? res : (res?.data ?? []);
-  return raw.map((r) => ({
-    rank: r.rank,
+
+/**
+ * The leaderboard URL. Public and CORS-open (`access-control-allow-origin: *`),
+ * so the browser polls it directly for live ranks (see live-board.tsx) without
+ * costing a server invocation or a database wake.
+ */
+export function leaderboardUrl(period: LeaderboardPeriod, topN: number): string {
+  return `${DATA}/v2/leaderboard?timePeriod=${period}&limit=${Math.min(1000, Math.max(1, Math.round(topN)))}`;
+}
+
+/** One leaderboard row, or null when it is malformed (the browser reads this API directly, so nothing is trusted). */
+function toLeaderEntry(r: RawLeader): LeaderEntry | null {
+  if (!r || typeof r.user_id !== "string" || !Number.isFinite(Number(r.rank))) return null;
+  return {
+    rank: Number(r.rank),
     wallet: r.user_id,
     name: r.user_name && !r.user_name.startsWith("0x") ? r.user_name : `${r.user_id.slice(0, 6)}…${r.user_id.slice(-4)}`,
-    pnl: r.pnl ?? 0,
-    volume: r.volume ?? 0,
+    pnl: Number(r.pnl) || 0,
+    volume: Number(r.volume) || 0,
     xUsername: r.x_username || null,
     verified: Boolean(r.verified),
-  }));
+  };
+}
+
+/** Parse a leaderboard response, in either of the shapes the API has returned. */
+export function parseLeaderboard(res: unknown): LeaderEntry[] {
+  const raw = Array.isArray(res) ? res : ((res as { data?: unknown } | null)?.data ?? []);
+  return Array.isArray(raw) ? raw.map((r) => toLeaderEntry(r as RawLeader)).filter((r): r is LeaderEntry => r !== null) : [];
+}
+
+export async function fetchLeaderboard(topN: number, period: LeaderboardPeriod = "ALL"): Promise<LeaderEntry[]> {
+  return parseLeaderboard(await getJson<unknown>(leaderboardUrl(period, topN)));
 }
 
 export interface RawPosition {
@@ -68,8 +87,9 @@ export interface RawPosition {
   avgPrice: number;
   currentPrice: number;
   currentValue: number;
-  totalCost: number; // cost basis of the open position, USDC
-  unrealizedPnl: number;
+  totalCost: number; // cost basis of the open position including fees, USDC
+  entryCost: number; // the same cost without fees: Polymarket's own % P&L is unrealizedPnl / entryCost
+  unrealizedPnl: number; // currentValue - entryCost, as Polymarket reports it
   realizedPnl: number;
   firstEntryAt: number | null; // ms since epoch
   lastEventAt: number | null; // ms since epoch
@@ -81,14 +101,39 @@ const secondsToMs = (v: unknown): number | null => {
   return Number.isFinite(n) && n > 0 ? n * 1000 : null;
 };
 
-export async function fetchPositions(wallet: string, limit = 200): Promise<RawPosition[]> {
-  const res = await getJson<Array<Record<string, unknown>> | { data?: Array<Record<string, unknown>> }>(`${DATA}/v2/positions?user=${wallet}&limit=${limit}`);
-  const arr = Array.isArray(res) ? res : (res?.data ?? []);
+/** Positions below this current value are dust and never read. */
+export const MIN_POSITION_USD = 100;
+
+/**
+ * Every open position worth MIN_POSITION_USD or more. The API filters by
+ * current value itself (`filterType=CASH`), which keeps responses small, and
+ * pages are followed by cursor: a page used to be capped at 200 rows, and the
+ * busiest wallets hold more than 200 positions of $100+, so their exposure was
+ * undercounted.
+ */
+type PositionsPage = Array<Record<string, unknown>> | { data?: Array<Record<string, unknown>>; pagination?: { has_more?: boolean; next_cursor?: string | null } };
+
+export async function fetchPositions(wallet: string, opts: { pageSize?: number; maxPages?: number } = {}): Promise<RawPosition[]> {
+  const pageSize = Math.min(500, opts.pageSize ?? 500);
+  const out: RawPosition[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < (opts.maxPages ?? 4); page++) {
+    const next: string = cursor ? `&cursor=${encodeURIComponent(cursor)}` : "";
+    const res: PositionsPage = await getJson<PositionsPage>(`${DATA}/v2/positions?user=${wallet}&limit=${pageSize}&filterType=CASH&filterAmount=${MIN_POSITION_USD}${next}`);
+    const arr = Array.isArray(res) ? res : (res?.data ?? []);
+    out.push(...toPositions(wallet, arr));
+    cursor = !Array.isArray(res) && res?.pagination?.has_more ? (res.pagination.next_cursor ?? null) : null;
+    if (!cursor || !arr.length) break;
+  }
+  return out;
+}
+
+function toPositions(wallet: string, arr: Array<Record<string, unknown>>): RawPosition[] {
   const out: RawPosition[] = [];
   for (const p of arr) {
     if (p.archived) continue;
     const currentValue = Number(p.current_value) || 0;
-    if (currentValue < 100) continue; // ignore dust
+    if (currentValue < MIN_POSITION_USD) continue; // the API already filters; kept in case it ever stops
     const title = String(p.title ?? "");
     const eventSlug = p.event_slug ? String(p.event_slug) : null;
     const marketSlug = p.slug ? String(p.slug) : null;
@@ -107,6 +152,7 @@ export async function fetchPositions(wallet: string, limit = 200): Promise<RawPo
       currentPrice: Number(p.current_price) || 0,
       currentValue,
       totalCost: Number(p.total_cost_usdc) || 0,
+      entryCost: Number(p.entry_cost_usdc) || Number(p.total_cost_usdc) || 0,
       unrealizedPnl: Number(p.unrealized_pnl) || 0,
       realizedPnl: Number(p.realized_pnl) || 0,
       firstEntryAt: secondsToMs(p.first_entry_at),

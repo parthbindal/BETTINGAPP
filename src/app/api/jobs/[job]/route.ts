@@ -8,9 +8,9 @@ import { checkWatchlistAlerts } from "@/lib/watchlist";
 import { runOnboardingSequence, sendDigestEmails } from "@/lib/email";
 import { resolveMarketPredictions, resolveSportsPredictions } from "@/lib/tracker";
 import { generateBrief } from "@/lib/briefs";
-import { syncWhaleWatch } from "@/lib/whales";
+import { getScanAgeMs, keepScanFresh, scanIfDue } from "@/lib/whales";
 import { scoreSignals } from "@/lib/signals";
-import { runSmartAlerts } from "@/lib/smart-alerts";
+import { runSmartAlertsIfDue } from "@/lib/smart-alerts";
 
 export const maxDuration = 300;
 
@@ -18,14 +18,23 @@ export const maxDuration = 300;
 const JOBS: Record<string, () => Promise<unknown>> = {
   "sync-markets": () => syncMarkets(),
   "refresh-hot": () => refreshHotMarkets(),
-  "whale-watch": () => syncWhaleWatch({ topN: 1000 }),
+  // Shares the scan's claim with page views and the alerts scheduler, so it never doubles up.
+  "whale-watch": async () => {
+    const run = await scanIfDue();
+    return run.ran ? run.result : { skipped: "a scan already ran within the hour" };
+  },
   // Settles ledger rows whose markets have closed. Signals are recorded by
   // whale-watch itself; this only grades them.
   "score-signals": () => scoreSignals(),
   "watchlist-alerts": () => checkWatchlistAlerts(),
-  // Big trades by the tracked top traders, delivered in the app and on Telegram. Every 2 minutes on paid
-  // hosting; on Vercel Hobby it runs after page views instead (keepAlertsFlowing), see README.
-  "smart-alerts": () => runSmartAlerts(),
+  // Big trades by the tracked top traders, delivered in the app and on Telegram, every 20 minutes from
+  // cron-job.org (see README). The same tick keeps the whale scan hourly, so the smart-money pages stay
+  // fresh with no visitors; the scan runs after the response, so the scheduler is not kept waiting.
+  "smart-alerts": async () => {
+    const run = await runSmartAlertsIfDue();
+    keepScanFresh(await getScanAgeMs());
+    return run.ran ? run.result : { skipped: "another run started less than 4 minutes ago" };
+  },
   "onboarding-emails": () => runOnboardingSequence(),
   "resolve-predictions": async () => ({
     markets: await resolveMarketPredictions({ maxFetches: 60 }),
@@ -67,24 +76,18 @@ async function authorize(req: Request, job: string): Promise<boolean> {
   return ctx?.user.role === "admin";
 }
 
-/**
+/*
  * Each smart-alerts run wakes the database, and Neon Free bills every wake as
  * at least five minutes of compute (100 compute-hours a month). A scheduler
- * set too eagerly would drain that and get the database suspended, so a
- * server instance ignores repeat calls within this window.
+ * set too eagerly would drain that, so runs closer together than
+ * ALERTS_MIN_GAP_MS are skipped. The claim lives in the database (job-runs.ts),
+ * so it holds across every server instance, not just this one.
  */
-const ALERTS_MIN_GAP_MS = 5 * 60_000;
-let lastAlertsRun = 0;
-
 async function run(req: Request, params: Promise<{ job: string }>) {
   const { job } = await params;
   if (!(await authorize(req, job))) return apiError("Not authorized.", 401);
   const fn = JOBS[job];
   if (!fn) return apiError(`Unknown job. Available: ${Object.keys(JOBS).join(", ")}`, 404);
-  if (job === "smart-alerts") {
-    if (Date.now() - lastAlertsRun < ALERTS_MIN_GAP_MS) return json({ ok: true, job, skipped: "ran less than 5 minutes ago on this server" });
-    lastAlertsRun = Date.now();
-  }
   const started = Date.now();
   try {
     const result = await fn();

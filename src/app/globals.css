@@ -131,7 +131,7 @@
  *   --chart-2 (orange)      Price went DOWN (▼ / down-right arrow). Reserved: never volume, never "sold".
  *                           (--chart-6 shares status-good's hex, so it is reserved with it.)
  *   --brand-cyan            Agreement: many top traders on one side (signal badges, clusters).
- *   --status-warning        Caution: mostly one trader, traders split, data older than 6 hours.
+ *   --status-warning        Caution: mostly one trader, traders split, a scan older than 2 hours.
  *   --chart-1 … --chart-8   CATEGORY identity: which series is which (bought vs sold, avatar tints).
  *                           Categories are not moods, so they DO get color: take slots in palette
  *                           order (the order is the colorblind-safety mechanism), skipping the

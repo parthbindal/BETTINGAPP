@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
-import type { RecentMove, WalletStat } from "@/lib/whales";
+import type { RecentMove } from "@/lib/whales";
 import { compact, relative } from "@/lib/format";
 import { isInPlay, polygonTxUrl, polymarketMarketUrl, walletHref } from "@/lib/intel";
 import { OpenOnPolymarket } from "./open-on-polymarket";
@@ -81,36 +81,5 @@ export function TradeRow({ m, fresh = false, showTx = false, action = false, tie
         />
       )}
     </div>
-  );
-}
-
-/**
- * Top traders as horizontal profit bars, longest first, each linking to its
- * wallet page.
- *
- * Pass `max` when the list is a slice that excludes the leader (say ranks 4
- * to 12): scaling to the slice's own top would make every bar nearly full and
- * show nothing. Scaling to the overall leader shows the real drop-off.
- */
-export function TraderProfitList({ traders, max: scaleMax, className }: { traders: WalletStat[]; max?: number; className?: string }) {
-  const max = Math.max(scaleMax ?? 0, ...traders.map((t) => t.pnl), 1);
-  return (
-    <ol className={cn("space-y-2.5", className)}>
-      {traders.map((t) => (
-        <li key={t.wallet}>
-          <Link href={walletHref(t.wallet)} className="group grid grid-cols-[1.5rem_auto_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <span className="tabular font-mono text-xs text-muted-foreground">{t.rank}</span>
-            <TraderAvatar wallet={t.wallet} name={t.name} size={26} />
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-medium group-hover:text-primary">{t.name}</span>
-              <span className="mt-1 block h-1.5 rounded-full bg-surface-3" aria-hidden="true">
-                <span className="block h-full rounded-full bg-foreground/70" style={{ width: `${Math.max(2, (t.pnl / max) * 100)}%` }} />
-              </span>
-            </span>
-            <span className="tabular text-right text-sm font-semibold">${compact(t.pnl)}</span>
-          </Link>
-        </li>
-      ))}
-    </ol>
   );
 }

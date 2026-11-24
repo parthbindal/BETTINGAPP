@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { db } from "@/lib/db";
 import { config } from "@/lib/env";
 import { logError } from "@/lib/ops";
+import { isBuildPhase, runClaimed } from "@/lib/job-runs";
 import { fetchBigTrades, type RawTrade } from "@/lib/data/providers/polymarket-whales";
 import { CONSENSUS_MIN_WALLETS } from "@/lib/data/public-cache";
 import { getWhaleWatch } from "@/lib/whales";
@@ -40,8 +41,9 @@ import {
  *     (SmartAlertDelivery is unique per alert, member and channel, so
  *     overlapping runs never notify anyone twice),
  *  4. posts the biggest moves to the free public channel an hour later.
- * Runs every couple of minutes from a scheduler on paid hosting, and after
- * page views (keepAlertsFlowing) so alerts keep moving without one.
+ * Runs every 20 minutes from an outside scheduler (cron-job.org; Neon Free
+ * sets that pace, see README), and after page views (keepAlertsFlowing) only
+ * if the scheduler goes quiet.
  */
 
 const FOLLOWED_WALLETS_PER_RUN = 100;
@@ -258,21 +260,35 @@ async function postDelayedToChannel(now: number, signals: Map<string, SignalCont
   return posted;
 }
 
+const ALERTS_JOB = "smart-alerts";
+/** The scheduler calls every 20 minutes. This gap only absorbs accidental repeat calls, across every instance. */
+export const ALERTS_MIN_GAP_MS = 4 * 60_000;
+/** Page views run alerts only once the scheduler has been quiet this long. */
+const ALERTS_FALLBACK_GAP_MS = 25 * 60_000;
+
+/** One alerts run, unless any server instance started one within `minGapMs`. */
+export function runSmartAlertsIfDue(minGapMs: number = ALERTS_MIN_GAP_MS) {
+  return runClaimed(ALERTS_JOB, minGapMs, () => runSmartAlerts(), (r) => `${r.bursts} bursts, ${r.created} new, ${r.inApp} in-app, ${r.telegram} Telegram`);
+}
+
 let lastKick = 0;
 
 /**
- * Keep alerts moving between scheduled runs: after a page view, run the
- * engine in the background if this server instance has not in the last 90
- * seconds. Cheap (one Polymarket call when nothing is followed) and safe to
- * overlap with other instances, since every write is idempotent.
+ * A fallback for the scheduler. After a page view, run the engine in the
+ * background only if no instance has run it for ALERTS_FALLBACK_GAP_MS. While
+ * the scheduler is healthy the claim fails here, so page views add no runs:
+ * each run costs about 0.8 s of CPU, and running one every 90 seconds per
+ * instance under steady traffic would have used up Vercel Hobby's 4 CPU-hours
+ * a month on its own.
  */
 export function keepAlertsFlowing(): void {
+  if (isBuildPhase()) return;
   const now = Date.now();
-  if (now - lastKick < 90_000) return;
+  if (now - lastKick < 5 * 60_000) return;
   lastKick = now;
   after(async () => {
     try {
-      await runSmartAlerts();
+      await runSmartAlertsIfDue(ALERTS_FALLBACK_GAP_MS);
     } catch (e) {
       await logError("alerts.background", e);
     }

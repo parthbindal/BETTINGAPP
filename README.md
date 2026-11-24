@@ -134,7 +134,7 @@ project is on Pro.
 
 | Job | Does | Cron (UTC) |
 |---|---|---|
-| `whale-watch` | Rescan the top 1,000 all-time Polymarket traders — the smart-money data the app is built on | daily 06:02 |
+| `whale-watch` | Rescan the top 1,000 all-time Polymarket traders — the smart-money data the app is built on | hourly via the `smart-alerts` tick; daily 06:02 as a floor |
 | `sync-markets` | Full Kalshi scan; cache active markets, close departed ones, record snapshots | daily 07:14 |
 | `score-signals` | Grade ledger signals whose markets have settled | daily 08:26 |
 | `resolve-predictions` | Score forecasts from exchange results | daily 09:38 |
@@ -144,11 +144,25 @@ project is on Pro.
 | `daily-brief` / `weekly-brief` | Build the research summary and send opted-in digests | daily / weekly |
 | `onboarding-emails` | Advance the 6-step onboarding sequence | daily 15:19 |
 
-**Freshness does not depend on the crons.** The smart-money pages (Home, Signals,
-Live Trades, Top Traders, Smart Money) start a background rescan with `after()`
-whenever the stored scan is older than 15 minutes, so the data is as fresh as
-the last visit. The cron is the floor for days nobody visits. On Pro, tighten
-`whale-watch` to `2-59/15 * * * *` and `refresh-hot` to `*/5 * * * *`.
+**Freshness does not depend on the daily crons.** The whale scan runs about
+hourly whether or not anyone visits: every `smart-alerts` tick (every 20
+minutes, below) and every smart-money page view (Home, Signals, Live Trades,
+Top Traders, Smart Money) checks the stored scan and, once it is an hour old,
+rescans after the response with `after()`. Whoever asks first claims the run
+in the `JobRun` table (src/lib/job-runs.ts), so several Vercel instances can
+never scan at once (three once started within 30 seconds) and scans never run
+more than about hourly, however many visitors or refresh buttons ask. A Pro
+member's "Refresh now" may rescan once the last scan is 30 minutes old.
+
+**Top Traders is live without the scan.** Its ranks and all-time profit are
+read by the browser straight from Polymarket's public leaderboard
+(`data-api.polymarket.com` allows any origin), every 2 minutes while the tab is
+visible: the top 50 (4 KB), and the full top 1,000 (72 KB) only when the top 50
+changed or every 10 minutes. That costs no function call and never wakes the
+database. Polymarket recalculates its own board periodically (it held still for
+20+ minutes at a time when measured), so a figure changes when theirs does.
+Open bets, ROI and exposure still come from the hourly scan, and the page says
+when that was.
 
 ### Smart-money alerts
 
@@ -168,14 +182,15 @@ How often it runs is set by two free tiers, not one:
   schedule comes from outside: a free [cron-job.org](https://cron-job.org) job
   calls `https://<site>/api/jobs/smart-alerts` every **20 minutes** with the
   header `Authorization: Bearer $ALERTS_CRON_SECRET`. That secret can start
-  this job only. Between calls, alerts also run after page views
-  (`keepAlertsFlowing`), when the database is awake anyway.
+  this job only. Page views run alerts (`keepAlertsFlowing`) only as a
+  fallback, once no run has started for 25 minutes.
 - **Neon Free** is the real limit. Every run wakes the database, Neon bills
   each wake as at least 5 minutes of compute, and Free includes 100
   compute-hours a month; running out suspends the database, and so the
   site, until the next month. Every 20 minutes is about 45 of those hours;
-  every 10 is about 90 (too close); every 2 would never let it sleep. The
-  route ignores calls less than 5 minutes apart as a safety net.
+  every 10 is about 90 (too close); every 2 would never let it sleep. Runs
+  less than 4 minutes apart are skipped as a safety net, across every server
+  instance (the `JobRun` claim).
 - **Alerts within about 2 minutes** need a database that may stay awake (a
   paid Neon plan). Vercel Pro alone does not fix this.
 
@@ -185,6 +200,27 @@ add the bot as an admin with "Post messages"; put `TELEGRAM_BOT_TOKEN`,
 `TELEGRAM_CHANNEL_ID` in `.env` and in the Vercel project; redeploy; then run
 `npm run telegram:setup -- --url https://your-site`. Members connect from
 Settings → Notifications (a one-time link, valid 15 minutes).
+
+### Free-tier budget
+
+Vercel Hobby includes **4 hours of active CPU a month**; going over pauses the
+project. Measured costs (Nov 2026, on a Mac; Vercel's CPUs are somewhat slower):
+
+| Work | CPU each | How often | Per month |
+|---|---|---|---|
+| Whale scan (1,000 wallets, ~1,100 calls) | ~3 s local, ~5 s on Vercel | at most hourly (claim) | ~1 h |
+| Smart-money alerts run | ~0.55 s local, ~0.8 s on Vercel | every 20 min | ~0.5 h |
+| Live leaderboard | none on our side | browser to Polymarket | 0 |
+
+Before the claim, page views could start a scan every 15 minutes and alerts
+every 90 seconds on every instance; under steady traffic either alone would
+have used up the 4 hours. Positions are read with Polymarket's own value filter
+(`filterType=CASH&filterAmount=100`), which cut a scan's CPU by a third and
+removed a 200-row cap that undercounted the busiest wallets (one held 845
+positions of $100+).
+
+Deploying this needs the `JobRun` table: run `npx prisma migrate deploy`
+before pushing. Without it, jobs still run, just unclaimed as before.
 
 `whale-watch` crawls a thousand wallets and is declared `maxDuration = 300`
 (available on Hobby with Fluid compute). There is no Polymarket feed that pushes
