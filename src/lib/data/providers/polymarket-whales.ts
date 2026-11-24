@@ -104,26 +104,40 @@ const secondsToMs = (v: unknown): number | null => {
 /** Positions below this current value are dust and never read. */
 export const MIN_POSITION_USD = 100;
 
-/**
- * Every open position worth MIN_POSITION_USD or more. The API filters by
- * current value itself (`filterType=CASH`), which keeps responses small, and
- * pages are followed by cursor: a page used to be capped at 200 rows, and the
- * busiest wallets hold more than 200 positions of $100+, so their exposure was
- * undercounted.
- */
 type PositionsPage = Array<Record<string, unknown>> | { data?: Array<Record<string, unknown>>; pagination?: { has_more?: boolean; next_cursor?: string | null } };
 
+/**
+ * Every open position worth MIN_POSITION_USD or more, read page by page: a
+ * page used to be capped at 200 rows, and the busiest wallets hold more than
+ * 200 positions of $100+ (one held 845), so their exposure was undercounted.
+ *
+ * First choice is the API's own value filter (`filterType=CASH`), which keeps
+ * responses small. But it checks every position a wallet ever held, so for a
+ * wallet with hundreds of worthless leftovers it takes ~5 s and Polymarket
+ * answers 503. Those wallets are read unfiltered instead: that list is fast and
+ * sorted by value, so reading stops at the first page that ends below the floor.
+ */
 export async function fetchPositions(wallet: string, opts: { pageSize?: number; maxPages?: number } = {}): Promise<RawPosition[]> {
-  const pageSize = Math.min(500, opts.pageSize ?? 500);
+  try {
+    return await readPositions(wallet, true, Math.min(500, opts.pageSize ?? 500), opts.maxPages ?? 4);
+  } catch {
+    return readPositions(wallet, false, 200, opts.maxPages ?? 8);
+  }
+}
+
+async function readPositions(wallet: string, filtered: boolean, pageSize: number, maxPages: number): Promise<RawPosition[]> {
+  const filter = filtered ? `&filterType=CASH&filterAmount=${MIN_POSITION_USD}` : "";
   const out: RawPosition[] = [];
   let cursor: string | null = null;
-  for (let page = 0; page < (opts.maxPages ?? 4); page++) {
+  for (let page = 0; page < maxPages; page++) {
     const next: string = cursor ? `&cursor=${encodeURIComponent(cursor)}` : "";
-    const res: PositionsPage = await getJson<PositionsPage>(`${DATA}/v2/positions?user=${wallet}&limit=${pageSize}&filterType=CASH&filterAmount=${MIN_POSITION_USD}${next}`);
+    const res: PositionsPage = await getJson<PositionsPage>(`${DATA}/v2/positions?user=${wallet}&limit=${pageSize}${filter}${next}`);
     const arr = Array.isArray(res) ? res : (res?.data ?? []);
     out.push(...toPositions(wallet, arr));
+    // Unfiltered pages are sorted by value, so one ending below the floor is the last that matters.
+    const lastValue = Number(arr[arr.length - 1]?.current_value) || 0;
     cursor = !Array.isArray(res) && res?.pagination?.has_more ? (res.pagination.next_cursor ?? null) : null;
-    if (!cursor || !arr.length) break;
+    if (!cursor || !arr.length || (!filtered && lastValue < MIN_POSITION_USD)) break;
   }
   return out;
 }

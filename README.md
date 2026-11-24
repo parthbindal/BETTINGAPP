@@ -217,7 +217,9 @@ every 90 seconds on every instance; under steady traffic either alone would
 have used up the 4 hours. Positions are read with Polymarket's own value filter
 (`filterType=CASH&filterAmount=100`), which cut a scan's CPU by a third and
 removed a 200-row cap that undercounted the busiest wallets (one held 845
-positions of $100+).
+positions of $100+). The filter times out (503 after ~5 s) for wallets holding
+hundreds of worthless leftovers; those are read from the plain list instead,
+which is sorted by value, so reading stops once a page ends below $100.
 
 Deploying this needs the `JobRun` table: run `npx prisma migrate deploy`
 before pushing. Without it, jobs still run, just unclaimed as before.
