@@ -95,7 +95,9 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
   const moves = p.recentMoves
     .filter((m) => !sp.side || (sp.side === "buy" ? m.side === "BUY" : m.side === "SELL"))
     .filter((m) => !sp.cat || m.category === sp.cat)
-    .filter((m) => m.usd >= min);
+    .filter((m) => m.usd >= min)
+    // A fill at 3c or below or 97c or above is a done bet being tidied up (collecting a decided market), not a move.
+    .filter((m) => m.pricePct > 3 && m.pricePct < 97);
   const clusters = (p.clusters ?? []).filter((c) => !sp.cat || c.category === sp.cat).slice(0, 8);
 
   // Last 24 hours of the (filtered) feed, for the buy/sell balance.

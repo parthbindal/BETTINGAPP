@@ -16,7 +16,7 @@
 import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import { after } from "next/server";
-import { fetchLeaderboard, fetchPositions, fetchRecentTrades, type LeaderEntry, type RawPosition } from "@/lib/data/providers/polymarket-whales";
+import { closedMarketIds, fetchLeaderboard, fetchPositions, fetchRecentTrades, type LeaderEntry, type RawPosition } from "@/lib/data/providers/polymarket-whales";
 import { logError } from "@/lib/ops";
 import { getRun, isBuildPhase, runClaimed } from "@/lib/job-runs";
 // Safe despite signals.ts referencing ConsensusHolding: that direction is
@@ -244,6 +244,15 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
       return { ok: false, positions: [] as RawPosition[] };
     }
   });
+
+  // Finished bets never count. Settled ones (REDEEMABLE) are dropped by the reader; this drops the rest:
+  // bets in markets Polymarket reports closed but has not paid out yet (a game over, awaiting settlement).
+  // One question to Polymarket for all 1,000 wallets, so every figure below (exposure, holders, signals) is open bets only.
+  const closedMarkets = await closedMarketIds(fetched.flatMap((f) => f.positions)).catch(async (e) => {
+    await logError("whales.closedMarkets", e);
+    return new Set<string>();
+  });
+  if (closedMarkets.size) for (const f of fetched) f.positions = f.positions.filter((p) => !closedMarkets.has(p.conditionId));
 
   interface Agg {
     conditionId: string;

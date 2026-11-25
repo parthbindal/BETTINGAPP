@@ -1,5 +1,5 @@
 import { cacheLife } from "next/cache";
-import { fetchPositions, fetchRecentTrades, type RawPosition, type RawTrade } from "@/lib/data/providers/polymarket-whales";
+import { closedMarketIds, fetchPositions, fetchRecentTrades, type RawPosition, type RawTrade } from "@/lib/data/providers/polymarket-whales";
 
 export const WALLET_TRADES_LIMIT = 100;
 
@@ -17,7 +17,10 @@ export interface WalletLive {
 export async function getWalletLive(address: string): Promise<WalletLive> {
   "use cache";
   cacheLife("minutes");
-  const [positions, trades] = await Promise.all([fetchPositions(address), fetchRecentTrades(address, WALLET_TRADES_LIMIT)]);
+  const [read, trades] = await Promise.all([fetchPositions(address), fetchRecentTrades(address, WALLET_TRADES_LIMIT)]);
+  // Settled bets are already gone (fetchPositions); this also removes bets in markets Polymarket has closed but not yet paid out.
+  const closed = await closedMarketIds(read).catch(() => new Set<string>());
+  const positions = closed.size ? read.filter((p) => !closed.has(p.conditionId)) : read;
   return { positions, trades, fetchedAt: new Date().toISOString() };
 }
 

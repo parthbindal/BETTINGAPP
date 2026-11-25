@@ -11,7 +11,7 @@ import { ScanFreshness } from "@/components/intel/scan-freshness";
 import { HoldersOf, PaidNow } from "@/components/intel/consensus-ledger";
 import { WhaleRefreshButton } from "@/components/whales/refresh-button";
 import { compact, dateShort, utcStamp } from "@/lib/format";
-import { polymarketMarketUrl } from "@/lib/intel";
+import { isInPlay, polymarketMarketUrl } from "@/lib/intel";
 import { cn } from "@/lib/utils";
 import { trackUsage } from "@/lib/ops";
 
@@ -140,14 +140,18 @@ export default async function WhalesPage({ searchParams }: { searchParams: Promi
   const sort: SortKey = SORTS.some((s) => s.key === sp.sort) ? (sp.sort as SortKey) : "profit";
   const field = p.tradersScanned;
 
-  const up = p.holdings.filter((h) => h.unrealizedPnl > 0);
-  const down = p.holdings.filter((h) => h.unrealizedPnl < 0);
+  // Finished bets never reach this page (the scan drops settled and closed markets). What is left out here are sides
+  // priced 3c-or-less / 97c-or-more, which are decided in all but name; the page says how many.
+  const book = p.holdings.filter(isInPlay);
+  const doneCount = p.holdings.length - book.length;
+  const up = book.filter((h) => h.unrealizedPnl > 0);
+  const down = book.filter((h) => h.unrealizedPnl < 0);
   const openProfit = up.reduce((a, h) => a + h.unrealizedPnl, 0);
   const openLoss = down.reduce((a, h) => a + h.unrealizedPnl, 0);
-  const biggest = [...p.holdings].sort((a, b) => b.unrealizedPnl - a.unrealizedPnl)[0];
+  const biggest = [...book].sort((a, b) => b.unrealizedPnl - a.unrealizedPnl)[0];
 
   const sortFn = (a: ConsensusHolding, b: ConsensusHolding) => (sort === "value" ? b.totalValue - a.totalValue : sort === "holders" ? b.holders - a.holders || b.totalValue - a.totalValue : b.unrealizedPnl - a.unrealizedPnl);
-  const inCat = cat === "All" ? p.holdings : p.holdings.filter((h) => h.category === cat);
+  const inCat = cat === "All" ? book : book.filter((h) => h.category === cat);
   const holdings = [...inCat].sort(sortFn).slice(0, ROWS);
   const link = (patch: Record<string, string>) => `/whales?${new URLSearchParams({ cat, sort, ...patch }).toString()}`;
   const pairs = p.similarPairs ?? [];
@@ -163,8 +167,8 @@ export default async function WhalesPage({ searchParams }: { searchParams: Promi
         <StatBand
           stats={[
             { label: "Traders tracked", value: field.toLocaleString("en-US"), foot: "Polymarket's most profitable, all-time" },
-            { label: "Positions read", value: p.positionsScanned.toLocaleString("en-US"), foot: `Open bets of $100+, grouped into ${p.holdings.length.toLocaleString("en-US")} market sides` },
-            { label: "Open profit", value: signedUsd(openProfit), foot: `On ${up.length.toLocaleString("en-US")} of ${p.holdings.length.toLocaleString("en-US")} sides; ${down.length.toLocaleString("en-US")} are down $${compact(Math.abs(openLoss))}` },
+            { label: "Live market sides", value: book.length.toLocaleString("en-US"), foot: `From ${p.positionsScanned.toLocaleString("en-US")} open bets of $100+${doneCount ? `; ${doneCount} priced 97¢+ or 3¢− left out` : ""}` },
+            { label: "Open profit", value: signedUsd(openProfit), foot: `On ${up.length.toLocaleString("en-US")} of ${book.length.toLocaleString("en-US")} sides; ${down.length.toLocaleString("en-US")} are down $${compact(Math.abs(openLoss))}` },
             { label: "Largest open gain", value: biggest ? signedUsd(biggest.unrealizedPnl) : "—", foot: biggest ? `${biggest.outcome} · ${biggest.title.length > 44 ? `${biggest.title.slice(0, 43)}…` : biggest.title}` : "No positions in this scan" },
           ]}
         />
@@ -191,7 +195,7 @@ export default async function WhalesPage({ searchParams }: { searchParams: Promi
       >
         <div className="mb-4 flex flex-wrap gap-1.5" role="group" aria-label="Category">
           {CATS.map((c) => {
-            const n = c === "All" ? p.holdings.length : (p.categories.find((x) => x.category === c)?.holdings ?? 0);
+            const n = c === "All" ? book.length : book.filter((h) => h.category === c).length;
             return (
               <Link
                 key={c}

@@ -135,10 +135,11 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const tracked = p.tradersScanned;
   const active = wallets.filter((w) => w.positions > 0).length;
   const combinedPnl = wallets.reduce((s, w) => s + w.pnl, 0);
-  const signals = p.holdings.filter((h) => h.holders >= CONSENSUS_MIN_WALLETS);
-  // Spotlight only clear agreement, ranked by dollars at risk: skip decided markets and ones where top traders sit on both sides.
+  // Done bets (decided price, or market ended) are not signals: the count matches the Signals page's default view.
+  const signals = p.holdings.filter((h) => h.holders >= CONSENSUS_MIN_WALLETS && isInPlay(h));
+  // Spotlight only clear agreement, ranked by dollars at risk: skip markets where top traders sit on both sides.
   const split = splitSides(p.holdings, CONSENSUS_MIN_WALLETS);
-  const live = signals.filter(isInPlay).filter((h) => !split.has(h.conditionId)).sort((x, y) => y.totalValue - x.totalValue);
+  const live = signals.filter((h) => !split.has(h.conditionId)).sort((x, y) => y.totalValue - x.totalValue);
   const featured = live[0];
   const more = live.slice(1, 6);
   const since = windowStart(range.days);
@@ -192,13 +193,9 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
             stats={[
               {
                 label: "Signals right now",
-                value: (
-                  <>
-                    <CountUp value={signals.length} id="glance-signals" />
-                    <ScanDelta change={scanChange(history, "consensusOutcomes")} />
-                  </>
-                ),
-                foot: `Outcomes where ${CONSENSUS_MIN_WALLETS}+ of the ${tracked.toLocaleString("en-US")} hold one side`,
+                // No scan-to-scan delta here: the stored history counts decided markets too, so it would compare unlike things.
+                value: <CountUp value={signals.length} id="glance-signals" />,
+                foot: `Live markets where ${CONSENSUS_MIN_WALLETS}+ of the ${tracked.toLocaleString("en-US")} hold one side`,
               },
               {
                 label: `Traded, last ${range.label}`,

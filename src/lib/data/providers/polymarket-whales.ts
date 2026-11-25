@@ -167,6 +167,11 @@ function toPositions(wallet: string, arr: Array<Record<string, unknown>>): RawPo
   const out: RawPosition[] = [];
   for (const p of arr) {
     if (p.archived) continue;
+    // A settled market the trader has not cashed out yet: the bet is done, not open. Polymarket
+    // flags it both ways (status REDEEMABLE, redeemable true). On 2026-11-25 these were 349 of
+    // 3,716 "open" positions across 12 busy wallets, inflating exposure and turning finished
+    // games into 97c+ "signals".
+    if (p.redeemable === true || String(p.status ?? "").toUpperCase() === "REDEEMABLE") continue;
     const currentValue = Number(p.current_value) || 0;
     if (currentValue < MIN_POSITION_USD) continue; // the API already filters; kept in case it ever stops
     const title = String(p.title ?? "");
@@ -309,6 +314,42 @@ export async function fetchMarketResolutions(conditionIds: string[]): Promise<Ma
     }
   }
   return out;
+}
+
+const DAY_MS = 86_400_000;
+
+/**
+ * Markets worth asking Polymarket about: those whose end date is real (Polymarket
+ * sends "1970-01-01" for "none") and no later than two days from now. A finished
+ * game is always in this set; a market ending in 2028 cannot have closed yet.
+ * The end date only picks what to ask: whether a market is over is Polymarket's
+ * answer, because many stay open long past their stated end date.
+ */
+export function closedMarketCandidates(positions: Array<Pick<RawPosition, "conditionId" | "endDate">>, now = Date.now()): string[] {
+  const ids = new Set<string>();
+  for (const p of positions) {
+    if (!p.endDate) continue;
+    const t = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(p.endDate) ? `${p.endDate}T00:00:00Z` : p.endDate);
+    if (Number.isFinite(t) && t > Date.UTC(2000, 0, 1) && t <= now + 2 * DAY_MS) ids.add(p.conditionId);
+  }
+  return [...ids];
+}
+
+/**
+ * Markets among these positions that Polymarket reports closed: trading has
+ * stopped, so the bet is finished even though it is not settled (REDEEMABLE)
+ * yet. That is the window between a game ending and its payout. Asked in
+ * parallel batches so an hourly scan of ~1,200 candidate markets takes seconds.
+ * A batch that fails keeps its markets: never drop a bet on a guess.
+ */
+export async function closedMarketIds(positions: Array<Pick<RawPosition, "conditionId" | "endDate">>, now = Date.now()): Promise<Set<string>> {
+  const ids = closedMarketCandidates(positions, now);
+  const groups: string[][] = [];
+  for (let i = 0; i < ids.length; i += 200) groups.push(ids.slice(i, i + 200));
+  const results = await Promise.all(groups.map((g) => fetchMarketResolutions(g).catch(() => new Map<string, MarketResolution>())));
+  const closed = new Set<string>();
+  for (const r of results) for (const [id, m] of r) if (m.closed) closed.add(id);
+  return closed;
 }
 
 export interface RawTrade {

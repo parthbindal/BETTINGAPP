@@ -100,8 +100,16 @@ export function dailyActivity(payload: WhalePayload, days: number): Array<{ day:
 }
 
 /**
- * A signal is still "in play" when its price has not effectively settled
- * (between 3¢ and 97¢). Decided markets stay listed but never headline.
+ * A bet is still "in play" while its price has not effectively settled
+ * (between 3¢ and 97¢). Decided markets never headline.
+ *
+ * Deliberately NOT based on end dates. Polymarket's end_date is an estimate:
+ * on 2026-11-25, 909 positions sat 36h+ past their end date in markets
+ * Polymarket still had open and trading (e.g. "next Prime Minister of
+ * Israel", end date Oct 28, trading at 82¢ with $1.8M from 29 top traders),
+ * and "1970-01-01" means "no date". Finished bets are removed where the truth
+ * is known instead: the reader drops positions Polymarket marks REDEEMABLE or
+ * whose market it reports closed (see closedMarketIds in polymarket-whales).
  */
 export function isInPlay(h: { currentPrice: number }): boolean {
   return h.currentPrice > 0.03 && h.currentPrice < 0.97;

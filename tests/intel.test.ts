@@ -158,3 +158,27 @@ test("moneyByMove weighs by dollars, not by count", () => {
   ]);
   assert.deepEqual(m, { total: 10_500_000, up: 9_000_000, down: 1_000_000, flat: 500_000 });
 });
+
+test("isInPlay ignores end dates: Polymarket keeps markets open past them", () => {
+  // "Next Prime Minister of Israel" was past its listed end date (Oct 28) and still trading at 82c on Nov 25.
+  assert.equal(isInPlay({ currentPrice: 0.82, endDate: "2026-10-28" } as { currentPrice: number }), true);
+  assert.equal(isInPlay({ currentPrice: 0.995 }), false);
+});
+
+test("closedMarketCandidates asks Polymarket only about markets that could have closed", async () => {
+  const { closedMarketCandidates } = await import("../src/lib/data/providers/polymarket-whales");
+  const now = Date.parse("2026-11-25T08:00:00Z");
+  const ids = closedMarketCandidates(
+    [
+      { conditionId: "game-last-night", endDate: "2026-11-24" },
+      { conditionId: "game-tomorrow", endDate: "2026-11-26" },
+      { conditionId: "stale-end-date", endDate: "2026-10-28T03:59:00Z" },
+      { conditionId: "no-date", endDate: "1970-01-01" },
+      { conditionId: "missing", endDate: null },
+      { conditionId: "far-future", endDate: "2028-11-07" },
+      { conditionId: "game-last-night", endDate: "2026-11-24" },
+    ],
+    now,
+  );
+  assert.deepEqual(ids.sort(), ["game-last-night", "game-tomorrow", "stale-end-date"]);
+});
