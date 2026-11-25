@@ -31,7 +31,7 @@ export function ScanFreshness({ generatedAt, note, className }: { generatedAt: s
       <span>
         <span className="text-foreground/85">Scanned {relative(generatedAt)}</span>
         {/* Says out loud that nobody has to press Refresh: the scan repeats every hour on its own. */}
-        {stale ? ` · older than ${SCAN_STALE_MS / 3_600_000} hours` : age >= SCAN_EVERY_MS ? " · next automatic scan running now" : ` · rescans automatically every hour, next around ${nextScanLabel(generatedAt)}`}
+        {stale ? ` · older than ${SCAN_STALE_MS / 3_600_000} hours` : age >= SCAN_EVERY_MS ? " · next automatic scan running now" : ` · updates on its own when you open the app and every hour (next by ${nextScanLabel(generatedAt)})`}
         {note ? ` · ${note}` : ""}
       </span>
     </p>

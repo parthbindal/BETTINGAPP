@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/layout/app-shell";
+import { AutoRefresh } from "@/components/whales/auto-refresh";
 
 /**
  * Authenticated layout.
@@ -15,5 +16,11 @@ import { AppShell } from "@/components/layout/app-shell";
 export const instant = false;
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  return <AppShell>{children}</AppShell>;
+  return (
+    <AppShell>
+      {/* Mounted once for the whole signed-in app: opening it, or returning to its tab, brings the data up to date. */}
+      <AutoRefresh />
+      {children}
+    </AppShell>
+  );
 }

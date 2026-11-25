@@ -46,6 +46,14 @@ export const SCAN_EVERY_MS = 60 * 60_000;
 const SCAN_DUE_MS = SCAN_EVERY_MS - 5 * 60_000;
 /** How soon a Pro member's "Refresh now" may rescan after the last scan. */
 export const MANUAL_SCAN_GAP_MS = 30 * 60_000;
+/**
+ * Opening the app rescans when the data is at least this old. The same 30
+ * minutes as "Refresh now", and enforced through the same global claim, so
+ * however many people open the app, scans run at most twice an hour: about
+ * 1,440 a month at ~5 s of CPU, inside Vercel Hobby's 4 CPU-hours with the
+ * alerts runs included. Anything shorter risks pausing the whole project.
+ */
+export const OPEN_SCAN_GAP_MS = MANUAL_SCAN_GAP_MS;
 const SCAN_JOB = "whale-scan";
 const POSITION_CONCURRENCY = 6;
 const POSITION_PAUSE_MS = 120;
@@ -614,6 +622,34 @@ export function getScanRun() {
 export async function getScanAgeMs(): Promise<number | null> {
   const row = await db.whaleSnapshot.findFirst({ orderBy: { generatedAt: "desc" }, select: { generatedAt: true } });
   return row ? Date.now() - row.generatedAt.getTime() : null;
+}
+
+/** When the stored scan was taken (ISO), and whether a newer one is being built right now. One small read each. */
+export async function getScanStatus(): Promise<{ generatedAt: string | null; running: boolean }> {
+  const [row, run] = await Promise.all([db.whaleSnapshot.findFirst({ orderBy: { generatedAt: "desc" }, select: { generatedAt: true } }), getScanRun()]);
+  // A run with no finish time older than 6 minutes died mid-scan (a scan takes about one); treat it as not running.
+  const running = Boolean(run && !run.finishedAt && Date.now() - run.startedAt.getTime() < 6 * 60_000);
+  return { generatedAt: row ? row.generatedAt.toISOString() : null, running };
+}
+
+/**
+ * Rescan in the background, after the response, when the app is opened and
+ * the data is OPEN_SCAN_GAP_MS old. Returns whether a scan is now on its way
+ * (started here or already running), so the page can wait for it and update.
+ */
+export async function refreshOnOpen(): Promise<{ generatedAt: string | null; refreshing: boolean }> {
+  const s = await getScanStatus();
+  if (s.running) return { generatedAt: s.generatedAt, refreshing: true };
+  const age = s.generatedAt ? Date.now() - Date.parse(s.generatedAt) : null;
+  if (age !== null && age < OPEN_SCAN_GAP_MS) return { generatedAt: s.generatedAt, refreshing: false };
+  after(async () => {
+    try {
+      await scanIfDue(OPEN_SCAN_GAP_MS);
+    } catch (e) {
+      await logError("whales.refreshOnOpen", e);
+    }
+  });
+  return { generatedAt: s.generatedAt, refreshing: true };
 }
 
 let lastBackgroundCheck = 0;

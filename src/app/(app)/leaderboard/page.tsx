@@ -85,7 +85,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
       <div className="space-y-10">
         <div className="space-y-3">
           {header}
-          <LiveBoardStatus scanGeneratedAt={generatedAt} scanLabel={`${relative(generatedAt)}, repeats every hour on its own`} scanStale={ageMs(generatedAt) > SCAN_STALE_MS} />
+          <LiveBoardStatus scanGeneratedAt={generatedAt} scanLabel={`${relative(generatedAt)}, updates on its own when you open the app and every hour`} scanStale={ageMs(generatedAt) > SCAN_STALE_MS} />
         </div>
 
         <section aria-label="The board at a glance" className="border-y border-border/60">
