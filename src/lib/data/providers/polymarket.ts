@@ -6,6 +6,7 @@
  * Gamma market. For a binary market the two complementary outcomes' asks are
  * derived as: sideA_ask = bestAsk, sideB_ask = 1 - bestBid.
  */
+import { unstable_rethrow } from "next/navigation";
 import { logError } from "@/lib/ops";
 
 const GAMMA = "https://gamma-api.polymarket.com";
@@ -135,6 +136,9 @@ export async function fetchActiveMarketsSafe(limit = 400): Promise<PolyMarket[]>
   try {
     return await fetchActiveMarkets(limit);
   } catch (e) {
+    // A prefetch of /compare renders the page and cuts uncached fetches off when it
+    // completes; hand that back to Next instead of reporting Polymarket as down.
+    unstable_rethrow(e);
     await logError("polymarket.fetch", e);
     return [];
   }

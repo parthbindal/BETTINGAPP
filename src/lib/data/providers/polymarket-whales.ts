@@ -14,15 +14,34 @@ const DATA = "https://data-api.polymarket.com";
 const GAMMA = "https://gamma-api.polymarket.com";
 const UA = { accept: "application/json", "user-agent": "edgewise-research/0.1" } as const;
 
-async function getJson<T>(url: string, timeoutMs = 20_000): Promise<T> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const r = await fetch(url, { headers: UA, cache: "no-store", signal: ctrl.signal });
-    if (!r.ok) throw new Error(`${r.status} ${url}`);
-    return (await r.json()) as T;
-  } finally {
-    clearTimeout(timer);
+/** Replies that mean "busy, ask again shortly" rather than "no". */
+const RETRYABLE = new Set([429, 502, 503, 504]);
+
+/** How long to wait before asking again: the server's Retry-After when it gives one (capped), else 1.5 s. */
+function retryDelayMs(r: Response): number {
+  const after = Number(r.headers.get("retry-after"));
+  return Number.isFinite(after) && after > 0 ? Math.min(after * 1000, 5_000) : 1_500;
+}
+
+/**
+ * GET a JSON endpoint. A busy reply is retried `retries` times after a short
+ * pause; any other failure throws at once, carrying the status and URL.
+ */
+async function getJson<T>(url: string, { timeoutMs = 20_000, retries = 1 }: { timeoutMs?: number; retries?: number } = {}): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const r = await fetch(url, { headers: UA, cache: "no-store", signal: ctrl.signal });
+      if (r.ok) return (await r.json()) as T;
+      if (attempt < retries && RETRYABLE.has(r.status)) {
+        await new Promise((res) => setTimeout(res, retryDelayMs(r)));
+        continue;
+      }
+      throw new Error(`${r.status} ${url}`);
+    } finally {
+      clearTimeout(timer);
+    }
   }
 }
 
@@ -131,7 +150,9 @@ async function readPositions(wallet: string, filtered: boolean, pageSize: number
   let cursor: string | null = null;
   for (let page = 0; page < maxPages; page++) {
     const next: string = cursor ? `&cursor=${encodeURIComponent(cursor)}` : "";
-    const res: PositionsPage = await getJson<PositionsPage>(`${DATA}/v2/positions?user=${wallet}&limit=${pageSize}${filter}${next}`);
+    // The value filter's 503 is a server-side timeout that a retry would only repeat;
+    // fetchPositions falls back to the unfiltered read instead.
+    const res: PositionsPage = await getJson<PositionsPage>(`${DATA}/v2/positions?user=${wallet}&limit=${pageSize}${filter}${next}`, { retries: filtered ? 0 : 1 });
     const arr = Array.isArray(res) ? res : (res?.data ?? []);
     out.push(...toPositions(wallet, arr));
     // Unfiltered pages are sorted by value, so one ending below the floor is the last that matters.

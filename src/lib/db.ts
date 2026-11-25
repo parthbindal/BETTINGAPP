@@ -6,11 +6,20 @@ import { config } from "@/lib/env";
  * connection string so the same code runs on SQLite locally and Postgres in
  * production (schema provider must match: see `npm run db:use-postgres`).
  */
+/**
+ * pg already treats sslmode=require as verify-full, and warns on every boot that
+ * its next major will weaken it to libpq's meaning. Name verify-full outright:
+ * the same certificate checks as today, and no warning in the build or logs.
+ */
+export function explicitSslMode(url: string): string {
+  return url.replace(/([?&]sslmode=)(prefer|require|verify-ca)(?=&|$)/, "$1verify-full");
+}
+
 function createClient(): PrismaClient {
   if (config.isPostgres) {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { PrismaPg } = require("@prisma/adapter-pg") as typeof import("@prisma/adapter-pg");
-    const adapter = new PrismaPg({ connectionString: config.databaseUrl });
+    const adapter = new PrismaPg({ connectionString: explicitSslMode(config.databaseUrl) });
     return new PrismaClient({ adapter });
   }
   // eslint-disable-next-line @typescript-eslint/no-require-imports

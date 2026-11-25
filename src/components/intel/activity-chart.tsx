@@ -10,11 +10,6 @@ type Row = { day: string; buys: number; sells: number; trades: number; partial?:
 
 const dayLabel = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
-const LEGEND = [
-  { label: "Bought", color: "var(--chart-1)" },
-  { label: "Sold", color: "var(--chart-3)" },
-];
-
 /**
  * Dollar volume the tracked traders bought and sold per day, stacked with a
  * surface gap. Bought/sold are two CATEGORIES, so they take the next chart
@@ -55,10 +50,21 @@ export function ActivityChart({
 
   const hasAny = rows.some((d) => d.buys > 0 || d.sells > 0);
 
+  // Top traders mostly hold to settlement, so a day's sales can be under a pixel
+  // tall beside its buying. The totals keep the small series readable in words.
+  const bought = rows.reduce((s, d) => s + d.buys, 0);
+  const sold = rows.reduce((s, d) => s + d.sells, 0);
+  const legend = [
+    { label: "Bought", color: "var(--chart-1)", value: `$${compact(bought)}` },
+    { label: "Sold", color: "var(--chart-3)", value: `$${compact(sold)}` },
+  ];
+  const sellsThin = hasAny && sold < bought * 0.05;
+
   return (
     <ChartFrame
       height={height}
-      legend={LEGEND}
+      legend={legend}
+      footnote={sellsThin ? "Selling is too small to show as a bar: these traders rarely sell before a market settles." : undefined}
       action={options.length > 1 ? <ChartRangeTabs value={range} options={options} onChange={setRange} /> : undefined}
       isLoading={isLoading}
       isEmpty={!hasAny}

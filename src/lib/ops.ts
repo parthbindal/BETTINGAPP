@@ -1,8 +1,24 @@
+import { unstable_rethrow } from "next/navigation";
 import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 
+/**
+ * True for the errors Next.js throws to steer a render (a redirect, or I/O cut off
+ * when a prefetch's prerender completes). They are control flow, not failures, so
+ * the error monitor never records them.
+ */
+function isRenderControlFlow(err: unknown): boolean {
+  try {
+    unstable_rethrow(err);
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 /** Persist an error for the admin error monitor; never throws. */
 export async function logError(scope: string, err: unknown, meta?: Record<string, unknown>) {
+  if (isRenderControlFlow(err)) return;
   const message = err instanceof Error ? err.message : String(err);
   const stack = err instanceof Error ? err.stack ?? null : null;
   console.error(`[${scope}]`, message);

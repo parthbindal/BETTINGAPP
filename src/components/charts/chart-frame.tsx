@@ -5,7 +5,8 @@ import { AlertTriangle } from "lucide-react";
 import { ChartSkeleton } from "./chart-skeleton";
 import { cn } from "@/lib/utils";
 
-export type ChartSeries = { label: string; color: string };
+/** `value` is an optional total shown beside the label, in figure ink (never the series colour). */
+export type ChartSeries = { label: string; color: string; value?: string };
 
 /** Swatch-and-label key for multi-series charts. */
 export function ChartLegend({ series, className }: { series: ChartSeries[]; className?: string }) {
@@ -15,6 +16,7 @@ export function ChartLegend({ series, className }: { series: ChartSeries[]; clas
         <li key={s.label} className="inline-flex items-center gap-1.5">
           <span className="size-2.5 shrink-0 rounded-sm" style={{ background: s.color }} aria-hidden="true" />
           {s.label}
+          {s.value && <span className="tabular font-medium text-foreground">{s.value}</span>}
         </li>
       ))}
     </ul>

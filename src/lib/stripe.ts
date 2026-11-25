@@ -89,6 +89,9 @@ export async function syncSubscription(sub: Stripe.Subscription) {
     await logError("stripe.sync", new Error("No user for subscription"), { subscriptionId: sub.id, customerId });
     return;
   }
+  // Deleting an account cancels its subscription first (see lib/auth.ts), so Stripe's
+  // "subscription deleted" event lands after the user is gone: nothing left to mirror.
+  if (!(await db.user.findUnique({ where: { id: userId }, select: { id: true } }))) return;
   const priceId = sub.items.data[0]?.price.id ?? null;
   const ended = sub.status === "canceled" || sub.status === "unpaid" || sub.status === "incomplete_expired";
   const data = {

@@ -160,7 +160,9 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
           <p className="text-sm text-muted-foreground">Two or more top traders bought the same side within 72 hours.</p>
           <div className="-mx-1 mt-3 flex snap-x gap-3 overflow-x-auto px-1 pb-2">
             {clusters.map((c) => (
-              <article key={c.tokenId} className="card-surface flex w-72 shrink-0 snap-start flex-col p-4">
+              // Widths leave about a third of the next card in view at every size, so the strip
+              // reads as scrollable instead of a row cut off a few pixels short.
+              <article key={c.tokenId} className="card-surface flex w-[82%] shrink-0 snap-start flex-col p-4 sm:w-[calc((100%-0.75rem)/2.3)] lg:w-[calc((100%-1.5rem)/3.3)]">
                 <div className="flex items-center gap-1.5 text-xs font-medium text-brand-cyan">
                   <Users className="size-3.5" aria-hidden="true" /> {c.wallets.length} traders · ${compact(c.totalUsd)}
                 </div>
