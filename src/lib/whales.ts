@@ -21,7 +21,7 @@ import { logError } from "@/lib/ops";
 import { getRun, isBuildPhase, runClaimed } from "@/lib/job-runs";
 // Safe despite signals.ts referencing ConsensusHolding: that direction is
 // `import type`, so it is erased and there is no runtime cycle.
-import { recordSignals } from "@/lib/signals";
+import { recordSignals, scoreSignals } from "@/lib/signals";
 
 /**
  * Bump when the aggregation changes, so history never compares different methods.
@@ -566,6 +566,20 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
     await recordSignals(holdings);
   } catch (e) {
     await logError("whales.recordSignals", e);
+  }
+
+  /*
+   * Grade the ledger on the same hourly tick. This used to depend only on the
+   * daily Vercel cron (score-signals), which never ran in production, so 14
+   * calls Polymarket had already settled sat on the public record as "Open".
+   * The query only touches calls past their close date, so it costs one small
+   * read and a Gamma request per 20 closed markets. Swallowed on failure for
+   * the same reason as recordSignals.
+   */
+  try {
+    await scoreSignals();
+  } catch (e) {
+    await logError("whales.scoreSignals", e);
   }
 
   return { tradersScanned: leaders.length, positionsScanned, holdings: holdings.length };

@@ -23,8 +23,8 @@ const JOBS: Record<string, () => Promise<unknown>> = {
     const run = await scanIfDue();
     return run.ran ? run.result : { skipped: "a scan already ran within the hour" };
   },
-  // Settles ledger rows whose markets have closed. Signals are recorded by
-  // whale-watch itself; this only grades them.
+  // Settles ledger rows whose markets have closed. The hourly scan also grades
+  // after recording (whales.ts), so this is a manual/backup trigger.
   "score-signals": () => scoreSignals(),
   "watchlist-alerts": () => checkWatchlistAlerts(),
   // Big trades by the tracked top traders, delivered in the app and on Telegram, every 20 minutes from
