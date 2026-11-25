@@ -110,9 +110,25 @@ export function dailyActivity(payload: WhalePayload, days: number): Array<{ day:
  * and "1970-01-01" means "no date". Finished bets are removed where the truth
  * is known instead: the reader drops positions Polymarket marks REDEEMABLE or
  * whose market it reports closed (see closedMarketIds in polymarket-whales).
+ *
+ * One date rule does hold: a single game. For Sports the end date is the
+ * kickoff, so a game whose day is 36h+ gone while its market is still open was
+ * postponed or is stuck awaiting a result (e.g. "Will Athletic Club win on
+ * 2026-10-10?", still open and at 51c six weeks later). That is not a live bet,
+ * so it never headlines. The 36h covers late US games that end after midnight UTC.
  */
-export function isInPlay(h: { currentPrice: number }): boolean {
-  return h.currentPrice > 0.03 && h.currentPrice < 0.97;
+export function isInPlay(h: { currentPrice: number; category?: string; endDate?: string | null }): boolean {
+  return h.currentPrice > 0.03 && h.currentPrice < 0.97 && !isOverdueGame(h);
+}
+
+const OVERDUE_GAME_MS = 36 * 3_600_000;
+
+/** A Sports market whose scheduled game day is 36h+ past (see isInPlay). Political "next X" end dates are placeholders and never count. */
+export function isOverdueGame(h: { category?: string; endDate?: string | null }): boolean {
+  if (h.category !== "Sports" || !h.endDate) return false;
+  const t = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(h.endDate) ? `${h.endDate}T00:00:00Z` : h.endDate);
+  // Polymarket sends 1970-01-01 for "no date".
+  return Number.isFinite(t) && t > Date.UTC(2000, 0, 1) && Date.now() > t + OVERDUE_GAME_MS;
 }
 
 /**

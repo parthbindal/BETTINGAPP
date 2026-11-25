@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { explainSplit, isInPlay, polymarketMarketUrl, splitSides } from "../src/lib/intel";
+import { explainSplit, isInPlay, isOverdueGame, polymarketMarketUrl, splitSides } from "../src/lib/intel";
 
 test("explainSplit says when money agrees with the trader count", () => {
   assert.equal(
@@ -159,10 +159,24 @@ test("moneyByMove weighs by dollars, not by count", () => {
   assert.deepEqual(m, { total: 10_500_000, up: 9_000_000, down: 1_000_000, flat: 500_000 });
 });
 
-test("isInPlay ignores end dates: Polymarket keeps markets open past them", () => {
+test("isInPlay keeps political markets open past their placeholder end date", () => {
   // "Next Prime Minister of Israel" was past its listed end date (Oct 28) and still trading at 82c on Nov 25.
-  assert.equal(isInPlay({ currentPrice: 0.82, endDate: "2026-10-28" } as { currentPrice: number }), true);
+  assert.equal(isInPlay({ currentPrice: 0.82, category: "Politics", endDate: "2026-10-28" }), true);
+  assert.equal(isInPlay({ currentPrice: 0.82, endDate: "2026-10-28" }), true);
   assert.equal(isInPlay({ currentPrice: 0.995 }), false);
+});
+
+test("isOverdueGame: a sports game whose day is 36h+ gone is postponed or awaiting a result, not live", () => {
+  // Still open at 51c on Polymarket six weeks after kickoff.
+  assert.equal(isOverdueGame({ category: "Sports", endDate: "2026-10-10T12:00:00Z" }), true);
+  assert.equal(isInPlay({ currentPrice: 0.51, category: "Sports", endDate: "2026-10-10" }), false);
+  // Tonight's and future games stay live; "1970-01-01" means no date; politics never counts.
+  assert.equal(isOverdueGame({ category: "Sports", endDate: new Date(Date.now() - 12 * 3_600_000).toISOString() }), false);
+  assert.equal(isOverdueGame({ category: "Sports", endDate: "2999-01-01" }), false);
+  assert.equal(isOverdueGame({ category: "Sports", endDate: "1970-01-01" }), false);
+  assert.equal(isOverdueGame({ category: "Politics", endDate: "2026-10-28" }), false);
+  // Safe as a bare .filter() callback (no second parameter for the index to land in).
+  assert.deepEqual([{ currentPrice: 0.51, category: "Sports", endDate: "2026-10-10" }].filter(isInPlay), []);
 });
 
 test("closedMarketCandidates asks Polymarket only about markets that could have closed", async () => {

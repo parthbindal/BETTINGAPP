@@ -263,7 +263,8 @@ export default async function ConsensusPage({ searchParams }: { searchParams: Pr
             </div>
             {settledCount > 0 && (
               <div className="flex flex-wrap items-center gap-2">
-                <span className="w-20 shrink-0 text-xs text-muted-foreground">Decided</span>
+                {/* Hidden by default: markets priced 97c+/3c- and games past their date (postponed or awaiting a result). See isInPlay. */}
+                <span className="w-20 shrink-0 text-xs text-muted-foreground" title="Priced 97¢ or more, 3¢ or less, or a game past its date">Done</span>
                 <Chip to={href(params, { settled: "" })} active={!showSettled}>Hide</Chip>
                 <Chip to={href(params, { settled: "1" })} active={showSettled}>Show {settledCount}</Chip>
               </div>

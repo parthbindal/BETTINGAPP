@@ -141,7 +141,7 @@ export default async function WhalesPage({ searchParams }: { searchParams: Promi
   const field = p.tradersScanned;
 
   // Finished bets never reach this page (the scan drops settled and closed markets). What is left out here are sides
-  // priced 3c-or-less / 97c-or-more, which are decided in all but name; the page says how many.
+  // priced 3c-or-less / 97c-or-more (decided in all but name) and games past their date (see isInPlay); the page says how many.
   const book = p.holdings.filter(isInPlay);
   const doneCount = p.holdings.length - book.length;
   const up = book.filter((h) => h.unrealizedPnl > 0);
@@ -167,7 +167,7 @@ export default async function WhalesPage({ searchParams }: { searchParams: Promi
         <StatBand
           stats={[
             { label: "Traders tracked", value: field.toLocaleString("en-US"), foot: "Polymarket's most profitable, all-time" },
-            { label: "Live market sides", value: book.length.toLocaleString("en-US"), foot: `From ${p.positionsScanned.toLocaleString("en-US")} open bets of $100+${doneCount ? `; ${doneCount} priced 97¢+ or 3¢− left out` : ""}` },
+            { label: "Live market sides", value: book.length.toLocaleString("en-US"), foot: `From ${p.positionsScanned.toLocaleString("en-US")} open bets of $100+${doneCount ? `; ${doneCount} decided or past their game date, left out` : ""}` },
             { label: "Open profit", value: signedUsd(openProfit), foot: `On ${up.length.toLocaleString("en-US")} of ${book.length.toLocaleString("en-US")} sides; ${down.length.toLocaleString("en-US")} are down $${compact(Math.abs(openLoss))}` },
             { label: "Largest open gain", value: biggest ? signedUsd(biggest.unrealizedPnl) : "—", foot: biggest ? `${biggest.outcome} · ${biggest.title.length > 44 ? `${biggest.title.slice(0, 43)}…` : biggest.title}` : "No positions in this scan" },
           ]}
