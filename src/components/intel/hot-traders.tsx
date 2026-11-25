@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Flame, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import type { LeaderEntry } from "@/lib/data/providers/polymarket-whales";
 import { compact } from "@/lib/format";
 import { walletHref } from "@/lib/intel";
@@ -70,7 +70,8 @@ export function HotTradersBoard({
                       <span className="block h-full rounded-full bg-foreground/60" style={{ width: `${Math.max(3, (Math.abs(t.pnl) / max) * 100)}%` }} />
                     </span>
                   </span>
-                  <span className={cn("tabular text-right text-sm font-semibold", t.pnl >= 0 ? "text-status-good" : "text-chart-2")}>{signed(t.pnl)}</span>
+                  {/* Signed, not colored: a good week is not a settled result. */}
+                  <span className="tabular text-right text-sm font-semibold">{signed(t.pnl)}</span>
                 </Link>
               </li>
             );
@@ -86,46 +87,5 @@ export function HotTradersBoard({
         </span>
       </p>
     </div>
-  );
-}
-
-/**
- * The tape: today's biggest winners scrolling past, slowly (see .ticker in
- * globals.css). Two identical copies make the loop seamless; the second is
- * hidden from assistive tech and from the tab order.
- */
-export function HotTicker({ traders, allTimeRank }: { traders: LeaderEntry[]; allTimeRank: Map<string, number> }) {
-  const shown = traders.filter((t) => t.pnl > 0).slice(0, 12);
-  if (shown.length < 4) return null;
-  const copy = (hidden: boolean) => (
-    <ul className="flex shrink-0 items-center gap-8 pr-8" aria-hidden={hidden || undefined}>
-      {shown.map((t) => {
-        const rank = allTimeRank.get(t.wallet.toLowerCase());
-        return (
-          <li key={t.wallet} className="flex shrink-0 items-center gap-2 text-sm">
-            <TraderAvatar wallet={t.wallet} name={t.name} size={20} />
-            <Link href={walletHref(t.wallet)} tabIndex={hidden ? -1 : undefined} className="max-w-[11rem] truncate font-medium hover:text-primary">
-              {t.name}
-            </Link>
-            <span className="tabular font-semibold text-status-good">▲ ${compact(t.pnl)}</span>
-            {rank ? <span className="tabular text-[11px] text-brand-cyan">#{rank} all-time</span> : null}
-          </li>
-        );
-      })}
-    </ul>
-  );
-  return (
-    <section aria-label="Today's biggest winners on Polymarket" className="ticker flex items-stretch overflow-hidden rounded-xl border border-border bg-surface-1">
-      <div className="flex shrink-0 items-center gap-1.5 border-r border-border px-3.5 text-xs font-medium">
-        <Flame className="size-3.5 text-status-warning" aria-hidden="true" />
-        <span>Today&apos;s top winners</span>
-      </div>
-      <div className="ticker-viewport min-w-0 flex-1 overflow-hidden py-2.5">
-        <div className="ticker-track flex w-max">
-          {copy(false)}
-          {copy(true)}
-        </div>
-      </div>
-    </section>
   );
 }

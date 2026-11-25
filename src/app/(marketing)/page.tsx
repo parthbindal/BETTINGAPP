@@ -1,279 +1,290 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { io } from "next/cache";
-import { ArrowRight, Check, Lock } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { LinkButton } from "@/components/ui/link-button";
 import { ParticleLogo } from "@/components/marketing/particle-logo";
-import { AlertCard, BigMoveRow, FaqItem, ProductFrame } from "@/components/marketing/home-blocks";
-import { HeroSignal, SignalCard } from "@/components/intel/signal";
+import { FaqItem, MovesLedger } from "@/components/marketing/home-blocks";
+import { ConsensusLedger } from "@/components/intel/consensus-ledger";
 import { TraderProfitList } from "@/components/intel/trader-profit-list";
+import { CountUp } from "@/components/motion/count-up";
+import { StatBand } from "@/components/shared/stat-band";
 import { PLANS, planHighlights, type Tier } from "@/lib/subscriptions/plans";
 import { config } from "@/lib/env";
 import { getPublicBigMovesCached, getSmartMoneyPreviewCached, getTrackRecordCached, CONSENSUS_MIN_WALLETS } from "@/lib/data/public-cache";
-import { compact, pct, relative } from "@/lib/format";
+import { MEANINGFUL_SAMPLE } from "@/lib/signals";
+// Absolute UTC stamps only. relative() reads the clock, and "3 hours ago" on a
+// page that claims to be a record is weaker evidence than a time.
+import { dateShort, pct, utcStamp } from "@/lib/format";
 import { cn } from "@/lib/utils";
+
+/**
+ * The front door, set in the public track record's language (see
+ * (marketing)/track-record/page.tsx): a claim, one live figure that carries its
+ * denominator, a ruled stat band, then ledgers of real data. The visitor sees
+ * the instrument itself instead of a description of it, and the record of
+ * calls made before their results sits near the top, not at the bottom.
+ *
+ * Every number is read from the scan or the ledger at request time, inside a
+ * Suspense hole (io()); the static shell around them is prerendered.
+ */
 
 /** Telegram appears in the copy only on a deployment where it is switched on. */
 const delivery = { telegram: config.isTelegramConfigured, channel: config.isTelegramChannelConfigured };
 
-const STEPS = [
-  { title: "Rank the traders", body: "We read Polymarket's public profit leaderboard and track the 1,000 most profitable wallets on it." },
-  { title: "Map every position", body: "Each wallet's open bets come from Polymarket's data: the market, the side, the size, what they paid and the price now." },
-  { title: "Find the overlap", body: `When ${CONSENSUS_MIN_WALLETS} or more of those traders hold the same side of a market, it becomes a signal, with the money behind it.` },
-  { title: "Check before you act", body: "A signal is a research prompt, not a sure thing. Every figure links to its market so you can verify it. EDGEWISE never places bets." },
+const signalHref = (h: { tokenId: string }) => `/consensus/${h.tokenId}`;
+
+const RULES: Array<{ head: string; body: string }> = [
+  { head: "Rank the traders", body: "We read Polymarket's public all-time profit leaderboard and track the 1,000 most profitable wallets on it. The list is fixed by Polymarket's numbers, not picked by us." },
+  { head: "Read every open position", body: "Each wallet's open bets of $100 or more come from Polymarket's public data, re-read every hour: the market, the side, the size, what they paid and the price now." },
+  { head: "Flag where they agree", body: `When ${CONSENSUS_MIN_WALLETS} or more of those wallets hold the same side of a market still in play, it becomes a signal. Markets where top traders sit on both sides are shown as split, never as agreement.` },
+  { head: "Publish the call before the result", body: "Every signal is written to the public ledger at the price it traded that minute and never edited. Polymarket's settlement grades it, wins and losses alike." },
 ];
 
-const signalHref = (tokenId: string) => `/consensus/${tokenId}`;
+/* ---------------------------------------------------------------- pieces */
 
-/* ---------------------------------------------------------------- hero */
-
-function FrameSkeleton() {
+/** A section heading at the track record's scale: the heading and one sentence of method, outside the data. */
+function Heading({ eyebrow, title, children, right }: { eyebrow?: string; title: string; children?: React.ReactNode; right?: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-border bg-surface-1/95 p-5" aria-busy="true">
-      <div className="h-4 w-40 animate-pulse rounded bg-surface-3" />
-      <div className="mt-6 h-[22rem] animate-pulse rounded-xl bg-surface-2/70" />
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="h-36 animate-pulse rounded-xl bg-surface-2/50" />
-        ))}
+    <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+      <div className="min-w-0">
+        {eyebrow && <div className="label-micro mb-3">{eyebrow}</div>}
+        <h2 className="max-w-2xl text-balance text-2xl font-semibold sm:text-3xl">{title}</h2>
+        {children && <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">{children}</p>}
       </div>
+      {right}
     </div>
   );
 }
 
-/** A slice of the real app: today's biggest signal and the latest big moves, from live data. */
-async function LiveProduct() {
-  await io();
-  const [s, moves] = await Promise.all([getSmartMoneyPreviewCached().catch(() => null), getPublicBigMovesCached().catch(() => [])]);
-  const featured = s?.signals[0];
+function Pending({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <ProductFrame address="edgewise · home" status={s ? `Live data · scanned ${relative(s.generatedAt)}` : "Waiting for the first scan"} live={Boolean(s)}>
-      <div className="space-y-5 p-3 sm:p-5">
-        <div className="min-w-0">
-          <div className="label-micro mb-3 px-1">Biggest bet the top traders agree on</div>
-          {featured ? (
-            <HeroSignal
-              h={featured}
-              href={signalHref(featured.tokenId)}
-              action={
-                <LinkButton href="/sign-up" variant="outline" className="w-full">
-                  See every trader in this bet <ArrowRight className="size-4" />
-                </LinkButton>
-              }
-            />
-          ) : (
-            <div className="card-surface px-6 py-16 text-center text-sm text-muted-foreground">Signals appear here after EDGEWISE finishes its first scan of Polymarket&apos;s top traders.</div>
-          )}
-        </div>
-        <section aria-label="Recent big moves by top traders">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
-            <h2 className="label-micro">Big moves by top traders</h2>
-            <span className="text-[11px] text-muted-foreground">Shown 1 hour late · Pro members get them as alerts first</span>
-          </div>
-          {moves.length ? (
-            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {moves.slice(0, 4).map((m) => (
-                <BigMoveRow key={m.id} m={m} />
-              ))}
-            </ul>
-          ) : (
-            <p className="card-surface p-5 text-sm text-muted-foreground">No $10K+ moves by top traders in the last day.</p>
-          )}
-        </section>
-      </div>
-    </ProductFrame>
-  );
-}
-
-/* --------------------------------------------------------------- strip */
-
-function StripSkeleton() {
-  return (
-    <div className="mx-auto grid w-full max-w-6xl grid-cols-2 px-4 sm:px-6 lg:grid-cols-4" aria-busy="true">
-      {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="space-y-2 px-1 py-7 lg:px-6">
-          <div className="h-2.5 w-24 animate-pulse rounded bg-surface-3" />
-          <div className="h-8 w-24 animate-pulse rounded bg-surface-3" />
-        </div>
-      ))}
+    <div className="card-surface px-6 py-12 text-center">
+      <p className="text-base font-medium">{title}</p>
+      <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground">{children}</p>
     </div>
   );
 }
 
-/** Headline numbers from the latest Polymarket scan. */
-async function SmartMoneyStrip() {
+const Bone = ({ className }: { className: string }) => <div className={cn("animate-pulse rounded bg-surface-3", className)} />;
+
+/* ------------------------------------------------------------------ hero */
+
+/** The hero's one figure: the money behind today's consensus, with who holds it and when it was read. */
+async function HeroFigure() {
   await io();
   const s = await getSmartMoneyPreviewCached().catch(() => null);
-  const stats = [
-    { label: "Top traders tracked", value: s ? s.trackedWallets.toLocaleString("en-US") : "—", note: "Polymarket's most profitable, all-time" },
-    { label: "Open bets mapped", value: s ? s.positionsAnalyzed.toLocaleString("en-US") : "—", note: "Positions of $100 or more, rescanned hourly" },
-    { label: "Signals right now", value: s ? `${s.consensusOutcomes}${s.consensusCapped ? "+" : ""}` : "—", note: `${CONSENSUS_MIN_WALLETS}+ top traders on the same side` },
-    { label: "Money in those signals", value: s ? `$${compact(s.consensusCapital)}` : "—", note: "Combined value on those outcomes" },
-  ];
+  if (!s) {
+    return (
+      <div className="mt-12 max-w-md">
+        <div className="label-micro">Money behind today&apos;s consensus</div>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          The first scan of Polymarket&apos;s top 1,000 traders is running. This figure appears when it finishes, usually within a few minutes; the scan then repeats every hour.
+        </p>
+      </div>
+    );
+  }
   return (
-    <dl className="mx-auto grid w-full max-w-6xl grid-cols-2 px-4 sm:px-6 lg:grid-cols-4 lg:divide-x lg:divide-border">
-      {stats.map((st) => (
-        <div key={st.label} className="px-1 py-7 lg:px-6">
-          <dt className="label-micro">{st.label}</dt>
-          <dd className="figure mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">{st.value}</dd>
-          <dd className="mt-1 text-xs text-muted-foreground">{st.note}</dd>
+    <div className="mt-12">
+      <div className="label-micro">Money behind today&apos;s consensus</div>
+      {/* The same rows the ledger below lists (in play, no split markets), so the hero and the table never disagree. */}
+      <div className="figure-hero mt-2 text-foreground">
+        <CountUp value={s.liveCapital} format="usd" id="home-capital" />
+        <span className="figure-unit"> on {s.liveCount} live signals</span>
+      </div>
+      <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
+        Each one held by {CONSENSUS_MIN_WALLETS} or more of the {s.trackedWallets.toLocaleString("en-US")} traders we track, on the same side of a market still in play. Read from Polymarket <span className="font-medium text-foreground">{utcStamp(s.generatedAt)}</span>.
+      </p>
+    </div>
+  );
+}
+
+function HeroFigureSkeleton() {
+  return (
+    <div className="mt-12 space-y-3" aria-busy="true">
+      <Bone className="h-2.5 w-44" />
+      <Bone className="h-20 w-72" />
+      <Bone className="h-3 w-80" />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------- stat band */
+
+async function HomeBand() {
+  await io();
+  const [s, view] = await Promise.all([getSmartMoneyPreviewCached().catch(() => null), getTrackRecordCached().catch(() => null)]);
+  const r = view?.record;
+  const onRecord = r ? r.open + r.settled + r.voided : null;
+  const nextClose = view?.open.find((x) => x.endDate !== null)?.endDate ?? null;
+  return (
+    <StatBand
+      stats={[
+        { label: "Top traders tracked", value: s ? s.trackedWallets.toLocaleString("en-US") : "—", foot: "Polymarket's most profitable, all-time" },
+        { label: "Open bets mapped", value: s ? s.positionsAnalyzed.toLocaleString("en-US") : "—", foot: "Positions of $100 or more, re-read hourly" },
+        { label: "Calls on the record", value: onRecord !== null ? onRecord.toLocaleString("en-US") : "—", foot: "Each logged at its price, before the result" },
+        {
+          label: "Graded so far",
+          value: r ? r.settled.toLocaleString("en-US") : "—",
+          foot: !r ? "Ledger unavailable right now" : r.settled > 0 ? `${r.won} won · ${r.lost} lost${r.voided ? ` · ${r.voided} void` : ""}` : nextClose ? `First close ${dateShort(nextClose)}` : "As Polymarket settles them",
+        },
+      ]}
+    />
+  );
+}
+
+function BandSkeleton() {
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4" aria-busy="true">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="space-y-2.5 px-5 py-5 sm:px-6">
+          <Bone className="h-2.5 w-24" />
+          <Bone className="h-9 w-24" />
+          <Bone className="h-2.5 w-36" />
         </div>
       ))}
-    </dl>
-  );
-}
-
-/* ------------------------------------------------------------- pillars */
-
-function Pillar({ id, eyebrow, title, body, points, visual, reverse = false }: { id: string; eyebrow: string; title: string; body: React.ReactNode; points: string[]; visual: React.ReactNode; reverse?: boolean }) {
-  return (
-    <div id={id} className="grid scroll-mt-24 items-center gap-10 lg:grid-cols-2 lg:gap-16">
-      <div className={cn("min-w-0", reverse && "lg:order-2")}>
-        <div className="label-micro">{eyebrow}</div>
-        <h3 className="mt-3 text-balance text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h3>
-        <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">{body}</p>
-        <ul className="mt-6 space-y-2.5 text-[15px]">
-          {points.map((t) => (
-            <li key={t} className="flex gap-2.5">
-              <Check className="mt-0.5 size-4 shrink-0 text-foreground/70" aria-hidden="true" /> {t}
-            </li>
-          ))}
-        </ul>
-      </div>
-      <div className={cn("min-w-0", reverse && "lg:order-1")}>{visual}</div>
     </div>
   );
 }
 
-function PillarsSkeleton() {
-  return <div className="h-[60rem] animate-pulse rounded-2xl bg-surface-1/60" aria-busy="true" />;
-}
+/* ------------------------------------------------------------- consensus */
 
-async function Pillars() {
+async function TodaysConsensus() {
   await io();
-  const [s, moves] = await Promise.all([getSmartMoneyPreviewCached().catch(() => null), getPublicBigMovesCached().catch(() => [])]);
-  const cards = s?.signals.slice(1, 3) ?? [];
-  const locked = s ? Math.max(0, s.consensusOutcomes - s.freeTokenCount) : 0;
-  // The hero frame already shows the newest four; the alert stack uses the next ones when there are enough.
-  const alerts = (moves.length >= 7 ? moves.slice(4, 7) : moves.slice(0, 3)).slice(0, 3);
-  const where = delivery.telegram ? "in the app and on Telegram" : "in the app";
-
+  const s = await getSmartMoneyPreviewCached().catch(() => null);
+  if (!s || !s.signals.length) {
+    return (
+      <Pending title="No clear agreement right now">
+        A signal appears when {CONSENSUS_MIN_WALLETS} or more of the top traders hold the same side of a market that is still in play. The scan re-reads every wallet each hour{s ? `; the last read was ${utcStamp(s.generatedAt)}` : ""}.
+      </Pending>
+    );
+  }
+  const more = Math.max(0, s.liveCount - s.signals.length - s.locked.length);
   return (
-    <div className="space-y-28">
-      <Pillar
-        id="signals"
-        eyebrow="Signals"
-        title="See where the best traders agree."
-        body={`When ${CONSENSUS_MIN_WALLETS} or more of Polymarket's top 1,000 traders hold the same side of a market, it becomes a signal: who is in, how much money, what they paid and where the price is now.`}
-        points={["Ranked by the money at risk", "A deep dive on every trader in the bet", "One-trader bets and split markets called out, never headlined"]}
-        visual={
-          <div className="grid gap-4 sm:grid-cols-2">
-            {cards.map((h) => (
-              <SignalCard key={h.tokenId} h={h} href={signalHref(h.tokenId)} />
-            ))}
-            {locked > 0 && (
-              <Link href="/sign-up" className="card-surface lift group flex flex-col items-center justify-center gap-2 p-6 text-center sm:col-span-2">
-                <Lock className="size-4 text-muted-foreground" aria-hidden="true" />
-                <span className="text-sm font-medium group-hover:text-primary">
-                  {locked} more {locked === 1 ? "signal" : "signals"} right now in Pro
-                </span>
-                <span className="text-xs text-muted-foreground">The 3 biggest are free with an account</span>
-              </Link>
+    <ConsensusLedger
+      label="Today's consensus among Polymarket's top traders"
+      rows={s.signals}
+      locked={s.locked}
+      tracked={s.trackedWallets}
+      href={signalHref}
+      footer={
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 px-4 py-3.5 sm:px-5">
+          <p className="text-sm text-muted-foreground">
+            A free account opens the top {s.signals.length} in full, with every trader in them.{" "}
+            {s.locked.length > 0 && (
+              <>
+                Pro opens all <span className="font-medium text-foreground">{s.liveCount}</span>
+                {more > 0 ? `, ${more} more than listed here` : ""}.
+              </>
             )}
+          </p>
+          <LinkButton href="/sign-up" size="sm">
+            Start free <ArrowRight className="size-3.5" />
+          </LinkButton>
+        </div>
+      }
+    />
+  );
+}
+
+function LedgerSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <div className="card-surface divide-y divide-border/40" aria-busy="true">
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="flex items-center justify-between gap-6 px-5 py-4">
+          <div className="w-full max-w-md space-y-2">
+            <Bone className="h-3.5 w-4/5" />
+            <Bone className="h-2.5 w-1/3" />
           </div>
-        }
-      />
-
-      <Pillar
-        id="alerts"
-        reverse
-        eyebrow="Whale alerts"
-        title="Know when a whale makes a move."
-        body="EDGEWISE watches every trade of $5,000 or more on Polymarket and tells you when one of the top traders makes a big move, or when a trader you follow trades $1,000 or more."
-        points={[`Alerts ${where}`, "Choose the size and how high up the leaderboard", "Follow any trader to hear about all their bets"]}
-        visual={
-          alerts.length ? (
-            <div className="relative mx-auto max-w-md">
-              <div aria-hidden="true" className="absolute inset-x-10 -inset-y-6 -z-10 rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklch,var(--primary)_18%,transparent),transparent)]" />
-              <div className="space-y-3">
-                {alerts.map((m, i) => (
-                  <AlertCard key={m.id} m={m} className={cn(i === 1 && "sm:ml-8", i === 2 && "sm:ml-4 opacity-80")} />
-                ))}
-              </div>
-              <p className="mt-4 text-center text-xs text-muted-foreground">Real alerts from the last day, shown an hour late. Pro members get them first.</p>
-            </div>
-          ) : (
-            <div className="card-surface p-8 text-center text-sm text-muted-foreground">No big moves by top traders in the last day.</div>
-          )
-        }
-      />
-
-      <Pillar
-        id="traders"
-        eyebrow="Top traders"
-        title="Track the 1,000 most profitable traders."
-        body="Ranks and profit update live from Polymarket's leaderboard. Open any trader to see what they hold, how their open bets are doing, and every big move they make."
-        points={["Live ranks, straight from Polymarket", "Every open bet, with what they paid", "Today's hottest traders, flagged when they are proven"]}
-        visual={
-          s?.topTraders.length ? (
-            <div className="card-surface p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <span className="text-sm font-semibold">All-time profit on Polymarket</span>
-                <span className="label-micro">Top 6 of 1,000</span>
-              </div>
-              <TraderProfitList traders={s.topTraders} />
-            </div>
-          ) : (
-            <div className="card-surface p-8 text-center text-sm text-muted-foreground">The leaderboard fills in after the first scan.</div>
-          )
-        }
-      />
+          <Bone className="h-5 w-16" />
+        </div>
+      ))}
     </div>
   );
 }
 
-/* -------------------------------------------------------- track record */
+/* ------------------------------------------------- big moves, top traders */
+
+async function MovesAndTraders() {
+  await io();
+  const [moves, s] = await Promise.all([getPublicBigMovesCached(6).catch(() => []), getSmartMoneyPreviewCached().catch(() => null)]);
+  const where = delivery.telegram ? "in the app and on Telegram" : "in the app";
+  return (
+    <div className="space-y-16">
+      <div className="min-w-0">
+        <Heading title="Big moves by top traders" right={<span className="label-micro">Shown 1 hour late</span>}>
+          Trades of $10,000 or more by the tracked wallets in the last day, one per trader. Pro members get them as alerts {where} when they happen.
+        </Heading>
+        <div className="mt-6">
+          {moves.length ? (
+            <MovesLedger moves={moves} />
+          ) : (
+            <Pending title="No $10,000+ moves in the last day">
+              Top traders sometimes go a day without a trade that size. Every trade of $5,000 or more on Polymarket is checked about every 20 minutes, and the biggest by tracked wallets are listed here an hour after they happen.
+            </Pending>
+          )}
+        </div>
+      </div>
+      <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-16">
+        <div className="min-w-0">
+          <div className="label-micro">Who they are</div>
+          <h2 className="mt-3 max-w-xl text-balance text-2xl font-semibold sm:text-3xl">
+            The {s ? `${s.trackedWallets.toLocaleString("en-US")} ` : ""}most profitable traders on Polymarket, <span className="text-muted-foreground">ranked by Polymarket.</span>
+          </h2>
+          <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+            The list comes from Polymarket&apos;s own public profit leaderboard, so nobody here is hand-picked. Open any of them to see every bet they hold, what they paid and how it is going, and follow the ones you trust.
+          </p>
+        </div>
+        <div className="card-surface min-w-0 p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <span className="text-sm font-semibold">All-time profit on Polymarket</span>
+            <span className="label-micro">Top {s?.topTraders.length ?? 0}</span>
+          </div>
+          {s?.topTraders.length ? (
+            <TraderProfitList traders={s.topTraders} />
+          ) : (
+            <p className="py-6 text-center text-sm text-muted-foreground">The ranking appears when the first scan finishes, usually within a few minutes.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------- track record */
 
 async function RecordBand() {
   await io();
   const view = await getTrackRecordCached().catch(() => null);
   if (!view) return null;
   const r = view.record;
-  const onRecord = r.open + r.settled + r.voided;
+  const graded = r.settled > 0;
+  const nextClose = view.open.find((x) => x.endDate !== null)?.endDate ?? null;
   return (
-    <div className="grid items-end gap-10 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+    <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-16">
       <div>
         <div className="label-micro">Public track record</div>
-        <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight sm:text-4xl">Every call on the record, before the result.</h2>
-        <p className="mt-4 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
-          Each signal is written down with the price it traded at that minute, and never edited. When Polymarket settles the market, we publish what happened, wins and misses alike.
+        <h2 className="mt-3 text-balance text-2xl font-semibold sm:text-3xl">
+          Every call on the record, <span className="text-muted-foreground">before the result.</span>
+        </h2>
+        <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+          Each signal is written down at the price it traded that minute and never edited. When Polymarket settles the market, the result is published beside it, wins and misses alike. The hit rate is always shown next to what the market itself expected, because that gap is the only number that shows skill.
         </p>
         <LinkButton href="/track-record" variant="outline" className="mt-7">
-          See the public record <ArrowRight className="size-4" />
+          See every call <ArrowRight className="size-4" />
         </LinkButton>
       </div>
-      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border bg-border">
-        <div className="bg-card p-5">
-          <dt className="label-micro">Calls on record</dt>
-          <dd className="figure mt-2 text-4xl font-semibold">{onRecord.toLocaleString("en-US")}</dd>
-        </div>
-        <div className="bg-card p-5">
-          <dt className="label-micro">Graded so far</dt>
-          <dd className="figure mt-2 text-4xl font-semibold">{r.settled.toLocaleString("en-US")}</dd>
-        </div>
-        <div className="col-span-2 bg-card p-5 text-sm text-muted-foreground">
-          {r.settled > 0 && r.hitRate !== null ? (
-            <>
-              <span className="text-foreground">
-                {r.won} won, {r.lost} lost
-              </span>{" "}
-              so far{r.baseline !== null ? `; the market had priced them at ${pct(r.baseline)}` : ""}.{r.provisional ? " Too few yet to call it skill." : ""}
-            </>
-          ) : (
-            <>No call has been graded yet. Results go up as Polymarket settles each market, wins and misses alike.</>
-          )}
-        </div>
-      </dl>
+      <div className="card-surface overflow-hidden">
+        <StatBand
+          columns={2}
+          stats={[
+            { label: "Calls graded", value: String(r.settled), foot: graded ? `${r.won} won · ${r.lost} lost${r.voided ? ` · ${r.voided} void` : ""}` : `${r.open} open${nextClose ? `, first close ${dateShort(nextClose)}` : ""}` },
+            { label: "Hit rate", value: pct(r.hitRate), foot: graded ? `${r.won} of ${r.settled} settled${r.provisional ? ` · provisional until ${MEANINGFUL_SAMPLE}` : ""}` : "Shown once calls settle" },
+            { label: "Market baseline", value: pct(graded ? r.baseline : r.openBaseline), foot: graded ? "What the entry prices implied" : `What the market expects of the ${r.open} open calls` },
+            { label: "Calls open", value: String(r.open), foot: "Waiting on Polymarket to settle" },
+          ]}
+        />
+      </div>
     </div>
   );
 }
@@ -283,98 +294,101 @@ async function RecordBand() {
 export default function LandingPage() {
   return (
     <div>
-      <section className="relative isolate overflow-hidden">
-        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[980px] bg-[radial-gradient(720px_420px_at_50%_22%,color-mix(in_oklch,var(--primary)_16%,transparent),transparent_70%),radial-gradient(560px_340px_at_62%_46%,color-mix(in_oklch,var(--brand-violet)_10%,transparent),transparent_70%)]" />
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(rgb(255_255_255/0.025)_1px,transparent_1px),linear-gradient(90deg,rgb(255_255_255/0.025)_1px,transparent_1px)] bg-[size:56px_56px] [mask-image:radial-gradient(ellipse_at_50%_24%,black,transparent_62%)]" />
-
-        <div className="mx-auto flex w-full max-w-5xl flex-col items-center px-4 pt-4 text-center sm:px-6 sm:pt-6">
-          <ParticleLogo className="w-[min(300px,66vw)]" />
-          <div className="rise-in -mt-2 inline-flex items-center gap-2 rounded-full border border-border bg-surface-1/80 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-            <span className="size-1.5 rounded-full bg-brand-cyan" aria-hidden="true" />
-            Live Polymarket data · <span className="hidden sm:inline">analysis only,&nbsp;</span>no bets
+      <section className="hero-glow relative isolate overflow-hidden border-b border-border/60">
+        <div aria-hidden="true" className="grid-rule pointer-events-none absolute inset-0" />
+        <div className="relative mx-auto grid w-full max-w-6xl items-center gap-10 px-4 pt-14 pb-14 sm:px-6 sm:pt-20 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="rise-in min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="pulse-live" aria-hidden="true" />
+              <span className="label-micro">Live Polymarket data · analysis only, no bets</span>
+            </div>
+            <h1 className="mt-5 max-w-3xl text-balance text-4xl font-semibold leading-[1.05] sm:text-5xl md:text-6xl">
+              Follow the smart money. <span className="text-muted-foreground sm:block">See where the top 1,000 agree.</span>
+            </h1>
+            <p className="mt-5 max-w-2xl text-balance text-base leading-relaxed text-muted-foreground sm:text-lg">
+              EDGEWISE reads every open bet held by Polymarket&apos;s most profitable traders, every hour. When {CONSENSUS_MIN_WALLETS} or more of them back the same side, you see it: the money behind it, what they paid, and a public record of how those calls turn out.
+            </p>
+            <Suspense fallback={<HeroFigureSkeleton />}>
+              <HeroFigure />
+            </Suspense>
+            <div className="mt-10 flex flex-wrap gap-3">
+              <LinkButton href="/sign-up" size="lg">
+                Start free <ArrowRight className="size-4" />
+              </LinkButton>
+              <LinkButton href="#consensus" variant="ghost" size="lg">
+                See today&apos;s consensus
+              </LinkButton>
+            </div>
+            <p className="mt-4 text-xs text-muted-foreground">Free plan, no card needed · Pro is ${PLANS.pro.priceMonthly} a month, cancel any time</p>
           </div>
-          <h1 className="rise-in mt-6 text-balance text-5xl font-semibold tracking-[-0.04em] sm:text-7xl" style={{ animationDelay: "80ms" }}>
-            Follow the Smart Money.
-          </h1>
-          <p className="rise-in mt-6 max-w-2xl text-pretty text-lg text-muted-foreground sm:text-xl" style={{ animationDelay: "160ms" }}>
-            See what Polymarket&apos;s 1,000 most profitable traders are betting on right now: where they agree, what they just bought, and how it is going.
-          </p>
-          <div className="rise-in mt-9 flex flex-wrap items-center justify-center gap-3" style={{ animationDelay: "240ms" }}>
-            <LinkButton href="/sign-up" size="lg">
-              Start free <ArrowRight className="size-4" />
-            </LinkButton>
-            <LinkButton href="#live" size="lg" variant="outline">
-              See it live
-            </LinkButton>
+          {/* The mark, demoted to the hero's right edge on wide screens. On a phone the headline and the live figure come first. */}
+          <div className="hidden lg:block" aria-hidden="true">
+            <ParticleLogo className="w-[320px]" />
           </div>
-          <p className="rise-in mt-4 text-xs text-muted-foreground" style={{ animationDelay: "320ms" }}>
-            Free plan, no card needed · Pro is ${PLANS.pro.priceMonthly} a month, cancel any time
-          </p>
         </div>
+      </section>
 
-        <div id="live" className="mx-auto mt-16 w-full max-w-6xl scroll-mt-20 px-4 sm:px-6">
-          <Suspense fallback={<FrameSkeleton />}>
-            <LiveProduct />
-          </Suspense>
-        </div>
-
-        <div className="mt-16 border-y border-border bg-surface-1/60">
-          <Suspense fallback={<StripSkeleton />}>
-            <SmartMoneyStrip />
+      <section className="border-b border-border/60">
+        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
+          <Suspense fallback={<BandSkeleton />}>
+            <HomeBand />
           </Suspense>
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-6xl px-4 py-28 sm:px-6">
-        <div className="mx-auto max-w-2xl text-center">
-          <div className="label-micro">What you get</div>
-          <h2 className="mt-3 text-balance text-4xl font-semibold tracking-tight sm:text-5xl">Three ways to follow the money.</h2>
-        </div>
-        <div className="mt-20">
-          <Suspense fallback={<PillarsSkeleton />}>
-            <Pillars />
+      <section id="consensus" className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 py-16 sm:px-6">
+        <Heading title="Today's consensus" right={<span className="label-micro">Ranked by money at risk</span>}>
+          The biggest bets where {CONSENSUS_MIN_WALLETS} or more of the top traders hold the same side of a market still in play. Decided markets and ones where top traders sit on both sides are left out.
+        </Heading>
+        <div className="mt-6">
+          <Suspense fallback={<LedgerSkeleton rows={8} />}>
+            <TodaysConsensus />
           </Suspense>
         </div>
       </section>
 
-      <section className="border-y border-border bg-surface-1/50">
-        <div className="mx-auto w-full max-w-6xl px-4 py-24 sm:px-6">
-          <Suspense fallback={<div className="h-64" />}>
+      <section className="mx-auto w-full max-w-6xl px-4 pb-16 sm:px-6">
+        <Suspense fallback={<LedgerSkeleton rows={6} />}>
+          <MovesAndTraders />
+        </Suspense>
+      </section>
+
+      <section className="border-y border-border/60 bg-surface-1/40">
+        <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
+          <Suspense fallback={<div className="h-72" />}>
             <RecordBand />
           </Suspense>
         </div>
       </section>
 
-      <section id="how-it-works" className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 py-24 sm:px-6">
-        <div className="max-w-2xl">
-          <div className="label-micro">How it works</div>
-          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight sm:text-4xl">From a thousand wallets to one clear read.</h2>
-        </div>
-        <ol className="mt-12 grid gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
-          {STEPS.map((step, i) => (
-            <li key={step.title} className="bg-card p-6">
-              <div className="tabular font-mono text-xs text-muted-foreground">0{i + 1}</div>
-              <div className="mt-3 font-medium">{step.title}</div>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{step.body}</p>
+      <section id="how-it-works" className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 py-16 sm:px-6">
+        <div className="label-micro">How it works</div>
+        <h2 className="mt-3 max-w-2xl text-balance text-2xl font-semibold sm:text-3xl">From a thousand wallets to one call on the record</h2>
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">Nothing here is modelled, estimated or back-tested. Every figure is read from Polymarket&apos;s public data and links back to its market.</p>
+        <ol className="mt-10 grid gap-x-10 gap-y-8 md:grid-cols-2">
+          {RULES.map((r, i) => (
+            <li key={r.head} className="flex gap-4">
+              <span className="figure mt-0.5 shrink-0 text-sm font-semibold text-muted-foreground">{String(i + 1).padStart(2, "0")}</span>
+              <div>
+                <h3 className="text-base font-semibold">{r.head}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{r.body}</p>
+              </div>
             </li>
           ))}
         </ol>
       </section>
 
-      <section className="border-t border-border bg-surface-1/40">
-        <div className="mx-auto w-full max-w-6xl px-4 py-24 sm:px-6">
-          <div className="mx-auto max-w-2xl text-center">
-            <div className="label-micro">Pricing</div>
-            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight sm:text-4xl">Start free. Go Pro for every signal.</h2>
-          </div>
-          <div className="mx-auto mt-12 grid max-w-4xl gap-5 md:grid-cols-2">
+      <section className="border-t border-border/60 bg-surface-1/40">
+        <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
+          <Heading eyebrow="Pricing" title="Start free. Go Pro for every signal." />
+          <div className="mt-10 grid max-w-4xl gap-5 md:grid-cols-2">
             {(Object.keys(PLANS) as Tier[]).map((tier) => {
               const p = PLANS[tier];
               const pro = tier === "pro";
               return (
-                <div key={tier} className={cn("card-surface flex flex-col p-7", pro && "border-primary/40 glow-primary")}>
+                <div key={tier} className={cn("card-surface flex flex-col p-7", pro && "ring-1 ring-foreground/15")}>
                   <div className="flex items-baseline justify-between gap-3">
-                    <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">{p.name}</h3>
+                    <h3 className="label-micro">{p.name}</h3>
                     <span className="flex items-baseline gap-1">
                       <span className="figure text-4xl font-semibold">{p.priceMonthly === 0 ? "$0" : `$${p.priceMonthly}`}</span>
                       <span className="text-sm text-muted-foreground">/month</span>
@@ -384,7 +398,7 @@ export default function LandingPage() {
                   <ul className="mt-6 flex-1 space-y-2.5 text-[15px]">
                     {planHighlights(tier, delivery).map((h) => (
                       <li key={h} className="flex gap-2.5">
-                        <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" /> {h}
+                        <Check className="mt-0.5 size-4 shrink-0 text-foreground/60" aria-hidden="true" /> {h}
                       </li>
                     ))}
                   </ul>
@@ -395,7 +409,7 @@ export default function LandingPage() {
               );
             })}
           </div>
-          <p className="mx-auto mt-6 max-w-2xl text-center text-sm text-muted-foreground">
+          <p className="mt-6 max-w-2xl text-sm text-muted-foreground">
             Also inside: the AI Analyst, Price Lab, Opportunity Scanner, NBA analytics and the Academy.{" "}
             <Link href="/pricing" className="text-foreground underline underline-offset-4 hover:text-primary">
               Compare every feature
@@ -404,8 +418,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-3xl px-4 py-24 sm:px-6">
-        <h2 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">Questions</h2>
+      <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
+        <h2 className="text-balance text-2xl font-semibold sm:text-3xl">Questions</h2>
         <div className="mt-8 border-t border-border">
           <FaqItem q="Does EDGEWISE place bets for me?">
             No. EDGEWISE is research only. It never places bets, holds money or connects to a Polymarket account. Every signal links to its market on Polymarket so you can check it yourself.
@@ -424,10 +438,12 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="border-t border-border">
-        <div className="mx-auto w-full max-w-6xl px-4 py-24 text-center sm:px-6">
-          <h2 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">Follow the smart money, with the receipts.</h2>
-          <p className="mx-auto mt-4 max-w-xl text-muted-foreground">Free to start. Every figure is sourced and timestamped, and there is nothing to bet. 18+.</p>
+      <section className="border-t border-border/60">
+        <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
+          <h2 className="max-w-2xl text-balance text-2xl font-semibold sm:text-3xl">
+            Follow the smart money, <span className="text-muted-foreground">with the receipts.</span>
+          </h2>
+          <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">Free to start. Every figure is sourced and timestamped, and there is nothing to bet. 18+.</p>
           <LinkButton href="/sign-up" size="lg" className="mt-8">
             Create your free account <ArrowRight className="size-4" />
           </LinkButton>

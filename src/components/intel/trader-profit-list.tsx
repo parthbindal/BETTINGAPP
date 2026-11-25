@@ -22,7 +22,8 @@ export function RankMove({ places }: { places: number | undefined }) {
   const n = Math.abs(places);
   const words = `${up ? "Up" : "Down"} ${n} ${n === 1 ? "place" : "places"} since you opened this page`;
   return (
-    <span title={words} className={cn("tabular shrink-0 text-[10px] font-medium", up ? "text-status-good" : "text-chart-2")}>
+    // Arrow and count, no color: a rank moving is direction, not a result.
+    <span title={words} className={cn("tabular shrink-0 text-[10px] font-medium", up ? "text-foreground/85" : "text-muted-foreground")}>
       <span aria-hidden="true">
         {up ? "▲" : "▼"}
         {n}

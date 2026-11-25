@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { CountUp } from "@/components/motion/count-up";
 import { LinkButton } from "@/components/ui/link-button";
+import { StatBand } from "@/components/shared/stat-band";
 import { polymarketMarketUrl, kindLabel } from "@/lib/intel";
 // Absolute dates only, never "6 days ago": a ledger's timestamps are its
 // evidence, and relative time reads Date.now(), which blocks prerendering.
@@ -66,17 +67,6 @@ function MarketCell({ r }: { r: LedgerRow }) {
         <span aria-hidden>·</span>
         <span>{kindLabel(r.entryKind)}</span>
       </div>
-    </div>
-  );
-}
-
-/** One stat in the hero band. `value` is already formatted; `foot` carries the denominator. */
-function Stat({ label, value, foot, accent }: { label: string; value: string; foot: string; accent?: boolean }) {
-  return (
-    <div className="px-5 py-5 sm:px-6">
-      <div className="label-micro">{label}</div>
-      <div className={cn("figure mt-2 text-3xl font-semibold sm:text-4xl", accent ? "text-primary" : "text-foreground")}>{value}</div>
-      <div className="mt-1.5 text-xs leading-snug text-muted-foreground">{foot}</div>
     </div>
   );
 }
@@ -146,25 +136,20 @@ function Hero({ record, nextSettlement, readAt }: { record: SignalRecord; nextSe
   );
 }
 
-function StatBand({ record }: { record: SignalRecord }) {
+/** The shared band (components/shared/stat-band.tsx) was lifted from this page; every other page now states figures this way. */
+function RecordStats({ record }: { record: SignalRecord }) {
   const graded = record.settled > 0;
   return (
     <section className="border-b border-border/60">
       <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
-        <div className="grid divide-y divide-border/60 sm:grid-cols-2 sm:divide-x lg:grid-cols-4 lg:divide-y-0">
-          <Stat
-            label="Calls graded"
-            value={String(record.settled)}
-            foot={graded ? `${record.won} won · ${record.lost} lost${record.voided ? ` · ${record.voided} void` : ""}` : `${record.open} open, awaiting settlement`}
-          />
-          <Stat label="Hit rate" value={pct(record.hitRate)} foot={graded ? `${record.won} of ${record.settled} settled calls` : "Shown once calls settle"} />
-          <Stat
-            label="Market baseline"
-            value={pct(graded ? record.baseline : record.openBaseline)}
-            foot={graded ? "What the entry prices implied" : `How often the market itself expects these ${record.open} to land`}
-          />
-          <Stat label="Edge vs. market" value={pts(record.edge)} foot={graded ? "Hit rate minus baseline" : "The only figure here that shows skill"} accent={graded} />
-        </div>
+        <StatBand
+          stats={[
+            { label: "Calls graded", value: String(record.settled), foot: graded ? `${record.won} won · ${record.lost} lost${record.voided ? ` · ${record.voided} void` : ""}` : `${record.open} open, awaiting settlement` },
+            { label: "Hit rate", value: pct(record.hitRate), foot: graded ? `${record.won} of ${record.settled} settled calls${record.provisional ? " · provisional" : ""}` : "Shown once calls settle" },
+            { label: "Market baseline", value: pct(graded ? record.baseline : record.openBaseline), foot: graded ? "What the entry prices implied" : `How often the market itself expects these ${record.open} to land` },
+            { label: "Edge vs. market", value: pts(record.edge), foot: graded ? "Hit rate minus baseline · the only figure here that shows skill" : "The only figure here that shows skill" },
+          ]}
+        />
       </div>
     </section>
   );
@@ -373,7 +358,7 @@ export default async function TrackRecordPage() {
   return (
     <div className="pb-4">
       <Hero record={record} nextSettlement={nextSettlement} readAt={readAt} />
-      <StatBand record={record} />
+      <RecordStats record={record} />
       <ProvisionalNote record={record} />
       <OpenBoard rows={open} />
       <SettledBoard rows={settled} />

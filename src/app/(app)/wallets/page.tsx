@@ -24,7 +24,7 @@ function WalletList({ title, description, wallets, metric }: { title: string; de
           ))}
         </ul>
       ) : (
-        <EmptyState title="No wallets yet" description="Appears after the first scan." />
+        <EmptyState title="Waiting for the first scan" description="This list fills in when EDGEWISE finishes reading the open positions of Polymarket's top 1,000 wallets. Any wallet can still be opened by its address above." when="Usually a few minutes · then every hour" />
       )}
     </Section>
   );
@@ -72,6 +72,11 @@ export default async function WalletExplorerIndex({ searchParams }: { searchPara
             Open wallet
           </button>
         </form>
+        {!query && wallets.length > 0 && (
+          <p className="mt-3 text-xs text-muted-foreground">
+            Any Polymarket wallet opens here, tracked or not. {wallets.length.toLocaleString("en-US")} are tracked; {wallets.filter((w) => w.positions > 0).length.toLocaleString("en-US")} of them held an open bet of $100 or more in the last scan.
+          </p>
+        )}
         {query && !nameMatches.length && (
           <p className="mt-3 text-sm text-muted-foreground">
             “{query}” is not a wallet address (0x followed by 40 hex characters) and matches no tracked trader. Any Polymarket wallet can be opened by its address, tracked or not.

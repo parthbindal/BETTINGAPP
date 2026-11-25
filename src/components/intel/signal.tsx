@@ -1,6 +1,6 @@
 import type React from "react";
 import Link from "next/link";
-import { ArrowDownRight, ArrowRight, ArrowUpRight, Clock3, Flame, Scale, UserRound, Users } from "lucide-react";
+import { ArrowDownRight, ArrowRight, ArrowUpRight, CalendarClock, Clock3, Scale, UserRound, Users } from "lucide-react";
 import type { ConsensusHolding } from "@/lib/whales";
 import { explainSplit, isInPlay, readConsensus } from "@/lib/intel";
 import { OpenOnPolymarket } from "./open-on-polymarket";
@@ -17,8 +17,8 @@ import { TraderAvatar } from "./trader-identity";
 
 type SignalKind = "now" | "held" | "whale" | "broad";
 
-const KIND: Record<SignalKind, { label: string; meaning: string; icon: typeof Flame; cls: string }> = {
-  now: { label: "New money this week", meaning: "Many of these traders bought in the last 7 days.", icon: Flame, cls: "border-brand-cyan/40 bg-brand-cyan/10 text-brand-cyan" },
+const KIND: Record<SignalKind, { label: string; meaning: string; icon: typeof Clock3; cls: string }> = {
+  now: { label: "New money this week", meaning: "Many of these traders bought in the last 7 days.", icon: CalendarClock, cls: "border-brand-cyan/40 bg-brand-cyan/10 text-brand-cyan" },
   held: { label: "Long-term bet", meaning: "They have held this side for a month or more.", icon: Clock3, cls: "border-border bg-surface-2 text-foreground/85" },
   whale: { label: "Mostly one trader", meaning: "One trader holds over half the money, so agreement is thinner than it looks.", icon: UserRound, cls: "border-status-warning/40 bg-status-warning/10 text-status-warning" },
   broad: { label: "Many traders agree", meaning: "The money is spread across many traders, not one big one.", icon: Users, cls: "border-brand-cyan/35 bg-brand-cyan/10 text-brand-cyan" },
@@ -80,8 +80,11 @@ export function AvatarStack({ holders, total, max = 5, size = 24, stagger = fals
 
 /**
  * What they paid versus the price now, on a 0–100¢ track. The filled segment
- * spans entry → now; up moves use the "good" token with an up arrow, down
- * moves the orange series with a down arrow.
+ * spans entry → now. Direction is carried by the arrow and the sign, never by
+ * color: green and red mean won and lost, and an open position has done
+ * neither yet. A green +70% on a bet that has not settled reads as a win
+ * before there is a result, which is the exact claim the track record refuses
+ * to make.
  */
 export function PriceTrack({ entry, now, className }: { entry: number; now: number; className?: string }) {
   const e = Math.min(1, Math.max(0, entry));
@@ -97,13 +100,14 @@ export function PriceTrack({ entry, now, className }: { entry: number; now: numb
         <span className="text-muted-foreground">
           Paid <span className="tabular font-medium text-foreground">{Math.round(e * 100)}¢</span> → now <span className="tabular font-medium text-foreground">{Math.round(n * 100)}¢</span>
         </span>
-        <span className={cn("tabular inline-flex items-center gap-0.5 font-semibold", flat ? "text-muted-foreground" : up ? "text-status-good" : "text-chart-2")}>
+        <span className={cn("tabular inline-flex items-center gap-0.5 font-semibold", flat ? "text-muted-foreground" : "text-foreground")}>
           <Arrow className="size-3.5" aria-hidden="true" />
-          {flat ? "0" : `${up ? "+" : ""}${Math.round(change * 100)}`}%
+          {flat ? "0" : `${up ? "+" : "−"}${Math.abs(Math.round(change * 100))}`}%
+          <span className="sr-only"> since they bought</span>
         </span>
       </div>
       <div className="relative mt-1.5 h-1.5 rounded-full bg-surface-3" aria-hidden="true">
-        <span className={cn("absolute inset-y-0 rounded-full", flat ? "bg-muted-foreground/50" : up ? "bg-status-good/70" : "bg-chart-2/70")} style={{ left: `${lo * 100}%`, width: `${Math.max(Math.abs(n - e) * 100, 0.8)}%` }} />
+        <span className={cn("absolute inset-y-0 rounded-full", flat ? "bg-muted-foreground/50" : "bg-foreground/45")} style={{ left: `${lo * 100}%`, width: `${Math.max(Math.abs(n - e) * 100, 0.8)}%` }} />
         <span className="absolute top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted-foreground" style={{ left: `${e * 100}%` }} />
         <span className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground ring-2 ring-card" style={{ left: `${n * 100}%` }} />
       </div>

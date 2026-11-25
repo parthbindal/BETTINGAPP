@@ -46,6 +46,21 @@ export function dateTime(d: Date | string | null | undefined): string {
   return format(dt, "MMM d, yyyy · h:mm a");
 }
 
+/**
+ * "Nov 25, 05:41 UTC". An absolute stamp in one stated zone: it reads the same
+ * on every server and in every reader's head, and it never consults the clock,
+ * so it is safe in prerendered output (unlike relative()).
+ */
+export function utcStamp(d: Date | string | null | undefined): string {
+  if (!d) return "—";
+  const dt = typeof d === "string" ? new Date(d) : d;
+  if (!isValid(dt)) return "—";
+  const month = dt.toLocaleString("en-US", { month: "short", timeZone: "UTC" });
+  const hh = String(dt.getUTCHours()).padStart(2, "0");
+  const mm = String(dt.getUTCMinutes()).padStart(2, "0");
+  return `${month} ${dt.getUTCDate()}, ${hh}:${mm} UTC`;
+}
+
 export function relative(d: Date | string | null | undefined): string {
   if (!d) return "—";
   const dt = typeof d === "string" ? new Date(d) : d;

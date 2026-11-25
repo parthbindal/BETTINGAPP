@@ -50,10 +50,10 @@ function value(r: LeaderRow, key: SortKey): number {
   }
 }
 
-function SortHeader({ label, k, sort, dir, onSort, align = "right", sup }: { label: string; k: SortKey; sort: SortKey; dir: "asc" | "desc"; onSort: (k: SortKey) => void; align?: "left" | "right"; sup?: string }) {
+function SortHeader({ label, k, sort, dir, onSort, align = "right", sup, className }: { label: string; k: SortKey; sort: SortKey; dir: "asc" | "desc"; onSort: (k: SortKey) => void; align?: "left" | "right"; sup?: string; className?: string }) {
   const active = sort === k;
   return (
-    <th scope="col" aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"} className={cn("px-2 py-2 font-medium", align === "right" && "text-right")}>
+    <th scope="col" aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"} className={cn("px-2 py-2 font-medium", align === "right" && "text-right", className)}>
       <button type="button" onClick={() => onSort(k)} className={cn("inline-flex items-center gap-1 uppercase tracking-[0.12em] hover:text-foreground", active && "text-foreground")}>
         {label}
         {sup && <sup>{sup}</sup>}
@@ -73,16 +73,20 @@ export function LeaderboardTable({ rows: scanned }: { rows: LeaderRow[] }) {
   const [sort, setSort] = useState<SortKey>("rank");
   const [dir, setDir] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(0);
+  // Most all-time leaders hold nothing open at any moment; this narrows the board to traders with something to follow.
+  const [holdingOnly, setHoldingOnly] = useState(false);
   const live = useLiveBoard();
   const board = live?.board ?? null;
   const rows = useMemo(() => withLive(scanned, board), [scanned, board]);
+  const holdingCount = useMemo(() => rows.filter((x) => x.positions > 0).length, [rows]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     let r = needle ? rows.filter((x) => x.name.toLowerCase().includes(needle) || x.wallet.toLowerCase().includes(needle)) : rows;
+    if (holdingOnly) r = r.filter((x) => x.positions > 0);
     if (sort === "openRoi") r = r.filter((x) => x.openRoi !== null && x.openCost >= MIN_ROI_COST);
     return [...r].sort((a, b) => (dir === "asc" ? value(a, sort) - value(b, sort) : value(b, sort) - value(a, sort)));
-  }, [rows, query, sort, dir]);
+  }, [rows, query, sort, dir, holdingOnly]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const current = Math.min(page, pages - 1);
@@ -121,6 +125,22 @@ export function LeaderboardTable({ rows: scanned }: { rows: LeaderRow[] }) {
               {p.label}
             </button>
           ))}
+          <span className="mx-1 hidden w-px self-stretch bg-border sm:block" aria-hidden="true" />
+          <button
+            type="button"
+            aria-pressed={holdingOnly}
+            onClick={() => {
+              setHoldingOnly(!holdingOnly);
+              setPage(0);
+            }}
+            title="Only traders holding at least one open bet of $100 or more in the last scan"
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              holdingOnly ? "border-foreground/40 bg-foreground/10 text-foreground" : "border-border text-muted-foreground hover:bg-surface-2 hover:text-foreground",
+            )}
+          >
+            With open bets <span className="tabular text-muted-foreground">{holdingCount.toLocaleString("en-US")}</span>
+          </button>
         </div>
         <label className="relative block w-full sm:w-64">
           <span className="sr-only">Search traders by name or wallet</span>
@@ -138,19 +158,23 @@ export function LeaderboardTable({ rows: scanned }: { rows: LeaderRow[] }) {
         </label>
       </div>
 
-      <div className="mt-4 overflow-x-auto rounded-xl border border-border">
-        <table className="w-full min-w-[900px] text-sm">
+      {/* `relative` matters: without it the sr-only labels in the header (position: absolute) escape this
+          scroll box's clipping and widen the whole page on a phone (882px in a 375px viewport). */}
+      <div className="scrollbar-thin relative mt-4 min-w-0 overflow-x-auto rounded-xl border border-border">
+        {/* Phones get rank, trader and profit; the scan columns join from sm up, where the box scrolls sideways if it must. */}
+        <table className="w-full text-sm sm:min-w-[900px]">
           <thead className="bg-surface-1">
             <tr className="border-b border-border text-left text-[11px] text-muted-foreground">
               <SortHeader label="#" k="rank" sort={sort} dir={dir} onSort={onSort} align="left" />
               <th scope="col" className="px-2 py-2 font-medium uppercase tracking-[0.12em]">Trader</th>
               <SortHeader label="All-time profit" k="pnl" sort={sort} dir={dir} onSort={onSort} />
-              <SortHeader label="Open ROI" k="openRoi" sort={sort} dir={dir} onSort={onSort} />
-              <SortHeader label="Positions" k="positions" sort={sort} dir={dir} onSort={onSort} />
-              <SortHeader label="Avg position" k="avgPosition" sort={sort} dir={dir} onSort={onSort} />
-              <SortHeader label="Exposure" k="openValue" sort={sort} dir={dir} onSort={onSort} />
-              <SortHeader label="Last active" k="lastActive" sort={sort} dir={dir} onSort={onSort} />
-              <th scope="col" className="px-2 py-2"><span className="sr-only">Open profile</span></th>
+              <SortHeader label="Open ROI" k="openRoi" sort={sort} dir={dir} onSort={onSort} className="hidden sm:table-cell" />
+              <SortHeader label="Positions" k="positions" sort={sort} dir={dir} onSort={onSort} className="hidden sm:table-cell" />
+              <SortHeader label="Avg position" k="avgPosition" sort={sort} dir={dir} onSort={onSort} className="hidden sm:table-cell" />
+              <SortHeader label="Exposure" k="openValue" sort={sort} dir={dir} onSort={onSort} className="hidden sm:table-cell" />
+              <SortHeader label="Last active" k="lastActive" sort={sort} dir={dir} onSort={onSort} className="hidden sm:table-cell" />
+              {/* Phones open a trader from their name; the separate link column only fits from sm up. */}
+              <th scope="col" className="hidden px-2 py-2 sm:table-cell"><span className="sr-only">Open profile</span></th>
             </tr>
           </thead>
           <tbody>
@@ -166,20 +190,31 @@ export function LeaderboardTable({ rows: scanned }: { rows: LeaderRow[] }) {
                     <RankMove places={live?.moved.get(w)} />
                   </span>
                 </td>
-                <td className="max-w-[260px] px-2 py-2.5">
+                <td className="max-w-[160px] px-2 py-2.5 sm:max-w-[260px]">
                   <TraderIdentity wallet={r.wallet} name={r.name} size={26} />
                 </td>
                 <td className="px-2 py-2.5 text-right">
                   <CountUp value={r.pnl} format="usd" intro={false} animate={!live?.quiet} className="tabular font-medium" />
                 </td>
-                <td className={cn("tabular px-2 py-2.5 text-right", r.openRoi === null ? "text-muted-foreground" : r.openRoi < 0 ? "text-chart-2" : "")}>
-                  {r.openRoi === null ? "—" : `${r.openRoi >= 0 ? "+" : ""}${pct(r.openRoi, 1)}`}
-                </td>
-                <td className="tabular px-2 py-2.5 text-right">{r.positions}</td>
-                <td className="tabular px-2 py-2.5 text-right">{r.positions ? `$${compact(r.avgPosition)}` : "—"}</td>
-                <td className="tabular px-2 py-2.5 text-right">{r.openValue ? `$${compact(r.openValue)}` : "—"}</td>
-                <td className="px-2 py-2.5 text-right text-xs text-muted-foreground">{lastActive ?? "—"}</td>
-                <td className="px-2 py-2.5 text-right">
+                {r.positions > 0 ? (
+                  <>
+                    {/* Signed, never colored: an open return is direction, not a result. */}
+                    <td className={cn("tabular hidden px-2 py-2.5 text-right sm:table-cell", r.openRoi === null && "text-muted-foreground")}>
+                      {r.openRoi === null ? "—" : `${r.openRoi >= 0 ? "+" : "−"}${pct(Math.abs(r.openRoi), 1)}`}
+                    </td>
+                    <td className="tabular hidden px-2 py-2.5 text-right sm:table-cell">{r.positions}</td>
+                    <td className="tabular hidden px-2 py-2.5 text-right sm:table-cell">${compact(r.avgPosition)}</td>
+                    <td className="tabular hidden px-2 py-2.5 text-right sm:table-cell">{r.openValue ? `$${compact(r.openValue)}` : "—"}</td>
+                    <td className="hidden px-2 py-2.5 text-right text-xs text-muted-foreground sm:table-cell">{lastActive ?? "—"}</td>
+                  </>
+                ) : (
+                  // Most all-time leaders hold nothing open at any moment. One plain sentence
+                  // across the five scan columns reads as information; five dashes read as broken.
+                  <td colSpan={5} className="hidden px-2 py-2.5 text-right text-xs text-muted-foreground sm:table-cell">
+                    {r.unscanned ? "New to the top since the last scan · open bets appear after the next one" : "No open bets of $100+ in the last scan"}
+                  </td>
+                )}
+                <td className="hidden px-2 py-2.5 text-right sm:table-cell">
                   <Link href={`/wallets/${r.wallet}`} className="inline-flex items-center gap-0.5 text-xs font-medium text-primary hover:underline" aria-label={`Open ${r.name} in Wallet Explorer`}>
                     View <ArrowUpRight className="size-3" aria-hidden="true" />
                   </Link>

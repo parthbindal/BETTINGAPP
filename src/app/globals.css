@@ -125,18 +125,24 @@
 /*
  * COLOR MEANS ONE THING. Every colored state also carries an icon and words,
  * so the app reads the same in greyscale and for colorblind users.
- *   --primary (blue)        The thing to click: buttons, links, the focus ring. Nothing else.
+ *   --primary (blue)        The thing to click: buttons, links, the focus ring. Nothing else
+ *                           (not eyebrows, not badges, not checkmarks).
  *   --foreground (white)    "You are here": active nav item, selected filter chips, switches on.
- *   --status-good (green)   Price went UP (▲ / up-right arrow). Also the live-data pulse.
- *   --chart-2 (orange)      Price went DOWN (▼ / down-right arrow). Reserved: never volume, never "sold".
- *                           (--chart-6 shares status-good's hex, so it is reserved with it.)
+ *   --status-good (green)   A call WON (.cell-won), and the live-data pulse. Nothing else.
+ *   --status-critical (red) A call LOST (.cell-lost). Nothing else.
+ *   Direction is NOT a result. Price up/down, open profit/loss, rank moves and
+ *   scan-to-scan changes are white or grey figures with a sign and an arrow
+ *   (+ / − / ▲ / ▼). A green +70% on a bet that has not settled reads as a win
+ *   before there is one, which is the claim the public track record refuses to make.
+ *   One documented exception: the smart money map (.map-tint below) tints tiles
+ *   green / orange by price move, because there the hue IS the chart's encoding.
  *   --brand-cyan            Agreement: many top traders on one side (signal badges, clusters).
- *   --status-warning        Caution: mostly one trader, traders split, a scan older than 2 hours.
+ *   --status-warning        Caution and pending: mostly one trader, traders split, a stale scan, an open call.
  *   --chart-1 … --chart-8   CATEGORY identity: which series is which (bought vs sold, avatar tints).
  *                           Categories are not moods, so they DO get color: take slots in palette
- *                           order (the order is the colorblind-safety mechanism), skipping the
- *                           reserved ones. Bought = --chart-1, sold = --chart-3.
- * Reserved-meaning colors are only: up / down (status-good, chart-2) and caution (status-warning).
+ *                           order (the order is the colorblind-safety mechanism), skipping
+ *                           --chart-2 and --chart-6 (the map's down / up hues).
+ *                           Bought = --chart-1, sold = --chart-3.
  * YES / NO / team names are neutral pills: a side is a word, not a mood.
  */
 
@@ -375,20 +381,8 @@
    * 4. .count-up    Number that counts to its value once, on first sight (client island in
    *                 components/motion/count-up.tsx). Server HTML already holds the final value.
    * 5. .pulse-live  The "data is live" dot. 2s, barely there. One per page.
-   * 6. .ticker      The tape (Home only). Constant speed on purpose -- a tape that eases reads
-   *                 as a glitch -- 80s a loop, pauses on hover and keyboard focus, and becomes
-   *                 a still, swipeable strip under reduced motion. Never over content.
+   * (A sixth, the scrolling .ticker tape on Home, was removed with the tape itself.)
    */
-  .ticker-track {
-    animation: ticker-scroll 80s linear infinite;
-  }
-  .ticker:hover .ticker-track,
-  .ticker:focus-within .ticker-track {
-    animation-play-state: paused;
-  }
-  .ticker-viewport {
-    mask-image: linear-gradient(to right, transparent 0, black 2rem, black calc(100% - 2rem), transparent 100%);
-  }
   .stagger-in > * {
     animation: stagger-rise var(--dur-base) var(--ease-out-soft) both;
     animation-delay: min(calc(var(--i, 0) * 40ms), 240ms);
@@ -455,12 +449,6 @@
       animation: none;
       opacity: 0;
     }
-    .ticker-track {
-      animation: none;
-    }
-    .ticker-viewport {
-      overflow-x: auto;
-    }
   }
   .text-balance {
     text-wrap: balance;
@@ -519,12 +507,6 @@
   to {
     background-position: -50% 0;
     opacity: 0;
-  }
-}
-
-@keyframes ticker-scroll {
-  to {
-    transform: translateX(-50%);
   }
 }
 

@@ -64,6 +64,16 @@ export interface SmartMoneyPreview {
   }>;
   /** The biggest clear agreements still in play (no split markets), picked as the app's Home picks its hero. */
   signals: ConsensusHolding[];
+  /**
+   * The next few in the same ranking, for the homepage to list with the market
+   * name withheld (real trader counts and money, so the Pro claim is checkable).
+   * Server-rendered only: never hand these to a client component.
+   */
+  locked: ConsensusHolding[];
+  /** How many clear agreements are in play right now, the honest size of the "more in Pro" claim. */
+  liveCount: number;
+  /** Money on those live agreements. The homepage's hero figure, so it counts the same rows the ledger lists. */
+  liveCapital: number;
   /** Outcomes a Free member can open (split markets count both sides); the rest of the signals are Pro. */
   freeTokenCount: number;
   topTraders: Array<{ wallet: string; name: string; rank: number; pnl: number }>;
@@ -83,6 +93,8 @@ export async function getSmartMoneyPreviewCached(): Promise<SmartMoneyPreview | 
   const p = w.payload;
   const consensus = p.holdings.filter((h) => h.holders >= CONSENSUS_MIN_WALLETS);
   const free = freePreviewTokens(p.holdings, CONSENSUS_MIN_WALLETS);
+  const split = splitSides(p.holdings, CONSENSUS_MIN_WALLETS);
+  const live = consensus.filter((h) => isInPlay(h) && !split.has(h.conditionId)).sort((a, b) => b.totalValue - a.totalValue);
   return {
     generatedAt: p.generatedAt,
     trackedWallets: p.tradersScanned,
@@ -91,10 +103,10 @@ export async function getSmartMoneyPreviewCached(): Promise<SmartMoneyPreview | 
     consensusCapped: consensus.length > 0 && consensus.length === p.holdings.length,
     consensusCapital: consensus.reduce((sum, h) => sum + h.totalValue, 0),
     freeTokenCount: free.size,
-    signals: (() => {
-      const split = splitSides(p.holdings, CONSENSUS_MIN_WALLETS);
-      return consensus.filter((h) => isInPlay(h) && !split.has(h.conditionId)).sort((a, b) => b.totalValue - a.totalValue).slice(0, 3);
-    })(),
+    signals: live.slice(0, 3),
+    locked: live.slice(3, 8),
+    liveCount: live.length,
+    liveCapital: live.reduce((sum, h) => sum + h.totalValue, 0),
     topTraders: [...(p.wallets ?? [])]
       .sort((a, b) => a.rank - b.rank)
       .slice(0, 6)
