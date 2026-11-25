@@ -134,7 +134,7 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
           </UpgradeGate>
 
           <Section title="Forecast log" description="Immutable once created. A forecast can be withdrawn only before it locks.">
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-[11px] uppercase tracking-wide text-muted-foreground">

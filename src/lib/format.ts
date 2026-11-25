@@ -70,6 +70,14 @@ export function relative(d: Date | string | null | undefined): string {
   return diff < 0 ? `${s} ago` : `in ${s}`;
 }
 
+/** A close time, relative: "in 3 days", or "Closed" once it has passed (never "2 hours ago" for a deadline). */
+export function closesIn(d: Date | string | null | undefined): string {
+  if (!d) return "—";
+  const dt = typeof d === "string" ? new Date(d) : d;
+  if (!isValid(dt)) return "—";
+  return dt.getTime() < Date.now() ? "Closed" : relative(dt);
+}
+
 export function titleCase(s: string): string {
   return s.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }

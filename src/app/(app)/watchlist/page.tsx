@@ -95,7 +95,7 @@ export default async function WatchlistPage() {
         }
       >
         {followedWallets.length ? (
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full min-w-[620px] text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
@@ -187,7 +187,7 @@ export default async function WatchlistPage() {
         }
       >
         {markets.length ? (
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-wide text-muted-foreground">

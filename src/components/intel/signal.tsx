@@ -174,6 +174,35 @@ export function SplitCard({ sides, rank, id, href, className }: { sides: Consens
           </li>
         ))}
       </ul>
+
+      {/*
+        Who leads each side. A split card shares a grid row with full signal cards, which are taller;
+        this is the space that used to sit empty, and "who is on the other side" is what a split is about.
+      */}
+      <ul className="mt-4 grid grid-cols-2 gap-3 border-t border-border/60 pt-3">
+        {sides.slice(0, 2).map((s, i) => {
+          const top = s.topHolders?.[0];
+          return (
+            <li key={s.tokenId} className={cn("min-w-0", i === 1 && "text-right")}>
+              <div className="label-micro">Biggest on {s.outcome.length > 12 ? "this side" : s.outcome}</div>
+              {top ? (
+                <div className={cn("mt-1.5 flex min-w-0 items-center gap-2", i === 1 && "flex-row-reverse")}>
+                  <TraderAvatar wallet={top.wallet} name={top.name} size={22} className="shrink-0" />
+                  <span className="min-w-0">
+                    <span className="block truncate text-xs font-medium">{top.name}</span>
+                    <span className="tabular block text-[11px] text-muted-foreground">
+                      #{top.rank} · ${compact(top.value)}
+                    </span>
+                  </span>
+                </div>
+              ) : (
+                <div className="mt-1.5 text-xs text-muted-foreground">Not in this scan</div>
+              )}
+              <div className="tabular mt-2 text-[11px] text-muted-foreground">Paid {Math.round(s.avgEntry * 100)}¢ on average</div>
+            </li>
+          );
+        })}
+      </ul>
       {/* One link to the market, never a button per side: the sentence above says which side leads. */}
       <div className="min-h-3 flex-1" aria-hidden="true" />
       <OpenOnPolymarket className="relative z-10 mt-3 self-start" variant="ghost" market title={a.title} outcome={a.outcome} eventSlug={a.slug} marketSlug={a.marketSlug} inPlay={isInPlay(a)} />

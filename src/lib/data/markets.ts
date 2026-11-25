@@ -24,6 +24,20 @@ import { runMarketModel, summarizeMovement, type MarketModelResult } from "@/lib
 
 const DETAIL_STALE_MS = 2 * 60_000;
 export const OPEN_STATUSES = ["active", "open", "initialized"];
+
+/**
+ * Kalshi keeps a market "active" until it settles, often days after a game has
+ * ended, and stored statuses only refresh with the full sync. So "open" is not
+ * "still in play". A market whose close time has passed, or whose last price
+ * sits at 3¢ or below or 97¢ or above, is decided in all but name: the same
+ * line the rest of the app draws (isInPlay in lib/intel). Browse views leave
+ * those out; a search still finds them.
+ */
+export function inPlayWhere(now = new Date()): Prisma.MarketWhereInput {
+  return {
+    AND: [{ OR: [{ closeTime: null }, { closeTime: { gte: now } }] }, { OR: [{ lastPrice: null }, { lastPrice: { gt: 0.03, lt: 0.97 } }] }],
+  };
+}
 export const FULL_SCAN_KEY = "kalshi:full-scan";
 export const HOT_REFRESH_KEY = "kalshi:hot-refresh";
 const SNAPSHOT_MIN_VOLUME_24H = 500;
@@ -386,6 +400,8 @@ export interface ListMarketsParams {
   minVolume?: number;
   /** Skip the COUNT query when the caller does not paginate. */
   withTotal?: boolean;
+  /** Leave out decided markets (see inPlayWhere). Defaults to true when browsing and false when searching. */
+  inPlay?: boolean;
 }
 
 export async function listMarkets(params: ListMarketsParams) {
@@ -396,6 +412,7 @@ export async function listMarkets(params: ListMarketsParams) {
     ...(q ? { OR: [{ title: { contains: q, ...insensitive } }, { yesSubTitle: { contains: q, ...insensitive } }, { ticker: { contains: q.toUpperCase() } }, { eventTicker: { contains: q.toUpperCase() } }] } : {}),
     ...(params.minVolume ? { volume: { gte: params.minVolume } } : {}),
     ...(params.sort === "closing" ? { closeTime: { gte: new Date() } } : {}),
+    ...((params.inPlay ?? !q) ? inPlayWhere() : {}),
   };
   const orderBy: Prisma.MarketOrderByWithRelationInput[] =
     params.sort === "closing" ? [{ closeTime: "asc" }] : params.sort === "newest" ? [{ openTime: "desc" }] : params.sort === "volume" ? [{ volume: "desc" }] : [{ volume24h: "desc" }, { volume: "desc" }];
@@ -422,10 +439,11 @@ export async function listMarkets(params: ListMarketsParams) {
   return { items, total };
 }
 
+/** Counts per category of markets still in play, so a chip's number matches the list it opens. */
 export async function getCategoryCounts(): Promise<Array<{ category: string; count: number; volume24h: number }>> {
   const rows = await db.market.groupBy({
     by: ["category"],
-    where: { status: { in: OPEN_STATUSES } },
+    where: { status: { in: OPEN_STATUSES }, ...inPlayWhere() },
     _count: { _all: true },
     _sum: { volume24h: true },
   });

@@ -5,11 +5,12 @@ import { ensureMarketsFresh } from "@/lib/data/market-freshness";
 import { impliedProbability, spread } from "@/lib/data/types";
 import { PageHeader, EmptyState } from "@/components/shared/page-header";
 import { DataBadge } from "@/components/shared/data-badge";
-import { pct, cents, compact, relative } from "@/lib/format";
+import { pct, cents, compact, closesIn } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/db";
 import { WatchButton } from "@/components/shared/watch-button";
 import { trackUsage } from "@/lib/ops";
+import { PLANS } from "@/lib/subscriptions/plans";
 
 /** Personalized and blocking by design (see (app)/layout.tsx); opt out of instant-navigation validation. */
 export const instant = false;
@@ -66,9 +67,9 @@ export default async function MarketsPage({ searchParams }: { searchParams: Prom
       </form>
 
       <div className="flex flex-wrap gap-1.5">
-        <Link href={link({ category: undefined, page: "1" })} className={cn("rounded-full border px-2.5 py-1 text-xs", !category ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary/40")}>All</Link>
+        <Link href={link({ category: undefined, page: "1" })} className={cn("rounded-full border px-2.5 py-1 text-xs", !category ? "border-foreground/40 bg-foreground/10 text-foreground" : "border-border text-muted-foreground hover:bg-surface-2 hover:text-foreground")}>All</Link>
         {cats.map((c) => (
-          <Link key={c.category} href={link({ category: c.category, page: "1" })} className={cn("rounded-full border px-2.5 py-1 text-xs", category === c.category ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary/40")}>
+          <Link key={c.category} href={link({ category: c.category, page: "1" })} className={cn("rounded-full border px-2.5 py-1 text-xs", category === c.category ? "border-foreground/40 bg-foreground/10 text-foreground" : "border-border text-muted-foreground hover:bg-surface-2 hover:text-foreground")}>
             {c.category} <span className="text-muted-foreground">{c.count}</span>
           </Link>
         ))}
@@ -108,13 +109,19 @@ export default async function MarketsPage({ searchParams }: { searchParams: Prom
                     <div className="flex items-center gap-2">
                       <div className="hidden h-1.5 w-16 rounded-full bg-surface-3 sm:block"><div className="h-1.5 rounded-full bg-chart-1" style={{ width: `${(p ?? 0) * 100}%` }} /></div>
                       <span className="font-semibold">{pct(p, 0)}</span>
-                      {delta !== null && Math.abs(delta) >= 0.01 && <span className={cn("text-[11px]", delta > 0 ? "text-status-good" : "text-status-critical")}>{delta > 0 ? "+" : ""}{(delta * 100).toFixed(0)}</span>}
+                      {/* Points moved since the previous price, signed and uncolored: a price move is not a result. */}
+                      {delta !== null && Math.abs(delta) >= 0.01 && (
+                        <span className="tabular text-[11px] text-muted-foreground" title="Change in points since the previous price">
+                          {delta > 0 ? "+" : "−"}
+                          {Math.abs(delta * 100).toFixed(0)} pts
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="tabular hidden px-3 py-2.5 text-muted-foreground md:table-cell">{cents(m.yesBid)} / {cents(m.yesAsk)}{sp2 !== null && sp2 >= 0.05 && <span className="ml-1 text-status-warning" title="Wide spread">●</span>}</td>
                   <td className="tabular hidden px-3 py-2.5 sm:table-cell">{compact(m.volume24h)}</td>
                   <td className="tabular hidden px-3 py-2.5 text-muted-foreground lg:table-cell">{compact(m.openInterest)}</td>
-                  <td className="hidden px-3 py-2.5 text-xs text-muted-foreground md:table-cell">{relative(m.closeTime)}</td>
+                  <td className="hidden px-3 py-2.5 text-xs text-muted-foreground md:table-cell">{closesIn(m.closeTime)}</td>
                   <td className="px-3 py-2.5 text-right"><WatchButton kind="market" refId={m.ticker} label={`${m.title}${m.yesSubTitle ? ` — ${m.yesSubTitle}` : ""}`} initial={watchedSet.has(m.ticker)} size="icon-sm" /></td>
                 </tr>
               );
@@ -126,7 +133,21 @@ export default async function MarketsPage({ searchParams }: { searchParams: Prom
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>
-          Showing {items.length ? offset + 1 : 0}–{offset + items.length} of {visibleTotal.toLocaleString()} {total > capped && <span>(plan shows {capped.toLocaleString()} of {total.toLocaleString()}; <Link href="/pricing" className="text-primary hover:underline">upgrade</Link> for more)</span>}
+          Showing {items.length ? offset + 1 : 0}–{offset + items.length} of {visibleTotal.toLocaleString()}
+          {q ? " matches, including decided markets" : " markets still in play"}{" "}
+          {total > capped &&
+            // Only a plan below Pro can upgrade; Pro is the top plan, so it gets a way to narrow the list instead.
+            (ent.tier === "pro" ? (
+              <span>(the first {capped.toLocaleString()} of {total.toLocaleString()} by this sort; search or pick a category to see others)</span>
+            ) : (
+              <span>
+                (your plan shows {capped.toLocaleString()} of {total.toLocaleString()};{" "}
+                <Link href="/pricing" className="text-primary hover:underline">
+                  Pro
+                </Link>{" "}
+                shows {PLANS.pro.limits.marketListLimit.toLocaleString()})
+              </span>
+            ))}
         </span>
         <div className="flex gap-1">
           <Link aria-disabled={page <= 1} href={link({ page: String(Math.max(1, page - 1)) })} className={cn("rounded-lg border px-2.5 py-1", page <= 1 && "pointer-events-none opacity-40")}>Prev</Link>
