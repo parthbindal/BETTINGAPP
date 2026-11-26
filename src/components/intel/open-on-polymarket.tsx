@@ -4,9 +4,15 @@ import { polymarketMarketUrl } from "@/lib/intel";
 import { cn } from "@/lib/utils";
 
 /**
- * The one call to action on a signal or trade: open this exact question on
- * Polymarket. The URL cannot pre-select a side, so the label names it.
- * EDGEWISE never places or holds bets; the note under the button says so.
+ * The one call to action on a signal or trade: find this question on
+ * Polymarket US, the exchange US members can trade on (polymarketMarketUrl
+ * explains why it is a search, not a direct page). The URL cannot pre-select a
+ * side, so the label names it. EDGEWISE never places or holds bets, and its
+ * figures come from Polymarket's international exchange, so prices on
+ * Polymarket US can differ; the note under the button says both.
+ *
+ * `eventSlug` / `marketSlug` are accepted for callers but no longer used: those
+ * paths exist only on polymarket.com.
  *
  * `inPlay = false` (price at or beyond 3¢ / 97¢) renders a disabled
  * "Market closed" control instead of a link into a decided market.
@@ -20,8 +26,6 @@ import { cn } from "@/lib/utils";
 export function OpenOnPolymarket({
   title,
   outcome,
-  eventSlug,
-  marketSlug,
   inPlay = true,
   variant = "full",
   note = variant === "full",
@@ -36,13 +40,13 @@ export function OpenOnPolymarket({
   inPlay?: boolean;
   variant?: "full" | "compact" | "icon" | "ghost" | "ghost-icon";
   note?: boolean;
-  /** Compact only: "Back KNICKS" instead of "Back KNICKS on Polymarket", for narrow spots. */
+  /** Compact only: "Back KNICKS" instead of "Back KNICKS on Polymarket US", for narrow spots. */
   short?: boolean;
-  /** Label the link as the market, not a side ("View market on Polymarket"). */
+  /** Label the link as the market, not a side ("Find market on Polymarket US"). */
   market?: boolean;
   className?: string;
 }) {
-  const url = polymarketMarketUrl(eventSlug, marketSlug);
+  const url = polymarketMarketUrl(title);
   const side = outcome.trim().toUpperCase() || "this outcome";
 
   if (!inPlay || !url) {
@@ -79,9 +83,10 @@ export function OpenOnPolymarket({
     );
   }
 
-  const label = market ? "View market on Polymarket" : `Back ${side} on Polymarket`;
-  const aria = `${label}: ${title}. Opens Polymarket in a new tab. EDGEWISE does not place or hold bets.`;
-  const note_ = "Opens Polymarket. EDGEWISE does not place or hold bets.";
+  // "Find", never "Back": the link is a search, and it can surface a similar market first (see polymarketMarketUrl).
+  const label = market ? "Find market on Polymarket US" : `Find ${side} on Polymarket US`;
+  const note_ = "Opens a Polymarket US search for this question. Check it is the same market and date before trading; prices there can differ a little. EDGEWISE does not place or hold bets.";
+  const aria = `${label}: ${title}. ${note_} Opens in a new tab.`;
 
   if (variant === "ghost") {
     return (
@@ -101,8 +106,8 @@ export function OpenOnPolymarket({
 
   if (variant === "compact") {
     return (
-      <a href={url} target="_blank" rel="noopener noreferrer" aria-label={aria} title="Opens Polymarket. EDGEWISE does not place or hold bets." className={cn(buttonVariants({ variant: "default", size: "sm" }), "max-w-full font-semibold", short && "h-auto min-h-7 whitespace-normal py-1 text-left leading-tight", className)}>
-        <span className={short ? "" : "truncate"}>{short ? `Back ${side}` : label}</span>
+      <a href={url} target="_blank" rel="noopener noreferrer" aria-label={aria} title={note_} className={cn(buttonVariants({ variant: "default", size: "sm" }), "max-w-full font-semibold", short && "h-auto min-h-7 whitespace-normal py-1 text-left leading-tight", className)}>
+        <span className={short ? "" : "truncate"}>{short ? `Find ${side}` : label}</span>
         <ExternalLink aria-hidden="true" />
       </a>
     );
@@ -120,7 +125,7 @@ export function OpenOnPolymarket({
         <span>{label}</span>
         <ExternalLink aria-hidden="true" />
       </a>
-      {note && <p className="mt-1.5 text-[11px] text-muted-foreground">Opens Polymarket. EDGEWISE does not place or hold bets.</p>}
+      {note && <p className="mt-1.5 text-[11px] text-muted-foreground">Opens a Polymarket US search. Check it is the same market and date before trading; prices there can differ a little. EDGEWISE does not place or hold bets.</p>}
     </div>
   );
 }

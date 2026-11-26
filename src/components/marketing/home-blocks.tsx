@@ -27,14 +27,14 @@ export function MovesLedger({ moves }: { moves: PublicMove[] }) {
       </LedgerHead>
       <LedgerBody>
         {moves.map((m, i) => {
-          const url = polymarketMarketUrl(m.eventSlug, m.marketSlug);
+          const url = polymarketMarketUrl(m.title);
           return (
             <tr key={m.id} style={rowIndex(i)} className={ROW}>
               <Td className="max-w-md">
                 <div className="flex items-start gap-1.5">
                   <span className="line-clamp-2 text-[13px] leading-snug">{m.title}</span>
                   {url ? (
-                    <a href={url} target="_blank" rel="noopener noreferrer" className="mt-0.5 shrink-0 text-muted-foreground transition-colors hover:text-primary" aria-label="Open on Polymarket">
+                    <a href={url} target="_blank" rel="noopener noreferrer" className="mt-0.5 shrink-0 text-muted-foreground transition-colors hover:text-primary" aria-label="Find on Polymarket US">
                       <ArrowUpRight className="size-3.5" />
                     </a>
                   ) : null}

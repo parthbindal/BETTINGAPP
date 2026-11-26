@@ -10,7 +10,8 @@ export const WALLET_RE = /^0x[a-fA-F0-9]{40}$/;
 export const isWalletAddress = (s: string) => WALLET_RE.test(s);
 export const shortAddress = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
-export const polymarketEventUrl = (slug: string) => `https://polymarket.com/event/${slug}`;
+// Trader profiles stay on polymarket.com: the tracked wallets trade on Polymarket's international,
+// on-chain exchange, and Polymarket US has no public pages for them.
 export const polymarketProfileUrl = (wallet: string) => `https://polymarket.com/profile/${wallet}`;
 export const polygonTxUrl = (hash: string) => `https://polygonscan.com/tx/${hash}`;
 export const walletHref = (wallet: string) => `/wallets/${wallet}`;
@@ -131,14 +132,43 @@ export function isOverdueGame(h: { category?: string; endDate?: string | null })
   return Number.isFinite(t) && t > Date.UTC(2000, 0, 1) && Date.now() > t + OVERDUE_GAME_MS;
 }
 
+/** Where members are sent to trade: Polymarket US, the exchange open to US users (polymarket.com is not). */
+export const POLYMARKET_US = "https://polymarket.us";
+
 /**
- * Link to the exact question on Polymarket. Grouped events hold many markets,
- * and only /event/<event>/<market> lands on the right one. Snapshots taken
- * before market slugs were stored fall back to the event page.
+ * Link to a market, for members to trade it: a Polymarket US search for the
+ * market's own question.
+ *
+ * Not a direct page, on purpose. Polymarket US is a separate exchange that
+ * lists its own markets at its own addresses: every polymarket.com
+ * /event/... path tried on 2026-11-25 (five live signals: politics, sports,
+ * economics, crypto, other) returned "This page doesn't exist" there. A search
+ * for the full question landed on the same market when the US exchange lists
+ * it (Fed December decision, Packers vs. Rams) and on the closest ones when it
+ * does not (next Israeli PM, US-Iran).
+ *
+ * The data itself (traders, positions, prices) still comes from Polymarket's
+ * international exchange, so prices on polymarket.us can differ a little; the
+ * link copy says so.
+ *
+ * A search can also surface a DIFFERENT market first: for a game that has been
+ * played, "Bucks vs. Raptors" showed "Nets vs. Bucks". So trading links say
+ * "Find", never "Back", and ask the member to check the market and date.
  */
-export function polymarketMarketUrl(eventSlug: string | null | undefined, marketSlug?: string | null): string | null {
+export function polymarketMarketUrl(question: string | null | undefined): string | null {
+  const q = question?.replace(/\s+/g, " ").trim();
+  return q ? `${POLYMARKET_US}/search?q=${encodeURIComponent(q.slice(0, 160))}` : null;
+}
+
+/**
+ * The exact market page on polymarket.com, for EVIDENCE rather than trading:
+ * the public track record links each call to the market it was made on, and
+ * its result. Only polymarket.com has that page (and keeps it after the market
+ * settles); a Polymarket US search cannot find a finished game.
+ */
+export function polymarketRecordUrl(eventSlug: string | null | undefined, marketSlug?: string | null): string | null {
   if (eventSlug && marketSlug) return `https://polymarket.com/event/${eventSlug}/${marketSlug}`;
-  if (eventSlug) return polymarketEventUrl(eventSlug);
+  if (eventSlug) return `https://polymarket.com/event/${eventSlug}`;
   if (marketSlug) return `https://polymarket.com/market/${marketSlug}`;
   return null;
 }

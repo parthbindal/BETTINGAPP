@@ -11,7 +11,7 @@ import { ScanFreshness } from "@/components/intel/scan-freshness";
 import { HoldersOf, PaidNow } from "@/components/intel/consensus-ledger";
 import { WhaleRefreshButton } from "@/components/whales/refresh-button";
 import { compact, dateShort, utcStamp } from "@/lib/format";
-import { isInPlay, polymarketMarketUrl } from "@/lib/intel";
+import { isInPlay, POLYMARKET_US, polymarketMarketUrl } from "@/lib/intel";
 import { cn } from "@/lib/utils";
 import { trackUsage } from "@/lib/ops";
 
@@ -41,7 +41,7 @@ const ROWS = 40;
 const signedUsd = (n: number) => `${n >= 0 ? "+" : "−"}$${compact(Math.abs(n))}`;
 
 function marketUrl(h: ConsensusHolding) {
-  return polymarketMarketUrl(h.slug, h.marketSlug) ?? `https://polymarket.com/markets?_q=${encodeURIComponent(h.title.slice(0, 40))}`;
+  return polymarketMarketUrl(h.title) ?? POLYMARKET_US;
 }
 
 function PositionsLedger({ rows, field }: { rows: ConsensusHolding[]; field: number }) {
@@ -66,7 +66,7 @@ function PositionsLedger({ rows, field }: { rows: ConsensusHolding[]; field: num
             <Td className="max-w-md">
               <div className="flex items-start gap-1.5">
                 <span className="line-clamp-2 text-[13px] leading-snug">{h.title}</span>
-                <a href={marketUrl(h)} target="_blank" rel="noopener noreferrer" className="mt-0.5 shrink-0 text-muted-foreground transition-colors hover:text-primary" aria-label="Open on Polymarket">
+                <a href={marketUrl(h)} target="_blank" rel="noopener noreferrer" className="mt-0.5 shrink-0 text-muted-foreground transition-colors hover:text-primary" aria-label="Find on Polymarket US">
                   <ArrowUpRight className="size-3.5" />
                 </a>
               </div>

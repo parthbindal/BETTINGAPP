@@ -17,6 +17,7 @@ import { compareEvent } from "@/lib/analytics/line-comparison";
 import type { EventComparison, SideComparison, VenueQuote, OppCategory } from "@/lib/data/cross-source";
 import { logError, withProvider } from "@/lib/ops";
 import { daysAgo } from "@/lib/time";
+import { POLYMARKET_US, polymarketMarketUrl } from "@/lib/intel";
 
 const KALSHI_FRESH_MS = 10 * 60_000;
 
@@ -50,7 +51,8 @@ function polyQuote(p: PolyMarket, sideIndex: 0 | 1): VenueQuote {
     fee: 0, // Polymarket currently charges no taker fee on these markets
     freshness: "live",
     fetchedAt: p.fetchedAt,
-    href: `https://polymarket.com/markets/${p.slug}`,
+    // Members trade on Polymarket US, which lists its own markets at its own paths (see polymarketMarketUrl).
+    href: polymarketMarketUrl(p.question) ?? POLYMARKET_US,
   };
 }
 

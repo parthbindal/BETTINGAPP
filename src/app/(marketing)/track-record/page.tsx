@@ -4,7 +4,7 @@ import { ArrowUpRight } from "lucide-react";
 import { CountUp } from "@/components/motion/count-up";
 import { LinkButton } from "@/components/ui/link-button";
 import { StatBand } from "@/components/shared/stat-band";
-import { polymarketMarketUrl, kindLabel } from "@/lib/intel";
+import { polymarketRecordUrl, kindLabel } from "@/lib/intel";
 // Absolute dates only, never "6 days ago": a ledger's timestamps are its
 // evidence, and relative time reads Date.now(), which blocks prerendering.
 import { cents, dateShort, pct, pts } from "@/lib/format";
@@ -51,13 +51,14 @@ function Outcome({ status }: { status: string }) {
 }
 
 function MarketCell({ r }: { r: LedgerRow }) {
-  const url = polymarketMarketUrl(r.eventSlug, r.marketSlug);
+  // Evidence, not a trade: the exact market and its result, which only polymarket.com keeps (see polymarketRecordUrl).
+  const url = polymarketRecordUrl(r.eventSlug, r.marketSlug);
   return (
     <div className="min-w-0">
       <div className="flex items-start gap-1.5">
         <span className="line-clamp-2 text-[13px] leading-snug text-foreground">{r.title}</span>
         {url ? (
-          <a href={url} target="_blank" rel="noopener noreferrer" className="mt-0.5 shrink-0 text-muted-foreground transition-colors hover:text-primary" aria-label="Open on Polymarket">
+          <a href={url} target="_blank" rel="noopener noreferrer" className="mt-0.5 shrink-0 text-muted-foreground transition-colors hover:text-primary" aria-label="See this market and its result on Polymarket">
             <ArrowUpRight className="size-3.5" />
           </a>
         ) : null}

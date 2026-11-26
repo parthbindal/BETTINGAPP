@@ -197,8 +197,8 @@ export function telegramHtml(a: AlertView, opts: { appUrl: string; signal: Signa
   ];
   if (opts.signal) lines.push(`👥 ${opts.signal.holders} top traders hold ${escapeHtml(sideLabel(a.outcome))}`);
   const links = [`<a href="${escapeHtml(`${app}${alertHref(a, opts.signal)}`)}">Open in EDGEWISE</a>`];
-  const pm = polymarketMarketUrl(a.eventSlug, a.marketSlug);
-  if (pm) links.push(`<a href="${escapeHtml(pm)}">Polymarket</a>`);
+  const pm = polymarketMarketUrl(a.title);
+  if (pm) links.push(`<a href="${escapeHtml(pm)}">Polymarket US</a>`);
   lines.push("", links.join(" · "));
   if (opts.delayed) lines.push(`⏱ Pro members got this ${ago(opts.delayed.sinceMs)} ago. <a href="${escapeHtml(`${app}/pricing`)}">Get these alerts first</a>`);
   return lines.join("\n");
