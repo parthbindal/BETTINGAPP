@@ -22,6 +22,7 @@ import { getRun, isBuildPhase, runClaimed } from "@/lib/job-runs";
 // Safe despite signals.ts referencing ConsensusHolding: that direction is
 // `import type`, so it is erased and there is no runtime cycle.
 import { recordSignals, scoreSignals } from "@/lib/signals";
+import { holderPairsFrom } from "@/lib/intel";
 
 /**
  * Bump when the aggregation changes, so history never compares different methods.
@@ -57,7 +58,11 @@ export const OPEN_SCAN_GAP_MS = MANUAL_SCAN_GAP_MS;
 const SCAN_JOB = "whale-scan";
 const POSITION_CONCURRENCY = 6;
 const POSITION_PAUSE_MS = 120;
-const KEEP_HOLDINGS = 120; // most-held outcomes stored
+const KEEP_HOLDINGS = 120; // most-held outcomes stored with full detail, at least
+/** Every side with this many traders is stored with full detail too (the Signals page's smallest filter is 5+). */
+const FULL_DETAIL_MIN_HOLDERS = 5;
+/** Safety cap on full-detail sides (~3 KB each); ~300 qualified on 2026-11-25. All 2+ sides are in `shared` regardless. */
+const MAX_FULL_HOLDINGS = 600;
 const MIN_HOLDERS = 2;
 const LEAN_SHARE = 0.6;
 const TOP_HOLDERS_KEPT = 25;
@@ -141,6 +146,36 @@ export interface SimilarPair {
   markets: Array<{ title: string; outcome: string }>;
 }
 
+/**
+ * One side of one market held by 2+ tracked traders: EVERY such side, not just
+ * the KEEP_HOLDINGS most-held kept in `holdings` with full detail. Compact on
+ * purpose (holders are their all-time ranks; look names up in `wallets`), since
+ * there are ~1,600 of them and the payload is read on every page view.
+ */
+export interface SharedPosition {
+  tokenId: string;
+  title: string;
+  outcome: string;
+  category: string;
+  holders: number;
+  totalValue: number;
+  avgEntry: number;
+  currentPrice: number;
+  unrealizedPnl: number;
+  endDate: string | null;
+  /** All-time ranks of the traders holding this side, biggest position first. */
+  ranks: number[];
+}
+
+/** Two tracked traders and how many live open bets (same market, same side) they share, across all 1,000. */
+export interface HolderPair {
+  aRank: number;
+  bRank: number;
+  shared: number;
+  markets: Array<{ title: string; outcome: string }>;
+}
+
+
 /** Real per-wallet figures from the scan, for the leaderboard and wallet pages. */
 export interface WalletStat {
   wallet: string;
@@ -185,6 +220,10 @@ export interface WhalePayload {
   categories: Array<{ category: string; holdings: number; value: number }>;
   recentMoves: RecentMove[];
   similarPairs: SimilarPair[];
+  /** Every side held by 2+ tracked traders (see SharedPosition). Absent on snapshots before 2026-11-25. */
+  shared?: SharedPosition[];
+  /** Traders sharing the most live open bets, across all 1,000 (similarPairs only sees the top 100's recent buys). */
+  holderPairs?: HolderPair[];
   wallets?: WalletStat[];
   clusters?: TradeCluster[];
   recentWindowDays?: number;
@@ -365,7 +404,10 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
   const holdings: ConsensusHolding[] = [...byToken.entries()]
     .filter(([, a]) => a.holders.size >= MIN_HOLDERS)
     .sort(([, a], [, b]) => b.holders.size - a.holders.size || b.totalValue - a.totalValue)
-    .slice(0, KEEP_HOLDINGS)
+    // Full detail for the KEEP_HOLDINGS most-held AND for every side with FULL_DETAIL_MIN_HOLDERS+ traders: the Signals
+    // page filters down to 5+, and a 120 cap stopped at 8 traders, so "5+" silently missed most 5-9 trader signals.
+    .filter(([, a], i) => i < KEEP_HOLDINGS || a.holders.size >= FULL_DETAIL_MIN_HOLDERS)
+    .slice(0, MAX_FULL_HOLDINGS)
     .map(([tokenId, a]) => {
       const list = [...a.holders.entries()].map(([wallet, h]) => ({ wallet, ...h }));
       const entries = list.map((h) => h.entryAt).filter((t): t is number => t !== null);
@@ -398,6 +440,28 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
         }),
       };
     });
+
+  // EVERY side 2+ tracked traders share, not only the KEEP_HOLDINGS above. On 2026-11-25 there were ~1,600
+  // (1,077 still in play) and the 120 kept above covered fewer than 80 of the live ones: every shared bet
+  // of 2-4 traders and most of 5-9 were dropped. Compact (holders as ranks) so the payload stays small.
+  const rankByWallet = new Map(leaders.map((l) => [l.wallet, l.rank]));
+  const shared: SharedPosition[] = [...byToken.entries()]
+    .filter(([, a]) => a.holders.size >= MIN_HOLDERS)
+    .sort(([, a], [, b]) => b.holders.size - a.holders.size || b.totalValue - a.totalValue)
+    .map(([tokenId, a]) => ({
+      tokenId,
+      title: a.title,
+      outcome: a.outcome || "?",
+      category: a.category,
+      holders: a.holders.size,
+      totalValue: Math.round(a.totalValue),
+      avgEntry: a.totalValue > 0 ? Math.round((a.weightedEntry / a.totalValue) * 10_000) / 10_000 : 0,
+      currentPrice: a.currentPrice,
+      unrealizedPnl: Math.round(a.unrealizedPnl),
+      endDate: a.endDate,
+      ranks: [...a.holders.entries()].sort((x, y) => y[1].value - x[1].value).map(([w]) => rankByWallet.get(w) ?? 0),
+    }));
+  const holderPairs = holderPairsFrom(shared);
 
   // Net positioning per market: which side the field leans, and whether it is split.
   const byCondition = new Map<string, { question: string; category: string; sides: Map<string, { holders: number; value: number }> }>();
@@ -566,6 +630,8 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
     flowExcluded: capped.size,
     clusters: clusters.slice(0, 40),
     similarPairs: pairs.slice(0, 12),
+    shared,
+    holderPairs,
   };
 
   await db.whaleSnapshot.create({ data: { tradersScanned: leaders.length, positionsScanned, payload: payload as unknown as Prisma.InputJsonValue } });

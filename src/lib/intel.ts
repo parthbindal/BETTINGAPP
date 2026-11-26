@@ -4,7 +4,7 @@
  * of what kind of agreement a consensus outcome is. Nothing here recommends a
  * trade.
  */
-import type { ConsensusHolding, WhalePayload, WhaleHistoryPoint } from "@/lib/whales";
+import type { ConsensusHolding, HolderPair, SharedPosition, WhalePayload, WhaleHistoryPoint } from "@/lib/whales";
 
 export const WALLET_RE = /^0x[a-fA-F0-9]{40}$/;
 export const isWalletAddress = (s: string) => WALLET_RE.test(s);
@@ -279,3 +279,27 @@ export function freePreviewTokens(
   return out;
 }
 
+/**
+ * Pairs of traders by how many live shared positions they hold in common,
+ * biggest overlap first. Counts in-play sides only: two traders both sitting on
+ * "No" at 99c says nothing about shared judgement. Each side contributes one to
+ * every pair among its holders.
+ */
+export function holderPairsFrom(shared: Array<Pick<SharedPosition, "ranks" | "title" | "outcome" | "currentPrice" | "category" | "endDate">>, opts: { min?: number; keep?: number } = {}): HolderPair[] {
+  const min = opts.min ?? 3;
+  const pairs = new Map<string, HolderPair>();
+  for (const s of shared) {
+    if (!isInPlay(s)) continue;
+    const r = [...new Set(s.ranks.filter((x) => x > 0))].sort((x, y) => x - y);
+    for (let i = 0; i < r.length; i++) {
+      for (let j = i + 1; j < r.length; j++) {
+        const key = `${r[i]}:${r[j]}`;
+        const p = pairs.get(key) ?? { aRank: r[i]!, bRank: r[j]!, shared: 0, markets: [] };
+        p.shared++;
+        if (p.markets.length < 5) p.markets.push({ title: s.title, outcome: s.outcome });
+        pairs.set(key, p);
+      }
+    }
+  }
+  return [...pairs.values()].filter((p) => p.shared >= min).sort((a, b) => b.shared - a.shared || a.aRank - b.aRank || a.bRank - b.bRank).slice(0, opts.keep ?? 60);
+}

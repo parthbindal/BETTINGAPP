@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { ArrowLeftRight, ArrowUpRight } from "lucide-react";
+import { ArrowLeftRight, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { requireUser, getEntitlements } from "@/lib/session";
-import { getWhaleWatch, keepScanFresh, type ConsensusHolding, type WhalePayload } from "@/lib/whales";
+import { getWhaleWatch, keepScanFresh, type SharedPosition, type WalletStat, type WhalePayload } from "@/lib/whales";
 import { keepAlertsFlowing } from "@/lib/smart-alerts";
 import { PageHeader, PageSection, Section, EmptyState } from "@/components/shared/page-header";
 import { StatBand } from "@/components/shared/stat-band";
@@ -11,7 +11,7 @@ import { ScanFreshness } from "@/components/intel/scan-freshness";
 import { HoldersOf, PaidNow } from "@/components/intel/consensus-ledger";
 import { WhaleRefreshButton } from "@/components/whales/refresh-button";
 import { compact, dateShort, utcStamp } from "@/lib/format";
-import { isInPlay, POLYMARKET_US, polymarketMarketUrl } from "@/lib/intel";
+import { isInPlay, POLYMARKET_US, polymarketMarketUrl, walletHref } from "@/lib/intel";
 import { cn } from "@/lib/utils";
 import { trackUsage } from "@/lib/ops";
 
@@ -19,39 +19,62 @@ import { trackUsage } from "@/lib/ops";
 export const instant = false;
 
 /*
- * Smart Money Deep Dive (the page was called Whale Watch before the nav was
- * renamed; the heading now matches the nav). What is unique here is the full
- * position book of the tracked traders with unrealized profit on each side, so
- * that is the page. Its old copies of the leaderboard and of the latest buys
- * now live only on Top Traders and Live Trades, and are linked from the foot.
+ * Smart Money Deep Dive: EVERY open bet that two or more of the 1,000 tracked
+ * traders share (same market, same side), with who shares it. The Signals page
+ * shows only the ones with 10+ traders; until 2026-11-25 this page showed the
+ * 120 most-held sides the scan kept, which missed ~1,000 live shared bets
+ * (every one held by 2-4 traders and most held by 5-9). The scan now stores
+ * them all (WhalePayload.shared).
  */
 
 const TITLE = "Smart Money Deep Dive";
-const DESCRIPTION = "Every open position Polymarket's most profitable traders hold, grouped by market and side, with how far each is up or down. Read from Polymarket's public on-chain data every hour.";
+const DESCRIPTION = "Every open bet that two or more of Polymarket's 1,000 most profitable traders share: the same side of the same market, with who holds it and how it is going. Read from Polymarket's public on-chain data every hour.";
 const CATS = ["All", "Sports", "Politics", "Crypto", "Economics", "Other"];
 const SORTS = [
+  { key: "holders", label: "Most traders" },
   { key: "profit", label: "Most up" },
-  { key: "holders", label: "Most held" },
   { key: "value", label: "Most money" },
 ] as const;
 type SortKey = (typeof SORTS)[number]["key"];
-const ROWS = 40;
+const MINS = [2, 3, 5, 10] as const;
+const PAGE_SIZE = 50;
+
+type Row = Pick<SharedPosition, "tokenId" | "title" | "outcome" | "category" | "holders" | "totalValue" | "avgEntry" | "currentPrice" | "unrealizedPnl" | "endDate" | "ranks">;
 
 /** Signed and uncolored: unrealized profit is direction, not a result. Green and red are kept for settled calls. */
 const signedUsd = (n: number) => `${n >= 0 ? "+" : "−"}$${compact(Math.abs(n))}`;
 
-function marketUrl(h: ConsensusHolding) {
-  return polymarketMarketUrl(h.title) ?? POLYMARKET_US;
+/** Who shares this bet: the first few holders by position size, by name, each linking to their wallet. */
+function Holders({ ranks, byRank }: { ranks: number[]; byRank: Map<number, WalletStat> }) {
+  const named = ranks.map((r) => byRank.get(r)).filter((w): w is WalletStat => Boolean(w));
+  const shown = named.slice(0, 3);
+  const more = ranks.length - shown.length;
+  if (!shown.length) return null;
+  return (
+    <div className="mt-1 text-[11px] text-muted-foreground">
+      Held by{" "}
+      {shown.map((w, i) => (
+        <span key={w.wallet}>
+          {i > 0 && ", "}
+          <Link href={walletHref(w.wallet)} className="text-secondary-foreground hover:text-primary hover:underline">
+            {w.name.length > 18 ? `${w.name.slice(0, 17)}…` : w.name}
+          </Link>
+          <span className="tabular"> #{w.rank}</span>
+        </span>
+      ))}
+      {more > 0 && <span> and {more} more</span>}
+    </div>
+  );
 }
 
-function PositionsLedger({ rows, field }: { rows: ConsensusHolding[]; field: number }) {
+function SharedLedger({ rows, field, byRank }: { rows: Row[]; field: number; byRank: Map<number, WalletStat> }) {
   return (
-    <Ledger label="Positions held by the top traders">
+    <Ledger label="Open bets shared by the top traders">
       <LedgerHead>
-        <Th>Market &amp; side</Th>
-        <Th right>Up / down so far</Th>
+        <Th>Market, side &amp; who</Th>
+        <Th right>Top traders</Th>
         <Th right className="hidden sm:table-cell">
-          Top traders
+          Up / down so far
         </Th>
         <Th right className="hidden md:table-cell">
           Paid → now
@@ -66,7 +89,7 @@ function PositionsLedger({ rows, field }: { rows: ConsensusHolding[]; field: num
             <Td className="max-w-md">
               <div className="flex items-start gap-1.5">
                 <span className="line-clamp-2 text-[13px] leading-snug">{h.title}</span>
-                <a href={marketUrl(h)} target="_blank" rel="noopener noreferrer" className="mt-0.5 shrink-0 text-muted-foreground transition-colors hover:text-primary" aria-label="Find on Polymarket US">
+                <a href={polymarketMarketUrl(h.title) ?? POLYMARKET_US} target="_blank" rel="noopener noreferrer" className="mt-0.5 shrink-0 text-muted-foreground transition-colors hover:text-primary" aria-label="Find on Polymarket US">
                   <ArrowUpRight className="size-3.5" />
                 </a>
               </div>
@@ -74,18 +97,17 @@ function PositionsLedger({ rows, field }: { rows: ConsensusHolding[]; field: num
                 <span className="max-w-[14rem] truncate font-semibold tracking-wide text-secondary-foreground uppercase">{h.outcome}</span>
                 <span aria-hidden="true">·</span>
                 <span>{h.category}</span>
-                {h.endDate && <span className="hidden lg:inline">· closes {dateShort(h.endDate)}</span>}
-                <span className="basis-full sm:hidden">
-                  {h.holders} of {field.toLocaleString("en-US")} top traders
-                </span>
+                {h.endDate && !h.endDate.startsWith("1970") && <span className="hidden lg:inline">· closes {dateShort(h.endDate)}</span>}
+                <span className="sm:hidden">· {signedUsd(h.unrealizedPnl)} so far</span>
               </div>
+              <Holders ranks={h.ranks} byRank={byRank} />
+            </Td>
+            <Td right>
+              <HoldersOf n={h.holders} tracked={field} />
             </Td>
             {/* Same weight both ways: dimming the losses would quietly flatter the book. */}
-            <Td right figure>
+            <Td right figure className="hidden sm:table-cell">
               {signedUsd(h.unrealizedPnl)}
-            </Td>
-            <Td right className="hidden sm:table-cell">
-              <HoldersOf n={h.holders} tracked={field} />
             </Td>
             <Td right className="hidden md:table-cell">
               <PaidNow entry={h.avgEntry} now={h.currentPrice} />
@@ -100,7 +122,15 @@ function PositionsLedger({ rows, field }: { rows: ConsensusHolding[]; field: num
   );
 }
 
-export default async function WhalesPage({ searchParams }: { searchParams: Promise<{ cat?: string; sort?: string }> }) {
+function Chip({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
+  return (
+    <Link href={href} scroll={false} aria-current={active ? "page" : undefined} className={cn("rounded-full border px-3 py-1 text-xs font-medium transition-colors", active ? "border-foreground/40 bg-foreground/10 text-foreground" : "border-border text-muted-foreground hover:bg-surface-2 hover:text-foreground")}>
+      {children}
+    </Link>
+  );
+}
+
+export default async function WhalesPage({ searchParams }: { searchParams: Promise<{ cat?: string; sort?: string; min?: string; page?: string }> }) {
   const sp = await searchParams;
   const session = await requireUser("/whales");
   const ent = await getEntitlements(session.user.id);
@@ -108,7 +138,7 @@ export default async function WhalesPage({ searchParams }: { searchParams: Promi
     return (
       <div className="space-y-6">
         <PageHeader title={TITLE} description={DESCRIPTION} />
-        <UpgradeGate locked feature="The full position book of the top 1,000 traders, with open profit on every side" requiredTier="pro">
+        <UpgradeGate locked feature="Every open bet the top 1,000 traders share, with who holds each one" requiredTier="pro">
           <span />
         </UpgradeGate>
       </div>
@@ -127,7 +157,7 @@ export default async function WhalesPage({ searchParams }: { searchParams: Promi
         <Section>
           <EmptyState
             title="Reading the top traders' positions"
-            description="This page lists every open bet the tracked traders hold, grouped by market and side, with how far each is up or down. It fills in when the first scan of their wallets finishes."
+            description="This page lists every open bet two or more of the tracked traders share, with who holds it and how far it is up or down. It fills in when the first scan of their wallets finishes."
             when="Usually a few minutes · then every hour"
           />
         </Section>
@@ -136,25 +166,33 @@ export default async function WhalesPage({ searchParams }: { searchParams: Promi
   }
 
   const p: WhalePayload = data.payload;
-  const cat = CATS.includes(sp.cat ?? "") ? sp.cat! : "All";
-  const sort: SortKey = SORTS.some((s) => s.key === sp.sort) ? (sp.sort as SortKey) : "profit";
   const field = p.tradersScanned;
+  const cat = CATS.includes(sp.cat ?? "") ? sp.cat! : "All";
+  const sort: SortKey = SORTS.some((s) => s.key === sp.sort) ? (sp.sort as SortKey) : "holders";
+  const min = MINS.find((m) => String(m) === sp.min) ?? 2;
+  const byRank = new Map((p.wallets ?? []).map((w) => [w.rank, w]));
 
-  // Finished bets never reach this page (the scan drops settled and closed markets). What is left out here are sides
-  // priced 3c-or-less / 97c-or-more (decided in all but name) and games past their date (see isInPlay); the page says how many.
-  const book = p.holdings.filter(isInPlay);
-  const doneCount = p.holdings.length - book.length;
+  // Every shared bet from scans since 2026-11-25; older snapshots only kept the 120 most-held, with their top holders.
+  const all: Row[] = p.shared ?? p.holdings.map((h) => ({ ...h, ranks: (h.topHolders ?? []).map((t) => t.rank) }));
+  // Finished bets never reach this page (the scan drops settled and closed markets). Left out here: sides priced
+  // 3c-or-less / 97c-or-more (decided in all but name) and games past their date (see isInPlay). The page says how many.
+  const book = all.filter(isInPlay);
+  const doneCount = all.length - book.length;
+  const bySize = (lo: number, hi = Infinity) => book.filter((h) => h.holders >= lo && h.holders <= hi).length;
   const up = book.filter((h) => h.unrealizedPnl > 0);
   const down = book.filter((h) => h.unrealizedPnl < 0);
   const openProfit = up.reduce((a, h) => a + h.unrealizedPnl, 0);
   const openLoss = down.reduce((a, h) => a + h.unrealizedPnl, 0);
-  const biggest = [...book].sort((a, b) => b.unrealizedPnl - a.unrealizedPnl)[0];
 
-  const sortFn = (a: ConsensusHolding, b: ConsensusHolding) => (sort === "value" ? b.totalValue - a.totalValue : sort === "holders" ? b.holders - a.holders || b.totalValue - a.totalValue : b.unrealizedPnl - a.unrealizedPnl);
-  const inCat = cat === "All" ? book : book.filter((h) => h.category === cat);
-  const holdings = [...inCat].sort(sortFn).slice(0, ROWS);
-  const link = (patch: Record<string, string>) => `/whales?${new URLSearchParams({ cat, sort, ...patch }).toString()}`;
-  const pairs = p.similarPairs ?? [];
+  const sortFn = (a: Row, b: Row) => (sort === "value" ? b.totalValue - a.totalValue : sort === "profit" ? b.unrealizedPnl - a.unrealizedPnl : b.holders - a.holders || b.totalValue - a.totalValue);
+  const filtered = book.filter((h) => h.holders >= min && (cat === "All" || h.category === cat)).sort(sortFn);
+  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const page = Math.min(pages, Math.max(1, Number(sp.page) || 1));
+  const rows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const link = (patch: Record<string, string>) => `/whales?${new URLSearchParams({ cat, sort, min: String(min), page: "1", ...patch }).toString()}`;
+
+  const holderPairs = p.holderPairs ?? [];
+  const recentPairs = p.similarPairs ?? [];
 
   return (
     <div className="space-y-10">
@@ -163,22 +201,22 @@ export default async function WhalesPage({ searchParams }: { searchParams: Promi
         <ScanFreshness generatedAt={p.generatedAt} note={`read ${utcStamp(p.generatedAt)} · prices refresh each scan, not tick by tick`} />
       </div>
 
-      <section aria-label="The position book at a glance" className="border-y border-border/60">
+      <section aria-label="Shared bets at a glance" className="border-y border-border/60">
         <StatBand
           stats={[
-            { label: "Traders tracked", value: field.toLocaleString("en-US"), foot: "Polymarket's most profitable, all-time" },
-            { label: "Live market sides", value: book.length.toLocaleString("en-US"), foot: `From ${p.positionsScanned.toLocaleString("en-US")} open bets of $100+${doneCount ? `; ${doneCount} decided or past their game date, left out` : ""}` },
-            { label: "Open profit", value: signedUsd(openProfit), foot: `On ${up.length.toLocaleString("en-US")} of ${book.length.toLocaleString("en-US")} sides; ${down.length.toLocaleString("en-US")} are down $${compact(Math.abs(openLoss))}` },
-            { label: "Largest open gain", value: biggest ? signedUsd(biggest.unrealizedPnl) : "—", foot: biggest ? `${biggest.outcome} · ${biggest.title.length > 44 ? `${biggest.title.slice(0, 43)}…` : biggest.title}` : "No positions in this scan" },
+            { label: "Shared open bets", value: book.length.toLocaleString("en-US"), foot: `Held by 2+ of the ${field.toLocaleString("en-US")} traders${doneCount ? `; ${doneCount} decided or past their game date, left out` : ""}` },
+            { label: "Held by 10+", value: bySize(10).toLocaleString("en-US"), foot: `Signals. Then ${bySize(5, 9)} held by 5–9, ${bySize(3, 4)} by 3–4, ${bySize(2, 2)} by 2` },
+            { label: "Open profit", value: signedUsd(openProfit), foot: `On ${up.length.toLocaleString("en-US")} of ${book.length.toLocaleString("en-US")} shared bets; ${down.length.toLocaleString("en-US")} are down $${compact(Math.abs(openLoss))}` },
+            { label: "Positions read", value: p.positionsScanned.toLocaleString("en-US"), foot: "Every open bet of $100+ across all tracked traders" },
           ]}
         />
       </section>
 
       <PageSection
-        title="Every position they hold"
-        description="Grouped by market and side. Up / down is unrealized profit at today's price: it is not a win or a loss until the market settles, and you are seeing these traders part-way through, often from a much lower entry."
+        title="Every bet they share"
+        description="Each row is one side of one market that two or more of the tracked traders hold, with who they are. Up / down is unrealized profit at today's price: not a win or a loss until the market settles."
         right={
-          <nav className="inline-flex rounded-lg border border-border bg-surface-1 p-0.5" aria-label="Sort positions">
+          <nav className="inline-flex rounded-lg border border-border bg-surface-1 p-0.5" aria-label="Sort shared bets">
             {SORTS.map((s) => (
               <Link
                 key={s.key}
@@ -193,68 +231,143 @@ export default async function WhalesPage({ searchParams }: { searchParams: Promi
           </nav>
         }
       >
-        <div className="mb-4 flex flex-wrap gap-1.5" role="group" aria-label="Category">
-          {CATS.map((c) => {
-            const n = c === "All" ? book.length : book.filter((h) => h.category === c).length;
-            return (
-              <Link
-                key={c}
-                href={link({ cat: c })}
-                scroll={false}
-                aria-current={cat === c ? "page" : undefined}
-                className={cn("rounded-full border px-3 py-1 text-xs font-medium transition-colors", cat === c ? "border-foreground/40 bg-foreground/10 text-foreground" : "border-border text-muted-foreground hover:bg-surface-2 hover:text-foreground")}
-              >
-                {c} <span className="tabular text-muted-foreground">{n.toLocaleString("en-US")}</span>
-              </Link>
-            );
-          })}
+        <div className="mb-3 flex flex-wrap items-center gap-1.5" role="group" aria-label="Minimum traders">
+          <span className="mr-1 w-24 shrink-0 text-xs text-muted-foreground">Shared by</span>
+          {MINS.map((m) => (
+            <Chip key={m} href={link({ min: String(m) })} active={min === m}>
+              {m}+ traders <span className="tabular text-muted-foreground">{bySize(m).toLocaleString("en-US")}</span>
+            </Chip>
+          ))}
         </div>
-        {holdings.length ? (
+        <div className="mb-4 flex flex-wrap items-center gap-1.5" role="group" aria-label="Category">
+          <span className="mr-1 w-24 shrink-0 text-xs text-muted-foreground">Topic</span>
+          {CATS.map((c) => (
+            <Chip key={c} href={link({ cat: c })} active={cat === c}>
+              {c} <span className="tabular text-muted-foreground">{book.filter((h) => h.holders >= min && (c === "All" || h.category === c)).length.toLocaleString("en-US")}</span>
+            </Chip>
+          ))}
+        </div>
+        {rows.length ? (
           <>
-            <PositionsLedger rows={holdings} field={field} />
-            <p className="mt-3 text-xs text-muted-foreground">
-              Showing {holdings.length} of {inCat.length.toLocaleString("en-US")} {cat === "All" ? "" : `${cat} `}market sides. A large position is a reason to research a market, not a signal to copy it: a profit leaderboard only shows who is winning today, never who blew up.
-            </p>
+            <SharedLedger rows={rows} field={field} byRank={byRank} />
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+              <span className="tabular">
+                Showing {((page - 1) * PAGE_SIZE + 1).toLocaleString("en-US")}–{((page - 1) * PAGE_SIZE + rows.length).toLocaleString("en-US")} of {filtered.length.toLocaleString("en-US")} shared bets
+                {cat === "All" ? "" : ` in ${cat}`}, held by {min}+ traders
+              </span>
+              {pages > 1 && (
+                <nav className="flex items-center gap-1" aria-label="Pages">
+                  {page > 1 ? (
+                    <Link href={link({ page: String(page - 1) })} scroll={false} className="inline-flex h-8 items-center gap-1 rounded-lg border border-border px-2.5 text-foreground/90 hover:bg-surface-2">
+                      <ChevronLeft className="size-3.5" aria-hidden="true" /> Previous
+                    </Link>
+                  ) : (
+                    <span className="inline-flex h-8 items-center gap-1 rounded-lg border border-border px-2.5 opacity-40">
+                      <ChevronLeft className="size-3.5" aria-hidden="true" /> Previous
+                    </span>
+                  )}
+                  <span className="tabular px-2">
+                    Page {page} of {pages}
+                  </span>
+                  {page < pages ? (
+                    <Link href={link({ page: String(page + 1) })} scroll={false} className="inline-flex h-8 items-center gap-1 rounded-lg border border-border px-2.5 text-foreground/90 hover:bg-surface-2">
+                      Next <ChevronRight className="size-3.5" aria-hidden="true" />
+                    </Link>
+                  ) : (
+                    <span className="inline-flex h-8 items-center gap-1 rounded-lg border border-border px-2.5 opacity-40">
+                      Next <ChevronRight className="size-3.5" aria-hidden="true" />
+                    </span>
+                  )}
+                </nav>
+              )}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">A shared bet is a reason to research a market, not a signal to copy it: a profit leaderboard only shows who is winning today, never who blew up.</p>
           </>
         ) : (
           <Section>
-            <EmptyState title={`No ${cat} positions in this scan`} description="None of the tracked traders held an open bet of $100 or more in this category when the wallets were last read." when="Re-read every hour" />
+            <EmptyState title="No shared bets match" description={`None of the live bets in this scan is held by ${min} or more of the tracked traders${cat === "All" ? "" : ` in ${cat}`}. Try fewer traders or another topic.`} when="Re-read every hour" />
           </Section>
         )}
       </PageSection>
 
-      {pairs.length > 0 && (
-        <PageSection title="Traders making the same picks" description="Pairs of top traders whose recent buys overlap the most, on the exact side of the exact market. A shared pick can be a common read, or just two people active on the same busy slate.">
+      {holderPairs.length > 0 ? (
+        <PageSection title="Traders with the most bets in common" description={`Pairs of the ${field.toLocaleString("en-US")} tracked traders who hold the most of the same live bets right now: same market, same side. A shared bet can be a common read, or two people on the same busy slate.`}>
           <div className="grid gap-4 md:grid-cols-2">
-            {pairs.slice(0, 6).map((pr) => (
-              <div key={`${pr.a}-${pr.b}`} className="card-surface min-w-0 p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold">
-                    <span className="max-w-[12rem] truncate">{pr.a}</span>
-                    <ArrowLeftRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                    <span className="max-w-[12rem] truncate">{pr.b}</span>
+            {holderPairs.slice(0, 10).map((pr) => {
+              const a = byRank.get(pr.aRank);
+              const b = byRank.get(pr.bRank);
+              return (
+                <div key={`${pr.aRank}-${pr.bRank}`} className="card-surface min-w-0 p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold">
+                      {a ? (
+                        <Link href={walletHref(a.wallet)} className="max-w-[12rem] truncate hover:text-primary">
+                          {a.name}
+                        </Link>
+                      ) : (
+                        <span>#{pr.aRank}</span>
+                      )}
+                      <ArrowLeftRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      {b ? (
+                        <Link href={walletHref(b.wallet)} className="max-w-[12rem] truncate hover:text-primary">
+                          {b.name}
+                        </Link>
+                      ) : (
+                        <span>#{pr.bRank}</span>
+                      )}
+                    </div>
+                    <span className="tabular shrink-0 rounded-md bg-surface-3 px-2 py-0.5 text-[11px] font-medium text-foreground ring-1 ring-inset ring-border">{pr.shared} shared</span>
                   </div>
-                  <span className="tabular shrink-0 rounded-md bg-surface-3 px-2 py-0.5 text-[11px] font-medium text-foreground ring-1 ring-inset ring-border">{pr.shared} shared</span>
+                  <div className="tabular mt-1 text-[11px] text-muted-foreground">
+                    #{pr.aRank} and #{pr.bRank} all-time · both hold now
+                  </div>
+                  <ul className="mt-3 space-y-1.5 text-xs">
+                    {pr.markets.slice(0, 5).map((mk, j) => (
+                      <li key={j} className="flex min-w-0 items-baseline gap-2">
+                        <span className="max-w-[9rem] shrink-0 truncate font-semibold tracking-wide text-secondary-foreground uppercase">{mk.outcome}</span>
+                        <span className="min-w-0 truncate text-muted-foreground">{mk.title}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <div className="tabular mt-1 text-[11px] text-muted-foreground">
-                  #{pr.aRank} and #{pr.bRank} all-time · both recently bought
-                </div>
-                <ul className="mt-3 space-y-1.5 text-xs">
-                  {pr.markets.slice(0, 5).map((mk, j) => (
-                    <li key={j} className="flex min-w-0 items-baseline gap-2">
-                      <span className="max-w-[9rem] shrink-0 truncate font-semibold tracking-wide text-secondary-foreground uppercase">{mk.outcome}</span>
-                      <span className="min-w-0 truncate text-muted-foreground">{mk.title}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </PageSection>
+      ) : (
+        recentPairs.length > 0 && (
+          <PageSection title="Traders making the same picks" description="Pairs of top traders whose recent buys overlap the most, on the exact side of the exact market.">
+            <div className="grid gap-4 md:grid-cols-2">
+              {recentPairs.slice(0, 6).map((pr) => (
+                <div key={`${pr.a}-${pr.b}`} className="card-surface min-w-0 p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold">
+                      <span className="max-w-[12rem] truncate">{pr.a}</span>
+                      <ArrowLeftRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      <span className="max-w-[12rem] truncate">{pr.b}</span>
+                    </div>
+                    <span className="tabular shrink-0 rounded-md bg-surface-3 px-2 py-0.5 text-[11px] font-medium text-foreground ring-1 ring-inset ring-border">{pr.shared} shared</span>
+                  </div>
+                  <div className="tabular mt-1 text-[11px] text-muted-foreground">
+                    #{pr.aRank} and #{pr.bRank} all-time · both recently bought
+                  </div>
+                  <ul className="mt-3 space-y-1.5 text-xs">
+                    {pr.markets.slice(0, 5).map((mk, j) => (
+                      <li key={j} className="flex min-w-0 items-baseline gap-2">
+                        <span className="max-w-[9rem] shrink-0 truncate font-semibold tracking-wide text-secondary-foreground uppercase">{mk.outcome}</span>
+                        <span className="min-w-0 truncate text-muted-foreground">{mk.title}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </PageSection>
+        )
       )}
 
       <p className="text-xs leading-relaxed text-muted-foreground">
-        Source: Polymarket&apos;s public Data API (on-chain positions), read {utcStamp(p.generatedAt)}. The latest buys by these traders are on{" "}
+        Source: Polymarket&apos;s public Data API (on-chain positions), read {utcStamp(p.generatedAt)}. A trader counts on the side they lean (60%+ of their money in that market); evenly hedged traders are left out. The latest buys by these traders are on{" "}
         <Link href="/activity" className="text-foreground underline underline-offset-4 hover:text-primary">
           Live Trades
         </Link>

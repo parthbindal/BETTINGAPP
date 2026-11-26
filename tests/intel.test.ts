@@ -204,3 +204,25 @@ test("closedMarketCandidates asks Polymarket only about markets that could have 
   );
   assert.deepEqual(ids.sort(), ["game-last-night", "game-tomorrow", "stale-end-date"]);
 });
+
+test("holderPairsFrom counts live bets two traders share, biggest overlap first", async () => {
+  const { holderPairsFrom } = await import("../src/lib/intel");
+  const live = (title: string, ranks: number[]) => ({ title, outcome: "Yes", ranks, currentPrice: 0.5, category: "Politics", endDate: null });
+  const pairs = holderPairsFrom(
+    [
+      live("A", [1, 2, 3]),
+      live("B", [2, 1]),
+      live("C", [1, 2, 9]),
+      live("D", [3, 9]),
+      // Decided at 99c: two traders sitting on a near-certainty says nothing about shared judgement.
+      { title: "E", outcome: "No", ranks: [1, 2], currentPrice: 0.99, category: "Politics", endDate: null },
+      // Unknown rank (0) never pairs.
+      live("F", [0, 1]),
+    ],
+    { min: 2 },
+  );
+  // #1 and #2 share A, B and C (3). Every other pair shares one live bet, under min 2. E (99c) and F (rank 0) add nothing.
+  assert.deepEqual(pairs.map((p) => [p.aRank, p.bRank, p.shared]), [[1, 2, 3]]);
+  assert.deepEqual(pairs[0]!.markets.map((m) => m.title), ["A", "B", "C"]);
+  assert.equal(holderPairsFrom([live("A", [1, 2, 3])], { min: 1 }).length, 3, "three holders make three pairs");
+});

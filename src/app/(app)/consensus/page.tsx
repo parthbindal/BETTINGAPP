@@ -127,6 +127,8 @@ export default async function ConsensusPage({ searchParams }: { searchParams: Pr
     .filter((h) => !sp.kind || signalKind(h) === sp.kind)
     .sort((a, b) => b.totalValue - a.totalValue || b.holders - a.holders); // dollars at risk first: that is the product
   const settledCount = whale.payload.holdings.filter((h) => h.holders >= min && !isInPlay(h)).length;
+  // Every live bet 2+ tracked traders share (scans since 2026-11-25 store them all); linked from the count line below.
+  const sharedLive = (whale.payload.shared ?? []).filter(isInPlay).length;
 
   // A market with top traders on both sides renders once, as a split card, at its busiest side's place.
   const splits = splitSides(base, min);
@@ -288,6 +290,15 @@ export default async function ConsensusPage({ searchParams }: { searchParams: Pr
           {items.length} signal{items.length === 1 ? "" : "s"}, biggest money first
           {seen.size > 0 ? ` · ${seen.size} where top traders are split` : ""}
           {items.length > PAGE ? ` · showing the top ${PAGE}` : ""}
+          {/* Signals are the strong overlaps; every smaller one (2+ traders) is listed, with who holds it, on the Deep Dive. */}
+          {sharedLive > items.length && (
+            <>
+              {" · "}
+              <Link href="/whales?min=2&sort=holders" className="font-medium text-primary hover:underline">
+                See all {sharedLive.toLocaleString("en-US")} bets shared by 2+ top traders →
+              </Link>
+            </>
+          )}
         </p>
         {items.length ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
