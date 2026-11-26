@@ -107,12 +107,12 @@ test("alertCopy says who did what, at what price, and whether it joins a signal"
   assert.equal(alertCopy(view({ side: "SELL", rank: null, fills: 1, outcome: "" }), null).title, "Theo4 sold $48.2K of a side");
 });
 
-test("telegramHtml escapes market text and links to the signal, Polymarket US, and (delayed) the upgrade", () => {
+test("telegramHtml escapes market text and links to the signal and (delayed) the upgrade, never a guessed Polymarket link", () => {
   const html = telegramHtml(view({ title: "Will <b>A & B</b> win?" }), { appUrl: "https://edge.example/", signal: { holders: 26 }, reason: "follow", delayed: { sinceMs: 62 * 60_000 } });
   assert.ok(html.includes("Will &lt;b&gt;A &amp; B&lt;/b&gt; win?"), "market titles cannot inject markup");
   assert.ok(html.includes('href="https://edge.example/consensus/111"'));
-  // A Polymarket US search for the question (polymarket.com paths 404 there); the query is URL-encoded, then HTML-escaped.
-  assert.ok(html.includes('href="https://polymarket.us/search?q=Will%20%3Cb%3EA%20%26%20B%3C%2Fb%3E%20win%3F">Polymarket US</a>'));
+  // The EDGEWISE page says whether Polymarket US lists the game; the alert itself carries no Polymarket link to get wrong.
+  assert.ok(!html.includes("polymarket.us") && !html.includes("polymarket.com"));
   assert.ok(html.includes("you follow"));
   assert.ok(html.includes("Pro members got this 1 hour ago"));
   assert.ok(telegramHtml(view(), { appUrl: "https://edge.example", signal: null }).includes('href="https://edge.example/wallets/0xabc0000000000000000000000000000000000001"'), "no signal: link the trader");

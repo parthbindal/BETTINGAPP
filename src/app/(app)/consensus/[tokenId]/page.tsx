@@ -162,7 +162,7 @@ export default async function SignalPage({ params }: { params: Promise<{ tokenId
               <Fact label="Holding since" value={h.firstEntry ? dateShort(h.firstEntry) : "—"} sub={h.firstEntry ? `first buy, ${Math.round(ageMs(h.firstEntry) / DAY_MS)} days ago` : undefined} />
             </div>
             <PriceTrack entry={h.avgEntry} now={h.currentPrice} />
-            <OpenOnPolymarket title={h.title} outcome={h.outcome} eventSlug={h.slug} marketSlug={h.marketSlug} inPlay={live} />
+            <OpenOnPolymarket title={h.title} outcome={h.outcome} usEvent={h.usEvent} inPlay={live} />
           </div>
         </div>
       </section>

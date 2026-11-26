@@ -4,7 +4,7 @@ import { getFeaturedMarkets } from "@/lib/data/markets";
 import { getWhaleWatch, type ConsensusHolding } from "@/lib/whales";
 import { freePreviewTokens, isInPlay, splitSides } from "@/lib/intel";
 import { CHANNEL_DELAY_MS } from "@/lib/smart-alerts-core";
-import { fetchLeaderboard, type LeaderEntry, type LeaderboardPeriod } from "@/lib/data/providers/polymarket-whales";
+import { fetchLeaderboard, usListedEvents, type LeaderEntry, type LeaderboardPeriod } from "@/lib/data/providers/polymarket-whales";
 import { getLedger, getRecordByKind, getSignalRecord, type LedgerRow, type SignalRecord } from "@/lib/signals";
 
 /**
@@ -157,6 +157,8 @@ export interface PublicMove {
   lastTradeAt: string;
   eventSlug: string | null;
   marketSlug: string | null;
+  /** Set when Polymarket US lists this game (exact lookup, usListedEvents); only then is it linked. */
+  usEvent: string | null;
 }
 
 /** Public pages show big moves at least this big. */
@@ -179,12 +181,13 @@ export async function getPublicBigMovesCached(limit = 8): Promise<PublicMove[]> 
     select: { id: true, wallet: true, traderName: true, rank: true, side: true, outcome: true, title: true, usd: true, avgPrice: true, lastTradeAt: true, eventSlug: true, marketSlug: true },
   });
   const seen = new Set<string>();
-  const out: PublicMove[] = [];
+  const picked: typeof rows = [];
   for (const r of rows) {
-    if (out.length >= limit) break;
+    if (picked.length >= limit) break;
     if (seen.has(r.wallet) || r.avgPrice <= 0.03 || r.avgPrice >= 0.97) continue;
     seen.add(r.wallet);
-    out.push({ ...r, rank: r.rank ?? 0, lastTradeAt: r.lastTradeAt.toISOString() });
+    picked.push(r);
   }
-  return out;
+  const us = await usListedEvents(picked.map((r) => r.eventSlug)).catch(() => new Set<string>());
+  return picked.map((r) => ({ ...r, rank: r.rank ?? 0, lastTradeAt: r.lastTradeAt.toISOString(), usEvent: r.eventSlug && us.has(r.eventSlug) ? r.eventSlug : null }));
 }

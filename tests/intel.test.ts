@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { explainSplit, isInPlay, isOverdueGame, polymarketMarketUrl, polymarketRecordUrl, splitSides } from "../src/lib/intel";
+import { explainSplit, isInPlay, isOverdueGame, polymarketRecordUrl, polymarketUsUrl, splitSides } from "../src/lib/intel";
 
 test("explainSplit says when money agrees with the trader count", () => {
   assert.equal(
@@ -39,13 +39,13 @@ test("splitSides only returns markets with two qualifying sides, most traders fi
   );
 });
 
-test("polymarketMarketUrl sends members to a Polymarket US search for the market's own question", () => {
-  // polymarket.com /event/ paths 404 on polymarket.us; a search for the question finds the market there.
-  assert.equal(
-    polymarketMarketUrl("Will the Fed increase interest rates by 25 bps after the December 2026 meeting?"),
-    "https://polymarket.us/search?q=Will%20the%20Fed%20increase%20interest%20rates%20by%2025%20bps%20after%20the%20December%202026%20meeting%3F",
-  );
-  assert.equal(polymarketMarketUrl("  Packers   vs.\nRams "), "https://polymarket.us/search?q=Packers%20vs.%20Rams");
+test("polymarketUsUrl opens the exact Polymarket US game, and only when Polymarket US lists it", () => {
+  // polymarket.us/event/<international event slug> opens the game (verified 2026-11-26 on nfl-den-pit-2026-11-27).
+  assert.equal(polymarketUsUrl("nfl-den-pit-2026-11-27"), "https://polymarket.us/event/nfl-den-pit-2026-11-27");
+  // Not listed (no usEvent from the exact lookup): no link at all, never a guess.
+  assert.equal(polymarketUsUrl(null), null);
+  assert.equal(polymarketUsUrl(undefined), null);
+  assert.equal(polymarketUsUrl(""), null);
 });
 
 test("polymarketRecordUrl keeps the track record's evidence links on the exact polymarket.com market", () => {
@@ -58,11 +58,6 @@ test("polymarketRecordUrl keeps the track record's evidence links on the exact p
   assert.equal(polymarketRecordUrl(null, null), null);
 });
 
-test("polymarketMarketUrl returns null without a question", () => {
-  assert.equal(polymarketMarketUrl(""), null);
-  assert.equal(polymarketMarketUrl("   "), null);
-  assert.equal(polymarketMarketUrl(null), null);
-});
 
 test("isInPlay treats 3¢ and below or 97¢ and above as decided", () => {
   assert.equal(isInPlay({ currentPrice: 0.5 }), true);

@@ -9,7 +9,6 @@
  */
 import type { RawTrade } from "@/lib/data/providers/polymarket-whales";
 import { compact } from "@/lib/format";
-import { polymarketMarketUrl } from "@/lib/intel";
 
 /** Fills from one trader on one outcome and side within this window are one alert (big orders arrive as many fills). */
 export const BURST_WINDOW_SEC = 30 * 60;
@@ -196,9 +195,9 @@ export function telegramHtml(a: AlertView, opts: { appUrl: string; signal: Signa
     escapeHtml(a.title),
   ];
   if (opts.signal) lines.push(`👥 ${opts.signal.holders} top traders hold ${escapeHtml(sideLabel(a.outcome))}`);
+  // One link, to EDGEWISE: its page says whether Polymarket US lists this game and links there only if it does.
+  // A guessed Polymarket US link here sent members to the wrong market or a missing page about half the time.
   const links = [`<a href="${escapeHtml(`${app}${alertHref(a, opts.signal)}`)}">Open in EDGEWISE</a>`];
-  const pm = polymarketMarketUrl(a.title);
-  if (pm) links.push(`<a href="${escapeHtml(pm)}">Polymarket US</a>`);
   lines.push("", links.join(" · "));
   if (opts.delayed) lines.push(`⏱ Pro members got this ${ago(opts.delayed.sinceMs)} ago. <a href="${escapeHtml(`${app}/pricing`)}">Get these alerts first</a>`);
   return lines.join("\n");

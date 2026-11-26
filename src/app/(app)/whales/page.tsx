@@ -11,7 +11,7 @@ import { ScanFreshness } from "@/components/intel/scan-freshness";
 import { HoldersOf, PaidNow } from "@/components/intel/consensus-ledger";
 import { WhaleRefreshButton } from "@/components/whales/refresh-button";
 import { compact, dateShort, utcStamp } from "@/lib/format";
-import { isInPlay, POLYMARKET_US, polymarketMarketUrl, walletHref } from "@/lib/intel";
+import { isInPlay, polymarketUsUrl, walletHref } from "@/lib/intel";
 import { cn } from "@/lib/utils";
 import { trackUsage } from "@/lib/ops";
 
@@ -39,7 +39,7 @@ type SortKey = (typeof SORTS)[number]["key"];
 const MINS = [2, 3, 5, 10] as const;
 const PAGE_SIZE = 50;
 
-type Row = Pick<SharedPosition, "tokenId" | "title" | "outcome" | "category" | "holders" | "totalValue" | "avgEntry" | "currentPrice" | "unrealizedPnl" | "endDate" | "ranks">;
+type Row = Pick<SharedPosition, "tokenId" | "title" | "outcome" | "category" | "holders" | "totalValue" | "avgEntry" | "currentPrice" | "unrealizedPnl" | "endDate" | "ranks"> & { usEvent?: string | null };
 
 /** Signed and uncolored: unrealized profit is direction, not a result. Green and red are kept for settled calls. */
 const signedUsd = (n: number) => `${n >= 0 ? "+" : "−"}$${compact(Math.abs(n))}`;
@@ -89,9 +89,6 @@ function SharedLedger({ rows, field, byRank }: { rows: Row[]; field: number; byR
             <Td className="max-w-md">
               <div className="flex items-start gap-1.5">
                 <span className="line-clamp-2 text-[13px] leading-snug">{h.title}</span>
-                <a href={polymarketMarketUrl(h.title) ?? POLYMARKET_US} target="_blank" rel="noopener noreferrer" className="mt-0.5 shrink-0 text-muted-foreground transition-colors hover:text-primary" aria-label="Find on Polymarket US">
-                  <ArrowUpRight className="size-3.5" />
-                </a>
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
                 <span className="max-w-[14rem] truncate font-semibold tracking-wide text-secondary-foreground uppercase">{h.outcome}</span>
@@ -101,6 +98,14 @@ function SharedLedger({ rows, field, byRank }: { rows: Row[]; field: number; byR
                 <span className="sm:hidden">· {signedUsd(h.unrealizedPnl)} so far</span>
               </div>
               <Holders ranks={h.ranks} byRank={byRank} />
+              {/* A link only when Polymarket US lists this exact game (checked against its API each scan); otherwise say so. */}
+              {h.usEvent ? (
+                <a href={polymarketUsUrl(h.usEvent)!} target="_blank" rel="noopener noreferrer" className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline">
+                  Trade this game on Polymarket US <ArrowUpRight className="size-3" aria-hidden="true" />
+                </a>
+              ) : (
+                <div className="mt-1 text-[11px] text-muted-foreground/70">Not on Polymarket US</div>
+              )}
             </Td>
             <Td right>
               <HoldersOf n={h.holders} tracked={field} />
@@ -130,7 +135,7 @@ function Chip({ href, active, children }: { href: string; active: boolean; child
   );
 }
 
-export default async function WhalesPage({ searchParams }: { searchParams: Promise<{ cat?: string; sort?: string; min?: string; page?: string }> }) {
+export default async function WhalesPage({ searchParams }: { searchParams: Promise<{ cat?: string; sort?: string; min?: string; page?: string; us?: string }> }) {
   const sp = await searchParams;
   const session = await requireUser("/whales");
   const ent = await getEntitlements(session.user.id);
@@ -170,6 +175,8 @@ export default async function WhalesPage({ searchParams }: { searchParams: Promi
   const cat = CATS.includes(sp.cat ?? "") ? sp.cat! : "All";
   const sort: SortKey = SORTS.some((s) => s.key === sp.sort) ? (sp.sort as SortKey) : "holders";
   const min = MINS.find((m) => String(m) === sp.min) ?? 2;
+  // "Only what I can trade": shared bets Polymarket US lists (exact lookup each scan).
+  const usOnly = sp.us === "1";
   const byRank = new Map((p.wallets ?? []).map((w) => [w.rank, w]));
 
   // Every shared bet from scans since 2026-11-25; older snapshots only kept the 120 most-held, with their top holders.
@@ -185,11 +192,12 @@ export default async function WhalesPage({ searchParams }: { searchParams: Promi
   const openLoss = down.reduce((a, h) => a + h.unrealizedPnl, 0);
 
   const sortFn = (a: Row, b: Row) => (sort === "value" ? b.totalValue - a.totalValue : sort === "profit" ? b.unrealizedPnl - a.unrealizedPnl : b.holders - a.holders || b.totalValue - a.totalValue);
-  const filtered = book.filter((h) => h.holders >= min && (cat === "All" || h.category === cat)).sort(sortFn);
+  const filtered = book.filter((h) => h.holders >= min && (cat === "All" || h.category === cat) && (!usOnly || Boolean(h.usEvent))).sort(sortFn);
+  const onUs = book.filter((h) => h.holders >= min && Boolean(h.usEvent)).length;
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const page = Math.min(pages, Math.max(1, Number(sp.page) || 1));
   const rows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const link = (patch: Record<string, string>) => `/whales?${new URLSearchParams({ cat, sort, min: String(min), page: "1", ...patch }).toString()}`;
+  const link = (patch: Record<string, string>) => `/whales?${new URLSearchParams({ cat, sort, min: String(min), us: usOnly ? "1" : "", page: "1", ...patch }).toString()}`;
 
   const holderPairs = p.holderPairs ?? [];
   const recentPairs = p.similarPairs ?? [];
@@ -238,6 +246,15 @@ export default async function WhalesPage({ searchParams }: { searchParams: Promi
               {m}+ traders <span className="tabular text-muted-foreground">{bySize(m).toLocaleString("en-US")}</span>
             </Chip>
           ))}
+        </div>
+        <div className="mb-3 flex flex-wrap items-center gap-1.5" role="group" aria-label="Where you can trade">
+          <span className="mr-1 w-24 shrink-0 text-xs text-muted-foreground">Tradable</span>
+          <Chip href={link({ us: "" })} active={!usOnly}>
+            Everywhere
+          </Chip>
+          <Chip href={link({ us: "1" })} active={usOnly}>
+            On Polymarket US <span className="tabular text-muted-foreground">{onUs.toLocaleString("en-US")}</span>
+          </Chip>
         </div>
         <div className="mb-4 flex flex-wrap items-center gap-1.5" role="group" aria-label="Category">
           <span className="mr-1 w-24 shrink-0 text-xs text-muted-foreground">Topic</span>

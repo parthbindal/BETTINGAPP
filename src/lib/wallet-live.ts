@@ -1,11 +1,13 @@
 import { cacheLife } from "next/cache";
-import { closedMarketIds, fetchPositions, fetchRecentTrades, type RawPosition, type RawTrade } from "@/lib/data/providers/polymarket-whales";
+import { closedMarketIds, fetchPositions, fetchRecentTrades, usListedEvents, type RawPosition, type RawTrade } from "@/lib/data/providers/polymarket-whales";
 
 export const WALLET_TRADES_LIMIT = 100;
 
 export interface WalletLive {
   positions: RawPosition[];
   trades: RawTrade[];
+  /** Event slugs among these positions and trades that Polymarket US lists (exact lookup, see usListedEvents). */
+  usEvents: string[];
   fetchedAt: string;
 }
 
@@ -21,7 +23,9 @@ export async function getWalletLive(address: string): Promise<WalletLive> {
   // Settled bets are already gone (fetchPositions); this also removes bets in markets Polymarket has closed but not yet paid out.
   const closed = await closedMarketIds(read).catch(() => new Set<string>());
   const positions = closed.size ? read.filter((p) => !closed.has(p.conditionId)) : read;
-  return { positions, trades, fetchedAt: new Date().toISOString() };
+  // Only games Polymarket US actually lists get a link to it; everything else says it is not listed there.
+  const usEvents = [...(await usListedEvents([...positions.map((p) => p.eventSlug), ...trades.map((t) => t.eventSlug)]).catch(() => new Set<string>()))];
+  return { positions, trades, usEvents, fetchedAt: new Date().toISOString() };
 }
 
 /**

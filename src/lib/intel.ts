@@ -136,28 +136,18 @@ export function isOverdueGame(h: { category?: string; endDate?: string | null })
 export const POLYMARKET_US = "https://polymarket.us";
 
 /**
- * Link to a market, for members to trade it: a Polymarket US search for the
- * market's own question.
+ * The Polymarket US page for a market, or null when Polymarket US does not list
+ * it. `usEvent` is set only by an exact lookup against Polymarket US's own API
+ * (usListedEvents in providers/polymarket-whales), so every link this returns
+ * opens a real page on the right game.
  *
- * Not a direct page, on purpose. Polymarket US is a separate exchange that
- * lists its own markets at its own addresses: every polymarket.com
- * /event/... path tried on 2026-11-25 (five live signals: politics, sports,
- * economics, crypto, other) returned "This page doesn't exist" there. A search
- * for the full question landed on the same market when the US exchange lists
- * it (Fed December decision, Packers vs. Rams) and on the closest ones when it
- * does not (next Israeli PM, US-Iran).
- *
- * The data itself (traders, positions, prices) still comes from Polymarket's
- * international exchange, so prices on polymarket.us can differ a little; the
- * link copy says so.
- *
- * A search can also surface a DIFFERENT market first: for a game that has been
- * played, "Bucks vs. Raptors" showed "Nets vs. Bucks". So trading links say
- * "Find", never "Back", and ask the member to check the market and date.
+ * There is deliberately no fallback. A search link (tried first, 2026-11-25)
+ * landed on the right market for 3 of 8 live signals and on a different one,
+ * or nothing, for the rest; a member who cannot trade a market is better told
+ * so than sent somewhere that looks right and is not.
  */
-export function polymarketMarketUrl(question: string | null | undefined): string | null {
-  const q = question?.replace(/\s+/g, " ").trim();
-  return q ? `${POLYMARKET_US}/search?q=${encodeURIComponent(q.slice(0, 160))}` : null;
+export function polymarketUsUrl(usEvent: string | null | undefined): string | null {
+  return usEvent ? `${POLYMARKET_US}/event/${encodeURIComponent(usEvent)}` : null;
 }
 
 /**
