@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { explainSplit, isInPlay, isOverdueGame, polymarketRecordUrl, polymarketUsUrl, splitSides } from "../src/lib/intel";
+import { explainSplit, isInPlay, isOverdueGame, polymarketMarketUrl, splitSides } from "../src/lib/intel";
 
 test("explainSplit says when money agrees with the trader count", () => {
   assert.equal(
@@ -39,23 +39,14 @@ test("splitSides only returns markets with two qualifying sides, most traders fi
   );
 });
 
-test("polymarketUsUrl opens the exact Polymarket US game, and only when Polymarket US lists it", () => {
-  // polymarket.us/event/<international event slug> opens the game (verified 2026-11-26 on nfl-den-pit-2026-11-27).
-  assert.equal(polymarketUsUrl("nfl-den-pit-2026-11-27"), "https://polymarket.us/event/nfl-den-pit-2026-11-27");
-  // Not listed (no usEvent from the exact lookup): no link at all, never a guess.
-  assert.equal(polymarketUsUrl(null), null);
-  assert.equal(polymarketUsUrl(undefined), null);
-  assert.equal(polymarketUsUrl(""), null);
-});
-
-test("polymarketRecordUrl keeps the track record's evidence links on the exact polymarket.com market", () => {
+test("polymarketMarketUrl links the exact polymarket.com market, falling back to the event, then the market path", () => {
   assert.equal(
-    polymarketRecordUrl("democratic-presidential-nominee-2028", "will-jon-ossoff-win-the-2028-democratic-presidential-nomination-885"),
+    polymarketMarketUrl("democratic-presidential-nominee-2028", "will-jon-ossoff-win-the-2028-democratic-presidential-nomination-885"),
     "https://polymarket.com/event/democratic-presidential-nominee-2028/will-jon-ossoff-win-the-2028-democratic-presidential-nomination-885",
   );
-  assert.equal(polymarketRecordUrl("nba-mem-min-2026-11-21", null), "https://polymarket.com/event/nba-mem-min-2026-11-21");
-  assert.equal(polymarketRecordUrl(null, "some-market"), "https://polymarket.com/market/some-market");
-  assert.equal(polymarketRecordUrl(null, null), null);
+  assert.equal(polymarketMarketUrl("nba-mem-min-2026-11-21", null), "https://polymarket.com/event/nba-mem-min-2026-11-21");
+  assert.equal(polymarketMarketUrl(null, "some-market"), "https://polymarket.com/market/some-market");
+  assert.equal(polymarketMarketUrl(null, null), null);
 });
 
 

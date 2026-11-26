@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import type { RecentMove } from "@/lib/whales";
 import { compact, relative } from "@/lib/format";
-import { isInPlay, polygonTxUrl, polymarketUsUrl, walletHref } from "@/lib/intel";
+import { isInPlay, polygonTxUrl, polymarketMarketUrl, walletHref } from "@/lib/intel";
 import { OpenOnPolymarket } from "./open-on-polymarket";
 import { cn } from "@/lib/utils";
 import { TraderAvatar } from "./trader-identity";
@@ -13,7 +13,7 @@ export function TradeRow({ m, fresh = false, showTx = false, action = false, tie
   // Emphasis tracks dollars: $10K+ stands out, under $1K recedes.
   const tier = !tiered ? "mid" : m.usd >= 10_000 ? "big" : m.usd >= 1_000 ? "mid" : "small";
   const buy = m.side === "BUY";
-  const url = polymarketUsUrl(m.usEvent);
+  const url = polymarketMarketUrl(m.eventSlug, m.marketSlug);
   // A trade only records the price it happened at, not today's; a fill at 97¢+ or 3¢- is the best
   // available sign that the market has already been decided.
   const inPlay = isInPlay({ currentPrice: m.pricePct / 100 });

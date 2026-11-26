@@ -352,47 +352,6 @@ export async function closedMarketIds(positions: Array<Pick<RawPosition, "condit
   return closed;
 }
 
-/** Polymarket US's public market API (no key): https://docs.polymarket.us/api-reference/markets/get-markets */
-const US_GATEWAY = "https://gateway.polymarket.us/v1";
-
-/**
- * Which of these international event slugs Polymarket US lists as an open
- * market, checked exactly, never guessed from wording.
- *
- * Polymarket US is a separate exchange. Its game markets carry the
- * international event slug: the US moneyline for "nfl-den-pit-2026-11-27" is
- * "aec-nfl-den-pit-2026-11-27", and polymarket.us/event/nfl-den-pit-2026-11-27
- * opens that game (verified 2026-11-26). Everything else it lists under its own
- * names ("2028 US Presidential Election Winner" / "JD Vance"), and matching
- * those by wording sent people to the wrong market, so they count as not
- * listed. On 2026-11-26 only 2 of the 194 live markets the top traders held
- * were on Polymarket US.
- *
- * Asked 40 slugs per request, 4 requests at a time. A failed batch lists
- * nothing: a missing button beats a button to a page that does not exist.
- */
-export async function usListedEvents(eventSlugs: Array<string | null | undefined>): Promise<Set<string>> {
-  const unique = [...new Set(eventSlugs.filter((s): s is string => Boolean(s)))];
-  const batches: string[][] = [];
-  for (let i = 0; i < unique.length; i += 40) batches.push(unique.slice(i, i + 40));
-  const listed = new Set<string>();
-  let next = 0;
-  async function worker() {
-    for (let b = next++; b < batches.length; b = next++) {
-      const batch = batches[b]!;
-      const qs = batch.map((s) => `slug=${encodeURIComponent(`aec-${s}`)}`).join("&");
-      try {
-        const r = await getJson<{ markets?: Array<{ slug?: string; active?: boolean; closed?: boolean }> }>(`${US_GATEWAY}/markets?limit=${batch.length}&${qs}`, { timeoutMs: 10_000 });
-        for (const m of r.markets ?? []) if (m.slug?.startsWith("aec-") && m.active && !m.closed) listed.add(m.slug.slice(4));
-      } catch {
-        // Listed nothing for this batch; the next scan asks again.
-      }
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(4, batches.length) }, worker));
-  return listed;
-}
-
 export interface RawTrade {
   wallet: string;
   ts: number; // unix seconds

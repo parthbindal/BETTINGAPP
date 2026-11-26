@@ -52,8 +52,6 @@ export default async function WalletPage({ params }: { params: Promise<{ address
   const name = stat?.name ?? shortAddress(addr);
   const positions = [...(live?.positions ?? [])].sort((a, b) => b.currentValue - a.currentValue);
   const trades = live?.trades ?? [];
-  // Games Polymarket US lists (exact lookup); only these get a link to it. Older cached reads have no list: link nothing.
-  const usSet = new Set(live?.usEvents ?? []);
   const openValue = positions.reduce((s, p) => s + p.currentValue, 0);
   const openCost = positions.reduce((s, p) => s + p.totalCost, 0);
   const unrealized = positions.reduce((s, p) => s + p.unrealizedPnl, 0);
@@ -177,7 +175,7 @@ export default async function WalletPage({ params }: { params: Promise<{ address
                           <td className="px-1 py-2.5">
                             <span className="flex items-center gap-2">
                               <span className="rounded-md border border-border bg-surface-2 px-2 py-0.5 text-xs font-medium">{p.outcome || "?"}</span>
-                              <OpenOnPolymarket variant="ghost-icon" title={p.title} outcome={p.outcome} usEvent={usSet.has(p.eventSlug ?? "") ? p.eventSlug : null} inPlay={isInPlay(p)} />
+                              <OpenOnPolymarket variant="ghost-icon" title={p.title} outcome={p.outcome} eventSlug={p.eventSlug} marketSlug={p.marketSlug} inPlay={isInPlay(p)} />
                             </span>
                           </td>
                           <td className="tabular px-1 py-2.5 text-right">{Math.round(p.avgPrice * 100)}¢</td>
@@ -216,7 +214,7 @@ export default async function WalletPage({ params }: { params: Promise<{ address
                           {t.title}
                         </div>
                       </div>
-                      <OpenOnPolymarket variant="ghost-icon" className="order-last self-center" title={t.title} outcome={t.outcome} usEvent={usSet.has(t.eventSlug ?? "") ? t.eventSlug : null} inPlay={isInPlay({ currentPrice: t.price })} />
+                      <OpenOnPolymarket variant="ghost-icon" className="order-last self-center" title={t.title} outcome={t.outcome} eventSlug={t.eventSlug} marketSlug={t.marketSlug} inPlay={isInPlay({ currentPrice: t.price })} />
                       <div className="ml-auto shrink-0 text-right">
                         <div className="tabular text-sm font-medium">${compact(t.usd)}</div>
                         <div className="text-[11px] text-muted-foreground">

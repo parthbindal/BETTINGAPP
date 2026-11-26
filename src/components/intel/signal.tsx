@@ -205,7 +205,7 @@ export function SplitCard({ sides, rank, id, href, className }: { sides: Consens
       </ul>
       {/* One link to the market, never a button per side: the sentence above says which side leads. */}
       <div className="min-h-3 flex-1" aria-hidden="true" />
-      <OpenOnPolymarket className="relative z-10 mt-3 self-start" variant="ghost" market title={a.title} outcome={a.outcome} usEvent={a.usEvent} inPlay={isInPlay(a)} />
+      <OpenOnPolymarket className="relative z-10 mt-3 self-start" variant="ghost" market title={a.title} outcome={a.outcome} eventSlug={a.slug} marketSlug={a.marketSlug} inPlay={isInPlay(a)} />
     </div>
   );
 }
@@ -293,7 +293,7 @@ export function SignalCard({ h, rank, href, featured = false, tiered = false, pr
         </span>
         {href && <span className="text-muted-foreground">See details →</span>}
       </div>
-      <OpenOnPolymarket className={cn("relative z-10 mt-3", !(featured || primaryCta) && "self-start")} variant={featured || primaryCta ? "full" : "ghost"} title={h.title} outcome={h.outcome} usEvent={h.usEvent} inPlay={isInPlay(h)} />
+      <OpenOnPolymarket className={cn("relative z-10 mt-3", !(featured || primaryCta) && "self-start")} variant={featured || primaryCta ? "full" : "ghost"} title={h.title} outcome={h.outcome} eventSlug={h.slug} marketSlug={h.marketSlug} inPlay={isInPlay(h)} />
       {footer && <div className="relative z-10">{footer}</div>}
     </>
   );
@@ -365,7 +365,7 @@ export function HeroSignal({ h, href, action }: { h: ConsensusHolding; href: str
               ))}
             </ul>
           ) : null}
-          {action ?? <OpenOnPolymarket title={h.title} outcome={h.outcome} usEvent={h.usEvent} inPlay={isInPlay(h)} />}
+          {action ?? <OpenOnPolymarket title={h.title} outcome={h.outcome} eventSlug={h.slug} marketSlug={h.marketSlug} inPlay={isInPlay(h)} />}
         </div>
       </div>
     </article>

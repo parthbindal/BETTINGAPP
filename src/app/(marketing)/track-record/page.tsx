@@ -4,7 +4,7 @@ import { ArrowUpRight } from "lucide-react";
 import { CountUp } from "@/components/motion/count-up";
 import { LinkButton } from "@/components/ui/link-button";
 import { StatBand } from "@/components/shared/stat-band";
-import { polymarketRecordUrl, kindLabel } from "@/lib/intel";
+import { polymarketMarketUrl, kindLabel } from "@/lib/intel";
 // Absolute dates only, never "6 days ago": a ledger's timestamps are its
 // evidence, and relative time reads Date.now(), which blocks prerendering.
 import { cents, dateShort, pct, pts } from "@/lib/format";
@@ -51,8 +51,8 @@ function Outcome({ status }: { status: string }) {
 }
 
 function MarketCell({ r }: { r: LedgerRow }) {
-  // Evidence, not a trade: the exact market and its result, which only polymarket.com keeps (see polymarketRecordUrl).
-  const url = polymarketRecordUrl(r.eventSlug, r.marketSlug);
+  // Evidence, not a trade: the exact market and its result, which only polymarket.com keeps (see polymarketMarketUrl).
+  const url = polymarketMarketUrl(r.eventSlug, r.marketSlug);
   return (
     <div className="min-w-0">
       <div className="flex items-start gap-1.5">

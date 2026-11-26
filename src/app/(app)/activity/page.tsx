@@ -182,7 +182,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
                   </span>
                   <span className="text-[11px] text-muted-foreground">latest {relative(c.lastIso)}</span>
                 </div>
-                <OpenOnPolymarket className="mt-4 self-start" variant="ghost" title={c.title} outcome={c.outcome} usEvent={c.usEvent} />
+                <OpenOnPolymarket className="mt-4 self-start" variant="ghost" title={c.title} outcome={c.outcome} eventSlug={c.eventSlug} marketSlug={c.marketSlug} />
               </article>
             ))}
           </div>

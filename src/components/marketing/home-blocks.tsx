@@ -2,7 +2,7 @@ import { ArrowUpRight, ChevronDown } from "lucide-react";
 import type { PublicMove } from "@/lib/data/public-cache";
 import { TraderAvatar } from "@/components/intel/trader-identity";
 import { Ledger, LedgerBody, LedgerHead, ROW, Td, Th, rowIndex } from "@/components/shared/ledger";
-import { polymarketUsUrl } from "@/lib/intel";
+import { polymarketMarketUrl } from "@/lib/intel";
 import { cents, compact, utcStamp } from "@/lib/format";
 
 /**
@@ -27,14 +27,14 @@ export function MovesLedger({ moves }: { moves: PublicMove[] }) {
       </LedgerHead>
       <LedgerBody>
         {moves.map((m, i) => {
-          const url = polymarketUsUrl(m.usEvent);
+          const url = polymarketMarketUrl(m.eventSlug, m.marketSlug);
           return (
             <tr key={m.id} style={rowIndex(i)} className={ROW}>
               <Td className="max-w-md">
                 <div className="flex items-start gap-1.5">
                   <span className="line-clamp-2 text-[13px] leading-snug">{m.title}</span>
                   {url ? (
-                    <a href={url} target="_blank" rel="noopener noreferrer" className="mt-0.5 shrink-0 text-muted-foreground transition-colors hover:text-primary" aria-label="Trade this game on Polymarket US">
+                    <a href={url} target="_blank" rel="noopener noreferrer" className="mt-0.5 shrink-0 text-muted-foreground transition-colors hover:text-primary" aria-label="Open on Polymarket">
                       <ArrowUpRight className="size-3.5" />
                     </a>
                   ) : null}

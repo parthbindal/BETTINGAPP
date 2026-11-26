@@ -16,7 +16,7 @@
 import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import { after } from "next/server";
-import { closedMarketIds, fetchLeaderboard, fetchPositions, fetchRecentTrades, usListedEvents, type LeaderEntry, type RawPosition } from "@/lib/data/providers/polymarket-whales";
+import { closedMarketIds, fetchLeaderboard, fetchPositions, fetchRecentTrades, type LeaderEntry, type RawPosition } from "@/lib/data/providers/polymarket-whales";
 import { logError } from "@/lib/ops";
 import { getRun, isBuildPhase, runClaimed } from "@/lib/job-runs";
 // Safe despite signals.ts referencing ConsensusHolding: that direction is
@@ -108,8 +108,6 @@ export interface ConsensusHolding {
   recentEntrants?: number; // holders whose first entry was in the last 7 days
   topHolderShare?: number; // largest single holder's share of totalValue, 0..1
   topHolders?: ConsensusHolder[]; // by value, at most TOP_HOLDERS_KEPT
-  /** Set when Polymarket US lists this game, checked exactly (usListedEvents): its page is polymarket.us/event/<usEvent>. */
-  usEvent?: string | null;
 }
 
 export interface MarketNet {
@@ -137,8 +135,6 @@ export interface RecentMove {
   eventSlug: string | null;
   marketSlug?: string | null;
   txHash?: string | null;
-  /** Set when Polymarket US lists this game, checked exactly (usListedEvents): its page is polymarket.us/event/<usEvent>. */
-  usEvent?: string | null;
 }
 
 export interface SimilarPair {
@@ -169,8 +165,9 @@ export interface SharedPosition {
   endDate: string | null;
   /** All-time ranks of the traders holding this side, biggest position first. */
   ranks: number[];
-  /** Set when Polymarket US lists this game, checked exactly (usListedEvents): its page is polymarket.us/event/<usEvent>. */
-  usEvent?: string;
+  /** polymarket.com addresses (omitted when unknown), so every shared bet links to its exact market. */
+  slug?: string;
+  marketSlug?: string;
 }
 
 /** Two tracked traders and how many live open bets (same market, same side) they share, across all 1,000. */
@@ -210,8 +207,6 @@ export interface TradeCluster {
   eventSlug: string | null;
   marketSlug?: string | null;
   wallets: Array<{ trader: string; wallet: string; rank: number; usd: number; tsIso: string }>;
-  /** Set when Polymarket US lists this game, checked exactly (usListedEvents): its page is polymarket.us/event/<usEvent>. */
-  usEvent?: string | null;
   firstIso: string;
   lastIso: string;
   totalUsd: number;
@@ -409,11 +404,6 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
     }
   });
 
-  // Which held markets Polymarket US lists, by exact game code (usListedEvents), in one batch for every market.
-  // Only those get a "trade on Polymarket US" link; the rest say they are not listed there.
-  const usListed = await usListedEvents([...byToken.values()].map((a) => a.eventSlug)).catch(() => new Set<string>());
-  const usEventOf = (slug: string | null | undefined) => (slug && usListed.has(slug) ? slug : null);
-
   const holdings: ConsensusHolding[] = [...byToken.entries()]
     .filter(([, a]) => a.holders.size >= MIN_HOLDERS)
     .sort(([, a], [, b]) => b.holders.size - a.holders.size || b.totalValue - a.totalValue)
@@ -451,7 +441,6 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
           const l = leaderByWallet.get(h.wallet);
           return { wallet: h.wallet, name: l?.name ?? `${h.wallet.slice(0, 6)}…${h.wallet.slice(-4)}`, rank: l?.rank ?? 0, value: h.value, entryAt: iso(h.entryAt) };
         }),
-        usEvent: usEventOf(a.eventSlug),
       };
     });
 
@@ -474,7 +463,8 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
       unrealizedPnl: Math.round(a.unrealizedPnl),
       endDate: a.endDate,
       ranks: [...a.holders.entries()].sort((x, y) => y[1].value - x[1].value).map(([w]) => rankByWallet.get(w) ?? 0),
-      ...(usEventOf(a.eventSlug) ? { usEvent: a.eventSlug! } : {}),
+      ...(a.eventSlug ? { slug: a.eventSlug } : {}),
+      ...(a.marketSlug ? { marketSlug: a.marketSlug } : {}),
     }));
   const holderPairs = holderPairsFrom(shared);
 
@@ -627,10 +617,6 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
   }
   pairs.sort((x, y) => y.shared - x.shared);
 
-  // Recent trades and clusters can be on markets nobody still holds: ask Polymarket US about those too.
-  const moreUs = await usListedEvents([...recentMoves.slice(0, KEEP_MOVES), ...clusters.slice(0, 40)].map((m) => m.eventSlug).filter((s) => s && !usListed.has(s))).catch(() => new Set<string>());
-  const usEventFor = (slug: string | null | undefined) => (slug && (usListed.has(slug) || moreUs.has(slug)) ? slug : null);
-
   const payload: WhalePayload = {
     method: WHALE_METHOD,
     generatedAt: new Date(now).toISOString(),
@@ -641,13 +627,13 @@ async function runWhaleSync(opts: { topN?: number }): Promise<{ tradersScanned: 
     holdings,
     marketNet,
     categories,
-    recentMoves: recentMoves.slice(0, KEEP_MOVES).map((m) => ({ ...m, usEvent: usEventFor(m.eventSlug) })),
+    recentMoves: recentMoves.slice(0, KEEP_MOVES),
     recentWindowDays: RECENT_DAYS,
     recentTraders: bestTraders.length,
     dailyFlow: [...dailyFlow.entries()].map(([day, v]) => ({ day, ...v })),
     coverageFrom: new Date(cutoff * 1000).toISOString(),
     flowExcluded: capped.size,
-    clusters: clusters.slice(0, 40).map((c) => ({ ...c, usEvent: usEventFor(c.eventSlug) })),
+    clusters: clusters.slice(0, 40),
     similarPairs: pairs.slice(0, 12),
     shared,
     holderPairs,

@@ -17,7 +17,7 @@ import { compareEvent } from "@/lib/analytics/line-comparison";
 import type { EventComparison, SideComparison, VenueQuote, OppCategory } from "@/lib/data/cross-source";
 import { logError, withProvider } from "@/lib/ops";
 import { daysAgo } from "@/lib/time";
-import { polymarketRecordUrl } from "@/lib/intel";
+import { polymarketMarketUrl } from "@/lib/intel";
 
 const KALSHI_FRESH_MS = 10 * 60_000;
 
@@ -52,7 +52,7 @@ function polyQuote(p: PolyMarket, sideIndex: 0 | 1): VenueQuote {
     freshness: "live",
     fetchedAt: p.fetchedAt,
     // The exact international market these prices come from (polymarket.com/market/<slug> redirects to it).
-    href: polymarketRecordUrl(null, p.slug) ?? "https://polymarket.com",
+    href: polymarketMarketUrl(null, p.slug) ?? "https://polymarket.com",
   };
 }
 

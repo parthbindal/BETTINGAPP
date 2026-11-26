@@ -132,31 +132,19 @@ export function isOverdueGame(h: { category?: string; endDate?: string | null })
   return Number.isFinite(t) && t > Date.UTC(2000, 0, 1) && Date.now() > t + OVERDUE_GAME_MS;
 }
 
-/** Where members are sent to trade: Polymarket US, the exchange open to US users (polymarket.com is not). */
-export const POLYMARKET_US = "https://polymarket.us";
-
 /**
- * The Polymarket US page for a market, or null when Polymarket US does not list
- * it. `usEvent` is set only by an exact lookup against Polymarket US's own API
- * (usListedEvents in providers/polymarket-whales), so every link this returns
- * opens a real page on the right game.
+ * The exact market on polymarket.com, the exchange every figure in EDGEWISE
+ * comes from. Grouped events hold many markets, and only
+ * /event/<event>/<market> lands on the right question; /market/<slug>
+ * redirects there (verified 2026-11-26). Snapshots older than market slugs
+ * fall back to the event page.
  *
- * There is deliberately no fallback. A search link (tried first, 2026-11-25)
- * landed on the right market for 3 of 8 live signals and on a different one,
- * or nothing, for the rest; a member who cannot trade a market is better told
- * so than sent somewhere that looks right and is not.
+ * (Polymarket US was tried on 2026-11-25/26: it is a separate exchange that
+ * lists only some of these markets, under its own names, so links there were
+ * either a search that often landed on the wrong market or missing for most
+ * bets. polymarket.com has every market, at its exact address.)
  */
-export function polymarketUsUrl(usEvent: string | null | undefined): string | null {
-  return usEvent ? `${POLYMARKET_US}/event/${encodeURIComponent(usEvent)}` : null;
-}
-
-/**
- * The exact market page on polymarket.com, for EVIDENCE rather than trading:
- * the public track record links each call to the market it was made on, and
- * its result. Only polymarket.com has that page (and keeps it after the market
- * settles); a Polymarket US search cannot find a finished game.
- */
-export function polymarketRecordUrl(eventSlug: string | null | undefined, marketSlug?: string | null): string | null {
+export function polymarketMarketUrl(eventSlug: string | null | undefined, marketSlug?: string | null): string | null {
   if (eventSlug && marketSlug) return `https://polymarket.com/event/${eventSlug}/${marketSlug}`;
   if (eventSlug) return `https://polymarket.com/event/${eventSlug}`;
   if (marketSlug) return `https://polymarket.com/market/${marketSlug}`;
